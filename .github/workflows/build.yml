@@ -26,6 +26,12 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Download and Install FFmpeg Prefab AAR (Large Asset)
+      run: |
+        mkdir -p ~/.m2/repository
+        curl -LO https://github.com/leleliu008/ndk-pkg-prefab-aar-maven-repo/releases/download/2023.08.14.00.12/2023.08.14.00.12-com-fpliu-ndk-pkg-prefab-android-21-ffmpeg-6.0.tar.xz
+        tar vxf 2023.08.14.00.12-com-fpliu-ndk-pkg-prefab-android-21-ffmpeg-6.0.tar.xz --strip-components=1 -C ~/.m2/repository
+
     - name: Grant execute permission for gradlew
       run: chmod +x android-project/gradlew
 
