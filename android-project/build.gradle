@@ -18,6 +18,7 @@ allprojects {
         mavenCentral()
         mavenLocal()
         google()
+        maven { url "https://raw.githubusercontent.com/leleliu008/ndk-pkg-prefab-aar-maven-repo/master/repository" }
         //maven { url 'https://jitpack.io'}  // Añadir Jitpack
     }
 }
