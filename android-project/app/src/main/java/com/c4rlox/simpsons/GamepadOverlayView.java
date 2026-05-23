@@ -1,198 +1,248 @@
 package com.c4rlox.simpsons;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.graphics.Typeface;
 import android.view.MotionEvent;
 import android.view.View;
 
 /**
- * HUD de controle touch desenhado em Java que sobrepõe a SDLSurface.
- *
- * Desenha: D-Pad, botões A/B/X/Y, sticks analógicos, L1/R1, START/SELECT.
- * Encaminha toques para a SDLSurface → C++ TouchGui → InputManager.
+ * HUD de controle touch que sobrepoe a SDLSurface usando icones Xbox.
+ * Botoes usam bitmaps dos assets; sticks sao desenhados como circulos.
  */
 public class GamepadOverlayView extends View {
 
     // ── Cores tema Simpsons ───────────────────────────────────────────
-    private static final int SIMPSONS_YELLOW = Color.rgb(255, 234, 2);
-    private static final int SIMPSONS_BLUE   = Color.rgb(17, 31, 161);
-    private static final int WHITE           = Color.WHITE;
-    private static final int YELLOW_PRESSED  = Color.rgb(255, 255, 0);
+    private static final int STK_BASE_ALPHA = 120;
+    private static final int STK_KNOB_ALPHA = 140;
 
-    // ── Estado de toque ───────────────────────────────────────────────
-    private int mActivePointerId = -1;
-    private int mActiveButtonIdx = -1;
-    private int mActiveStickIdx  = -1;
-    private float mStickKnobX, mStickKnobY;
-
-    // ── View alvo para forwarding ─────────────────────────────────────
-    private View mTargetSurface;
-
-    // ── Dimensões da tela (px) ────────────────────────────────────────
-    private int mViewW, mViewH;
-
-    // ── Definição de botão ────────────────────────────────────────────
+    // ── Classes de dados ──────────────────────────────────────────────
     private static class Btn {
         final String label;
         final float nx, ny, nw, nh;
         final RectF rect = new RectF();
-        Btn(String l, float x, float y, float w, float h) {
-            label = l; nx = x; ny = y; nw = w; nh = h;
+        final int resId;
+
+        Btn(String label, float nx, float ny, float nw, float nh, int resId) {
+            this.label = label;
+            this.nx = nx; this.ny = ny; this.nw = nw; this.nh = nh;
+            this.resId = resId;
         }
     }
 
-    private static final Btn[] BTNS = {
-        new Btn("▲", 0.15f, 0.67f, 0.08f, 0.08f),   // 0 UP
-        new Btn("▼", 0.15f, 0.83f, 0.08f, 0.08f),   // 1 DOWN
-        new Btn("◀", 0.07f, 0.75f, 0.08f, 0.08f),   // 2 LEFT
-        new Btn("▶", 0.23f, 0.75f, 0.08f, 0.08f),   // 3 RIGHT
-        new Btn("A", 0.85f, 0.83f, 0.08f, 0.08f),   // 4 A
-        new Btn("B", 0.93f, 0.75f, 0.08f, 0.08f),   // 5 B
-        new Btn("X", 0.77f, 0.75f, 0.08f, 0.08f),   // 6 X
-        new Btn("Y", 0.85f, 0.67f, 0.08f, 0.08f),   // 7 Y
-        new Btn("START",  0.55f, 0.05f, 0.10f, 0.05f), // 8
-        new Btn("SELECT", 0.45f, 0.05f, 0.10f, 0.05f), // 9
-        new Btn("L1", 0.15f, 0.05f, 0.12f, 0.07f),     // 10
-        new Btn("R1", 0.85f, 0.05f, 0.12f, 0.07f),     // 11
-    };
-
-    // ── Definição de stick ────────────────────────────────────────────
     private static class Stk {
         final float ncx, ncy, nr;
         float cx, cy, r;
-        Stk(float x, float y, float rad) { ncx = x; ncy = y; nr = rad; }
+
+        Stk(float ncx, float ncy, float nr) {
+            this.ncx = ncx; this.ncy = ncy; this.nr = nr;
+        }
     }
 
+    // ── Definicões de botoes (coord normalizadas) ─────────────────────
+    // Os resIds serao preenchidos com placeholder 0 e substituidos
+    // no construtor via getResources().
+    private static final Btn[] BTNS = {
+        new Btn("UP",     0.15f, 0.67f, 0.08f, 0.08f, 0),  // 0
+        new Btn("DOWN",   0.15f, 0.83f, 0.08f, 0.08f, 0),  // 1
+        new Btn("LEFT",   0.07f, 0.75f, 0.08f, 0.08f, 0),  // 2
+        new Btn("RIGHT",  0.23f, 0.75f, 0.08f, 0.08f, 0),  // 3
+        new Btn("A",      0.85f, 0.83f, 0.08f, 0.08f, 0),  // 4
+        new Btn("B",      0.93f, 0.75f, 0.08f, 0.08f, 0),  // 5
+        new Btn("X",      0.77f, 0.75f, 0.08f, 0.08f, 0),  // 6
+        new Btn("Y",      0.85f, 0.67f, 0.08f, 0.08f, 0),  // 7
+        new Btn("START",  0.55f, 0.05f, 0.10f, 0.05f, 0),  // 8
+        new Btn("SELECT", 0.45f, 0.05f, 0.10f, 0.05f, 0),  // 9
+        new Btn("L1",     0.15f, 0.05f, 0.12f, 0.07f, 0),  // 10
+        new Btn("R1",     0.85f, 0.05f, 0.12f, 0.07f, 0),  // 11
+    };
+
+    // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS = {
         new Stk(0.15f, 0.52f, 0.10f),
         new Stk(0.85f, 0.52f, 0.10f),
     };
 
-    // ── Paints ────────────────────────────────────────────────────────
-    private Paint mPBtn, mPBtnPrs, mPBdr, mPStkBase, mPStkKnob, mPTxt, mPTxtShd;
-    private float mCRad; // corner radius
+    // ── Estado de toque ───────────────────────────────────────────────
+    private int mActivePointerId = -1;
+    private int mActiveButtonIdx = -1;
+    private int mActiveStickIdx = -1;
+    private float mStickKnobX, mStickKnobY;
 
-    // ── Construtores ──────────────────────────────────────────────────
-    public GamepadOverlayView(Context ctx) {
-        super(ctx);
-    }
+    // ── Bitmaps dos botoes ────────────────────────────────────────────
+    private Bitmap[] mBtnBmps;
 
+    // ── Paints para sticks ────────────────────────────────────────────
+    private Paint mPStkBase;
+    private Paint mPStkKnob;
+
+    // ── Target surface para forwarding de touch ───────────────────────
+    private final View mTargetSurface;
+
+    // ── Construtor ────────────────────────────────────────────────────
     public GamepadOverlayView(Context ctx, View target) {
         super(ctx);
         mTargetSurface = target;
+        mBtnBmps = new Bitmap[BTNS.length];
     }
 
-    public void setTargetSurface(View target) { mTargetSurface = target; }
-
-    // ── onSizeChanged ─────────────────────────────────────────────────
+    // ── onSizeChanged: calcula geometria e carrega bitmaps ────────────
     @Override
-    protected void onSizeChanged(int w, int h, int ow, int oh) {
-        super.onSizeChanged(w, h, ow, oh);
-        mViewW = w; mViewH = h;
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
 
+        if (w == 0 || h == 0) return;
+
+        // Calcula rects dos botoes
         for (Btn b : BTNS) {
             b.rect.set(b.nx * w, b.ny * h, (b.nx + b.nw) * w, (b.ny + b.nh) * h);
         }
+
+        // Calcula posicoes dos sticks
+        float minDim = Math.min(w, h);
         for (Stk s : STKS) {
             s.cx = s.ncx * w;
             s.cy = s.ncy * h;
-            s.r  = s.nr * Math.min(w, h);
+            s.r = s.nr * minDim;
         }
 
-        mCRad = 0.01f * Math.min(w, h);
-        float sw = Math.max(2f, w * 0.002f);
-        float ts = Math.max(10f, h * 0.025f);
+        // Inicializa knob do stick no centro do primeiro stick
+        if (STKS.length > 0) {
+            mStickKnobX = STKS[0].cx;
+            mStickKnobY = STKS[0].cy;
+        }
 
-        mPBtn = mkFill(SIMPSONS_YELLOW, 100);
-        mPBtnPrs = mkFill(YELLOW_PRESSED, 180);
-        mPBdr = mkStroke(SIMPSONS_BLUE, 160, sw);
-        mPStkBase = mkStroke(SIMPSONS_YELLOW, 40, sw * 1.5f);
-        mPStkKnob = mkFill(SIMPSONS_BLUE, 120);
-        mPTxt = mkText(WHITE, ts);
-        mPTxtShd = mkText(SIMPSONS_BLUE, ts);
+        // Paints dos sticks
+        mPStkBase = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPStkBase.setStyle(Paint.Style.STROKE);
+        mPStkBase.setStrokeWidth(3f);
+        mPStkBase.setColor(Color.argb(STK_BASE_ALPHA, 255, 255, 255));
+
+        mPStkKnob = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPStkKnob.setStyle(Paint.Style.FILL);
+        mPStkKnob.setColor(Color.argb(STK_KNOB_ALPHA, 255, 255, 255));
+
+        // Carrega e escala bitmaps
+        loadBitmaps();
     }
 
-    private static Paint mkFill(int c, int a) {
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setStyle(Paint.Style.FILL); p.setColor(c); p.setAlpha(a);
-        return p;
-    }
-    private static Paint mkStroke(int c, int a, float sw) {
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setStyle(Paint.Style.STROKE); p.setColor(c); p.setAlpha(a); p.setStrokeWidth(sw);
-        return p;
-    }
-    private static Paint mkText(int c, float sz) {
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setColor(c); p.setTextSize(sz); p.setTextAlign(Paint.Align.CENTER);
-        p.setTypeface(Typeface.DEFAULT_BOLD);
-        return p;
+    private void loadBitmaps() {
+        Resources res = getResources();
+        String pkg = getContext().getPackageName();
+
+        // Mapeamento: indice do botao -> nome do recurso drawable
+        String[] drawableNames = {
+            "dpad_up",            // 0: UP
+            "dpad_down",          // 1: DOWN
+            "dpad_left",          // 2: LEFT
+            "dpad_right",         // 3: RIGHT
+            "button_a",           // 4: A
+            "button_b",           // 5: B
+            "button_x",           // 6: X
+            "button_y",           // 7: Y
+            "button_start_menu",  // 8: START
+            "button_select_view", // 9: SELECT
+            "button_lb",          // 10: L1
+            "button_lb",          // 11: R1 (flipped in onDraw)
+        };
+
+        for (int i = 0; i < BTNS.length; i++) {
+            int resId = res.getIdentifier(drawableNames[i], "drawable", pkg);
+            if (resId == 0) continue;
+
+            Bitmap raw = BitmapFactory.decodeResource(res, resId);
+            if (raw == null) continue;
+
+            Btn b = BTNS[i];
+            int bw = Math.max(1, (int) b.rect.width());
+            int bh = Math.max(1, (int) b.rect.height());
+
+            if (i == 11) {
+                // R1: flip horizontal
+                Bitmap scaled = Bitmap.createScaledBitmap(raw, bw, bh, true);
+                Matrix matrix = new Matrix();
+                matrix.preScale(-1f, 1f);
+                mBtnBmps[i] = Bitmap.createBitmap(scaled, 0, 0, bw, bh, matrix, true);
+                if (scaled != raw) scaled.recycle();
+            } else {
+                mBtnBmps[i] = Bitmap.createScaledBitmap(raw, bw, bh, true);
+            }
+            if (mBtnBmps[i] != raw) raw.recycle();
+        }
     }
 
     // ── onDraw ────────────────────────────────────────────────────────
     @Override
-    protected void onDraw(Canvas c) {
-        super.onDraw(c);
-        if (mViewW == 0) return;
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
 
-        // Sticks
+        // Desenha sticks (circulos)
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
-            c.drawCircle(s.cx, s.cy, s.r, mPStkBase);
-            float kx = (i == mActiveStickIdx) ? mStickKnobX : s.cx;
-            float ky = (i == mActiveStickIdx) ? mStickKnobY : s.cy;
-            c.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
+            // Base do stick
+            canvas.drawCircle(s.cx, s.cy, s.r, mPStkBase);
+
+            // Knob — usa a posicao do stick ativo, ou centro como fallback
+            float kx, ky;
+            if (mActiveStickIdx == i) {
+                kx = mStickKnobX;
+                ky = mStickKnobY;
+            } else {
+                kx = s.cx;
+                ky = s.cy;
+            }
+            canvas.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
         }
 
-        // Botões
+        // Desenha botoes (bitmaps)
         for (int i = 0; i < BTNS.length; i++) {
-            Btn b = BTNS[i];
-            boolean prs = (i == mActiveButtonIdx);
-            c.drawRoundRect(b.rect, mCRad, mCRad, prs ? mPBtnPrs : mPBtn);
-            c.drawRoundRect(b.rect, mCRad, mCRad, mPBdr);
+            Bitmap bmp = mBtnBmps[i];
+            if (bmp == null) continue;
 
-            float tx = b.rect.centerX();
-            float ty = b.rect.centerY() - (mPTxt.descent() + mPTxt.ascent()) / 2;
-            float so = mViewW * 0.002f;
-            c.drawText(b.label, tx + so, ty + so, mPTxtShd);
-            c.drawText(b.label, tx, ty, mPTxt);
+            Btn b = BTNS[i];
+            int alpha = (mActiveButtonIdx == i) ? 160 : 255;
+
+            Paint p = new Paint(Paint.FILTER_BITMAP_FLAG);
+            p.setAlpha(alpha);
+
+            canvas.drawBitmap(bmp, b.rect.left, b.rect.top, p);
         }
     }
 
-    // ── onTouchEvent ──────────────────────────────────────────────────
+    // ── Touch event handling ──────────────────────────────────────────
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        final int act = ev.getActionMasked();
-        final int pi  = ev.getActionIndex();
-        final int pid = ev.getPointerId(pi);
-        final float ex = ev.getX(pi);
-        final float ey = ev.getY(pi);
+        final int action = ev.getActionMasked();
+        final int pid = ev.getPointerId(ev.getActionIndex());
+        final float x = ev.getX(ev.getActionIndex());
+        final float y = ev.getY(ev.getActionIndex());
 
-        switch (act) {
+        switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
-                handleDown(ex, ey, pid);
+                handleDown(x, y, pid);
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (mActivePointerId >= 0) {
-                    int idx = ev.findPointerIndex(mActivePointerId);
-                    if (idx >= 0) handleMove(ev.getX(idx), ev.getY(idx));
+                if (pid == mActivePointerId) {
+                    handleMove(x, y);
                 }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
-                if (pid == mActivePointerId) handleUp();
-                break;
             case MotionEvent.ACTION_CANCEL:
-                handleUp();
+                if (pid == mActivePointerId) {
+                    handleUp();
+                }
                 break;
         }
 
-        // Forward cópia para SDLSurface (C++ TouchGui)
+        // Forward para SDLSurface
         if (mTargetSurface != null) {
             MotionEvent copy = MotionEvent.obtain(ev);
             mTargetSurface.dispatchTouchEvent(copy);
@@ -203,13 +253,8 @@ public class GamepadOverlayView extends View {
         return true;
     }
 
-    // ── Lógica de toque ───────────────────────────────────────────────
-
     private void handleDown(float x, float y, int pid) {
-        // Botoes primeiro — alvos menores e precisos.
-        // Sticks sao zonas amplas; se verificados primeiro,
-        // engolem os botoes (D-Pad e A/B/X/Y estao dentro
-        // da area dos sticks).
+        // Botoes primeiro (mais precisos)
         for (int i = 0; i < BTNS.length; i++) {
             if (BTNS[i].rect.contains(x, y)) {
                 mActiveButtonIdx = i;
@@ -238,26 +283,33 @@ public class GamepadOverlayView extends View {
         } else if (mActiveButtonIdx >= 0) {
             if (!BTNS[mActiveButtonIdx].rect.contains(x, y)) {
                 mActiveButtonIdx = -1;
+                mActivePointerId = -1;
             }
         }
     }
 
     private void handleUp() {
         mActiveButtonIdx = -1;
-        mActiveStickIdx  = -1;
+        mActiveStickIdx = -1;
         mActivePointerId = -1;
+        // Reseta knob para o centro do stick 0
+        if (STKS.length > 0) {
+            mStickKnobX = STKS[0].cx;
+            mStickKnobY = STKS[0].cy;
+        }
     }
 
-    private void clampKnob(int si, float x, float y) {
-        Stk s = STKS[si];
-        float dx = x - s.cx, dy = y - s.cy;
-        float d = (float) Math.sqrt(dx * dx + dy * dy);
-        if (d > s.r && d > 0) {
-            mStickKnobX = s.cx + (dx / d) * s.r;
-            mStickKnobY = s.cy + (dy / d) * s.r;
-        } else {
-            mStickKnobX = x;
-            mStickKnobY = y;
+    private void clampKnob(int stickIdx, float x, float y) {
+        Stk s = STKS[stickIdx];
+        float dx = x - s.cx;
+        float dy = y - s.cy;
+        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+        if (dist > s.r) {
+            float scale = s.r / dist;
+            dx *= scale;
+            dy *= scale;
         }
+        mStickKnobX = s.cx + dx;
+        mStickKnobY = s.cy + dy;
     }
 }
