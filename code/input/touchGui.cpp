@@ -53,15 +53,16 @@ void TouchGui::Init() {
     mButtons[BTN_DPAD_LEFT] = {dpadX - dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF"};
     mButtons[BTN_DPAD_RIGHT] = {dpadX + dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadRight, false, -1, "RT"};
 
-    // Right side: Face buttons
+    // Right side: Face buttons (Diamond pattern)
     float faceX = 0.85f;
     float faceY = 0.75f;
-    float faceSize = 0.08f;
+    float faceSize = 0.07f;
+    float dist = 0.10f;
 
-    mButtons[BTN_A] = {faceX, faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A"};
-    mButtons[BTN_B] = {faceX + faceSize, faceY, faceSize, faceSize, InputManager::B, false, -1, "B"};
-    mButtons[BTN_X] = {faceX - faceSize, faceY, faceSize, faceSize, InputManager::Square, false, -1, "X"};
-    mButtons[BTN_Y] = {faceX, faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
+    mButtons[BTN_A] = {faceX, faceY + dist, faceSize, faceSize, InputManager::A, false, -1, "A"};
+    mButtons[BTN_B] = {faceX + dist, faceY, faceSize, faceSize, InputManager::B, false, -1, "B"};
+    mButtons[BTN_X] = {faceX - dist, faceY, faceSize, faceSize, InputManager::Square, false, -1, "X"};
+    mButtons[BTN_Y] = {faceX, faceY - dist, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
 
     // Center/Top: Start, Select
     mButtons[BTN_START] = {0.55f, 0.05f, 0.10f, 0.05f, InputManager::Start, false, -1, "START"};
@@ -225,43 +226,53 @@ void TouchGui::Render() {
     pddi->SetZWrite(false);
     pddi->SetZCompare(PDDI_COMPARE_ALWAYS);
 
+    // Simpsons Colors
+    pddiColour simpsonYellow = pddiColour(255, 217, 15);
+    pddiColour simpsonBlue = pddiColour(31, 74, 184);
+
     // Draw Joysticks
-    pddiColour stickCol = pddiColour(255, 234, 2, 40); // Simpsons Yellow transparent
-    pddiColour knobCol = pddiColour(17, 31, 161, 120); // Simpsons Blue
+    pddiColour stickBaseCol = simpsonYellow;
+    stickBaseCol.SetAlpha(60);
+    pddiColour stickKnobCol = simpsonBlue;
+    stickKnobCol.SetAlpha(150);
 
-    // Left Stick Base
-    DrawRect(mLeftStick.centerX * mScreenWidth - 60, mLeftStick.centerY * mScreenHeight - 60, 120, 120, stickCol);
-    // Left Stick Knob
-    DrawRect((mLeftStick.centerX + mLeftStick.currX * 0.08f) * mScreenWidth - 30,
-             (mLeftStick.centerY + mLeftStick.currY * 0.08f) * mScreenHeight - 30, 60, 60, knobCol);
+    // Left Stick
+    DrawDonut(mLeftStick.centerX * mScreenWidth, mLeftStick.centerY * mScreenHeight, 100, 80, stickBaseCol);
+    DrawCircle((mLeftStick.centerX + mLeftStick.currX * 0.08f) * mScreenWidth,
+               (mLeftStick.centerY + mLeftStick.currY * 0.08f) * mScreenHeight, 40, stickKnobCol);
 
-    // Right Stick Base
-    DrawRect(mRightStick.centerX * mScreenWidth - 60, mRightStick.centerY * mScreenHeight - 60, 120, 120, stickCol);
-    // Right Stick Knob
-    DrawRect((mRightStick.centerX + mRightStick.currX * 0.08f) * mScreenWidth - 30,
-             (mRightStick.centerY + mRightStick.currY * 0.08f) * mScreenHeight - 30, 60, 60, knobCol);
+    // Right Stick
+    DrawDonut(mRightStick.centerX * mScreenWidth, mRightStick.centerY * mScreenHeight, 100, 80, stickBaseCol);
+    DrawCircle((mRightStick.centerX + mRightStick.currX * 0.08f) * mScreenWidth,
+               (mRightStick.centerY + mRightStick.currY * 0.08f) * mScreenHeight, 40, stickKnobCol);
 
     // Draw Buttons
     for (int i = 0; i < NUM_BUTTONS; ++i) {
-        // Simpsons Yellow: 255, 234, 2
-        pddiColour col = mButtons[i].pressed ? pddiColour(255, 255, 0, 180) : pddiColour(255, 234, 2, 100);
-        pddiColour borderCol = pddiColour(17, 31, 161, 160); // Simpsons Blue
+        pddiColour col = simpsonYellow;
+        col.SetAlpha(mButtons[i].pressed ? 200 : 120);
+
+        pddiColour borderCol = simpsonBlue;
+        borderCol.SetAlpha(180);
 
         float x = mButtons[i].x * mScreenWidth;
         float y = mButtons[i].y * mScreenHeight;
-        float w = mButtons[i].w * mScreenWidth;
-        float h = mButtons[i].h * mScreenHeight;
+        float radius = (mButtons[i].w * mScreenWidth + mButtons[i].h * mScreenHeight) / 4.0f;
 
-        // Draw Border (Simpsons Blue)
-        DrawRect(x - w/2 - 3, y - h/2 - 3, w + 6, h + 6, borderCol);
-        // Draw Main Rect (Simpsons Yellow)
-        DrawRect(x - w/2, y - h/2, w, h, col);
+        if (i == BTN_START || i == BTN_SELECT || i == BTN_L1 || i == BTN_R1) {
+            // Use rounded rect style for these
+            float w = mButtons[i].w * mScreenWidth;
+            float h = mButtons[i].h * mScreenHeight;
+            DrawRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, borderCol);
+            DrawRect(x - w/2, y - h/2, w, h, col);
+        } else {
+            // Use circle style for face buttons and dpad
+            DrawCircle(x, y, radius + 3, borderCol);
+            DrawCircle(x, y, radius, col);
+        }
 
         // Draw Label with shadow
-        // Note: pddiRenderContext::DrawString is sometimes available in some PDDI versions/ports.
-        // If it causes compilation errors, we would need to use tFont or Scrooby.
         pddi->DrawString(mButtons[i].label, (int)(x - 9), (int)(y - 9), pddiColour(255, 255, 255));
-        pddi->DrawString(mButtons[i].label, (int)(x - 10), (int)(y - 10), pddiColour(17, 31, 161));
+        pddi->DrawString(mButtons[i].label, (int)(x - 10), (int)(y - 10), simpsonBlue);
     }
 
     pddi->PopState(PDDI_STATE_ALL);
@@ -283,6 +294,58 @@ void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour) {
     stream->Coord(x + w, y + h, 0.0f);
     stream->Colour(colour);
     stream->Coord(x, y + h, 0.0f);
+
+    p3d::pddi->EndPrims(stream);
+}
+
+void TouchGui::DrawCircle(float x, float y, float radius, pddiColour colour) {
+    const int segments = 16;
+    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, segments * 3);
+
+    for (int i = 0; i < segments; ++i) {
+        float theta1 = (2.0f * 3.1415926f * (float)i) / (float)segments;
+        float theta2 = (2.0f * 3.1415926f * (float)(i + 1)) / (float)segments;
+
+        stream->Colour(colour);
+        stream->Coord(x, y, 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + radius * cosf(theta1), y + radius * sinf(theta1), 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + radius * cosf(theta2), y + radius * sinf(theta2), 0.0f);
+    }
+
+    p3d::pddi->EndPrims(stream);
+}
+
+void TouchGui::DrawDonut(float x, float y, float outerRadius, float innerRadius, pddiColour colour) {
+    const int segments = 16;
+    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, segments * 6);
+
+    for (int i = 0; i < segments; ++i) {
+        float theta1 = (2.0f * 3.1415926f * (float)i) / (float)segments;
+        float theta2 = (2.0f * 3.1415926f * (float)(i + 1)) / (float)segments;
+
+        float c1 = cosf(theta1);
+        float s1 = sinf(theta1);
+        float c2 = cosf(theta2);
+        float s2 = sinf(theta2);
+
+        // First triangle
+        stream->Colour(colour);
+        stream->Coord(x + innerRadius * c1, y + innerRadius * s1, 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + outerRadius * c1, y + outerRadius * s1, 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + outerRadius * c2, y + outerRadius * s2, 0.0f);
+
+        // Second triangle
+        stream->Colour(colour);
+        stream->Coord(x + innerRadius * c1, y + innerRadius * s1, 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + outerRadius * c2, y + outerRadius * s2, 0.0f);
+        stream->Colour(colour);
+        stream->Coord(x + innerRadius * c2, y + innerRadius * s2, 0.0f);
+    }
 
     p3d::pddi->EndPrims(stream);
 }
