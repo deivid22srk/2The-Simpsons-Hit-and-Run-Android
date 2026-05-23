@@ -224,6 +224,7 @@ void TouchGui::Render() {
     pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
     pddi->SetZWrite(false);
     pddi->SetZCompare(PDDI_COMPARE_ALWAYS);
+    pddi->SetScissor(NULL);  // Disable scissor test in case Scrooby UI set a clipping rect
 
     // Draw Joysticks
     pddiColour stickCol = pddiColour(255, 234, 2, 40); // Simpsons Yellow transparent
@@ -269,6 +270,9 @@ void TouchGui::Render() {
 
 void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour) {
     pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, 6);
+    // Re-apply device projection: BeginPrims activates defaultShader via SetMaterial(),
+    // which does not inherit the projection matrix from SetupHardwareProjection.
+    p3d::pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
 
     stream->Colour(colour);
     stream->Coord(x, y, 0.0f);
