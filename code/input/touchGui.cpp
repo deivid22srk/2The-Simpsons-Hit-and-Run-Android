@@ -214,6 +214,9 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
 void TouchGui::Update(unsigned int elapsedTime) {}
 
 void TouchGui::Render() {
+#ifdef RAD_ANDROID
+    return; // HUD rendered by Java overlay (GamepadOverlayView)
+#endif
     if (!mVisible) return;
 
     pddiRenderContext* pddi = p3d::pddi;
