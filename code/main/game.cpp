@@ -52,6 +52,9 @@
 #include <render/RenderFlow/renderflow.h>
 #include <sound/soundmanager.h>
 #include <input/inputmanager.h>
+#ifdef RAD_ANDROID
+#include <input/touchGui.h>
+#endif
 
 //******************************************************************************
 //
@@ -392,6 +395,11 @@ void Game::Initialize()
 
     CGuiScreenMissionLoad::InitializePermanentVariables();
 
+#ifdef RAD_ANDROID
+    TouchGui::CreateInstance();
+    TouchGui::GetInstance()->Init();
+#endif
+
 #ifdef RAD_E3
     rReleasePrintf( "\n----------=[  SIMPSONS HIT & RUN - E3 BUILD  ]=----------\n\n" );
 #endif
@@ -415,6 +423,10 @@ void Game::Initialize()
 //==============================================================================
 void Game::Terminate() 
 {
+#ifdef RAD_ANDROID
+    TouchGui::DestroyInstance();
+#endif
+
     rAssert( mpGameFlow != NULL );
     rAssert( mpRenderFlow != NULL );
     rAssert( mpTimerList != NULL );
@@ -506,6 +518,10 @@ void Game::Run()
         SDL_Event msg;
         while( SDL_PollEvent( &msg ) )
         {
+#ifdef RAD_ANDROID
+            TouchGui::GetInstance()->HandleTouchEvent(&msg);
+#endif
+
 #if SDL_MAJOR_VERSION < 3
             if( msg.type == SDL_QUIT )
 #else

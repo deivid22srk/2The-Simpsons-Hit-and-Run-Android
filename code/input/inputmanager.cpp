@@ -27,6 +27,9 @@
 #else
 #include <input/usercontroller.h>
 #endif
+#ifdef RAD_ANDROID
+#include <input/touchGui.h>
+#endif
 #include <input/button.h>
 
 #include <main/game.h>
@@ -151,6 +154,28 @@ MEMTRACK_POP_GROUP("InputManager");
 
 void InputManager::Update( unsigned int timeinms )
 {
+#ifdef RAD_ANDROID
+    // Check if there are any physical controllers detected by the SDL system
+    bool physicalGamepadConnected = false;
+    if (mxIControllerSystem2 != NULL) {
+        physicalGamepadConnected = (mxIControllerSystem2->GetNumberOfControllers() > 0);
+    }
+
+    if (TouchGui::GetInstance()) {
+        bool showTouch = !physicalGamepadConnected;
+        TouchGui::GetInstance()->SetVisible(showTouch);
+
+        // If we're using touch controls, ensure the first controller is marked as connected
+        // so its Update() method will process and dispatch our injected inputs.
+        if (showTouch && !mControllerArray[0].IsConnected()) {
+            mControllerArray[0].NotifyConnect();
+            // We should also make sure it has some default mappings if it wasn't initialized.
+            // On Android, the UserController mappings are usually set up in Initialize().
+            // Since we're injecting into mButtonArray directly, we rely on existing mappings.
+        }
+    }
+#endif
+
     // update the button timestamp (so we can tell when buttons were pressed)
     Button::Tick(timeinms);
 
