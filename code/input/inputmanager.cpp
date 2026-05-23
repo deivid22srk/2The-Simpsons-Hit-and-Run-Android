@@ -155,23 +155,17 @@ MEMTRACK_POP_GROUP("InputManager");
 void InputManager::Update( unsigned int timeinms )
 {
 #ifdef RAD_ANDROID
-    // Check if there are any physical controllers detected by the SDL system
-    bool physicalGamepadConnected = false;
-    if (mxIControllerSystem2 != NULL) {
-        physicalGamepadConnected = (mxIControllerSystem2->GetNumberOfControllers() > 0);
-    }
-
+    // Always show touch controls on Android. SDL may misidentify built-in
+    // sensors (accelerometer, gyroscope, etc.) as gamepads via
+    // SDL_NumJoysticks(), which would incorrectly hide the HUD.
     if (TouchGui::GetInstance()) {
-        bool showTouch = !physicalGamepadConnected;
+        bool showTouch = true;
         TouchGui::GetInstance()->SetVisible(showTouch);
 
-        // If we're using touch controls, ensure the first controller is marked as connected
+        // If we are using touch controls, ensure the first controller is marked as connected
         // so its Update() method will process and dispatch our injected inputs.
         if (showTouch && !mControllerArray[0].IsConnected()) {
             mControllerArray[0].NotifyConnect();
-            // We should also make sure it has some default mappings if it wasn't initialized.
-            // On Android, the UserController mappings are usually set up in Initialize().
-            // Since we're injecting into mButtonArray directly, we rely on existing mappings.
         }
     }
 #endif
