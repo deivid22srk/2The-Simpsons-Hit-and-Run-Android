@@ -1,0 +1,54 @@
+name: 2Build APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Download and Install FFmpeg Prefab AAR (Large Asset)
+      run: |
+        mkdir -p ~/.m2/repository
+        curl -LO https://github.com/leleliu008/ndk-pkg-prefab-aar-maven-repo/releases/download/2023.08.14.00.12/2023.08.14.00.12-com-fpliu-ndk-pkg-prefab-android-21-ffmpeg-6.0.tar.xz
+        tar vxf 2023.08.14.00.12-com-fpliu-ndk-pkg-prefab-android-21-ffmpeg-6.0.tar.xz --strip-components=1 -C ~/.m2/repository
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x android-project/gradlew
+
+    - name: Build PAL Release APK
+      run: cd android-project && ./gradlew assemblePalRelease
+
+    - name: Build NTSC Release APK
+      run: cd android-project && ./gradlew assembleNtscRelease
+
+    - name: Upload PAL APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: SimpsonHitAndRun-PAL
+        path: android-project/app/build/outputs/apk/pal/release/*.apk
+
+    - name: Upload NTSC APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: SimpsonHitAndRun-NTSC
+        path: android-project/app/build/outputs/apk/ntsc/release/*.apk
