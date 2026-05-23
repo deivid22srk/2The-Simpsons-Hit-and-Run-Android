@@ -68,8 +68,8 @@ void TouchGui::Init() {
     mButtons[BTN_SELECT] = {0.45f, 0.05f, 0.10f, 0.05f, InputManager::Select, false, -1, "SELECT"};
 
     // Shoulder buttons
-    mButtons[BTN_L1] = {0.15f, 0.05f, 0.12f, 0.07f, InputManager::L1, false, -1, "L1"};
-    mButtons[BTN_R1] = {0.85f, 0.05f, 0.12f, 0.07f, InputManager::R1, false, -1, "R1"};
+    mButtons[BTN_L1] = {0.15f, 0.05f, 0.12f, 0.07f, InputManager::AnalogL1, false, -1, "L1"};
+    mButtons[BTN_R1] = {0.85f, 0.05f, 0.12f, 0.07f, InputManager::AnalogR1, false, -1, "R1"};
 
     // Joysticks
     mLeftStick.centerX = 0.15f;
@@ -217,8 +217,8 @@ void TouchGui::Render() {
     if (!mVisible) return;
 
     pddiRenderContext* pddi = p3d::pddi;
-    mScreenWidth = (float)pddi->GetDisplayInfo().xRes;
-    mScreenHeight = (float)pddi->GetDisplayInfo().yRes;
+    mScreenWidth = (float)p3d::display->GetWidth();
+    mScreenHeight = (float)p3d::display->GetHeight();
 
     pddi->PushState(PDDI_STATE_ALL);
     pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
