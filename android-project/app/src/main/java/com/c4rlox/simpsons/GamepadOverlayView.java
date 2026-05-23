@@ -68,8 +68,8 @@ public class GamepadOverlayView extends View {
     }
 
     private static final Stk[] STKS = {
-        new Stk(0.15f, 0.75f, 0.15f),
-        new Stk(0.85f, 0.75f, 0.15f),
+        new Stk(0.15f, 0.52f, 0.10f),
+        new Stk(0.85f, 0.52f, 0.10f),
     };
 
     // ── Paints ────────────────────────────────────────────────────────

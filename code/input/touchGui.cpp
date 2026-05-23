@@ -73,8 +73,8 @@ void TouchGui::Init() {
 
     // Joysticks
     mLeftStick.centerX = 0.15f;
-    mLeftStick.centerY = 0.75f;
-    mLeftStick.radius = 0.15f;
+    mLeftStick.centerY = 0.52f;
+    mLeftStick.radius = 0.10f;
     mLeftStick.currX = 0.0f;
     mLeftStick.currY = 0.0f;
     mLeftStick.axisX = InputManager::LeftStickX;
@@ -83,8 +83,8 @@ void TouchGui::Init() {
     mLeftStick.active = false;
 
     mRightStick.centerX = 0.85f;
-    mRightStick.centerY = 0.75f;
-    mRightStick.radius = 0.15f;
+    mRightStick.centerY = 0.52f;
+    mRightStick.radius = 0.10f;
     mRightStick.currX = 0.0f;
     mRightStick.currY = 0.0f;
     mRightStick.axisX = InputManager::RightStickX;

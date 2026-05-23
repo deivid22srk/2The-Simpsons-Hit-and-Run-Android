@@ -27,7 +27,7 @@
 #include <p3d/loadmanager.hpp>
 #include <p3d/utility.hpp>
 
-#ifdef RAD_WIN32
+#if defined(RAD_WIN32) || defined(RAD_ANDROID)
 #include <SDL.h>  // for SDL_PollEvent...
 #endif
 
@@ -512,9 +512,9 @@ void Game::Run()
         time = newTime;
 
         //
-        // Service the windows message loop.
+        // Service the SDL message loop.
         //
-#ifdef RAD_WIN32
+#if defined(RAD_WIN32) || defined(RAD_ANDROID)
         SDL_Event msg;
         while( SDL_PollEvent( &msg ) )
         {
@@ -546,7 +546,7 @@ void Game::Run()
                 }               
             }
         }
-#endif // RAD_WIN32
+#endif // RAD_WIN32 || RAD_ANDROID
 
         //
         // Service the GameFlow and RenderFlow.
