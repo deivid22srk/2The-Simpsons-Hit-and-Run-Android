@@ -12,6 +12,7 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.libsdl.app.R;
 import org.libsdl.app.SDLActivity;
 
 /**
