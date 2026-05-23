@@ -22,7 +22,7 @@ public class SimpsonsActivity extends SDLActivity {
         super.onCreate(savedInstanceState);
 
         // O overlay desenha o gamepad virtual e encaminha toques ao jogo
-        mOverlay = new GamepadOverlayView(this, mSurface);
+        mOverlay = new GamepadOverlayView(this);
 
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT,

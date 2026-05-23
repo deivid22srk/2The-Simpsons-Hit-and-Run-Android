@@ -12,6 +12,8 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.libsdl.app.SDLActivity;
+
 /**
  * HUD de controle touch que sobrepoe a SDLSurface usando icones Xbox.
  * Botoes usam bitmaps dos assets; sticks sao desenhados como circulos.
@@ -83,13 +85,9 @@ public class GamepadOverlayView extends View {
     private Paint mPStkKnob;
     private Paint mPBmp;  // reused in onDraw to avoid per-frame allocation
 
-    // ── Target surface para forwarding de touch ───────────────────────
-    private final View mTargetSurface;
-
     // ── Construtor ────────────────────────────────────────────────────
-    public GamepadOverlayView(Context ctx, View target) {
+    public GamepadOverlayView(Context ctx) {
         super(ctx);
-        mTargetSurface = target;
         mBtnBmps = new Bitmap[BTNS.length];
     }
 
@@ -251,12 +249,8 @@ public class GamepadOverlayView extends View {
                 break;
         }
 
-        // Forward para SDLSurface
-        if (mTargetSurface != null) {
-            MotionEvent copy = MotionEvent.obtain(ev);
-            mTargetSurface.dispatchTouchEvent(copy);
-            copy.recycle();
-        }
+        // Forward diretamente ao SDL nativo (bypass SurfaceView)
+        forwardTouchToSDL(ev);
 
         invalidate();
         return true;
@@ -306,6 +300,52 @@ public class GamepadOverlayView extends View {
             mStickKnobX = STKS[0].cx;
             mStickKnobY = STKS[0].cy;
         }
+    }
+
+    // ── Forwarding direto para SDL nativo ────────────────────────────
+    private void forwardTouchToSDL(MotionEvent ev) {
+        final int w = getWidth();
+        final int h = getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        int touchDevId = ev.getDeviceId();
+        if (touchDevId < 0) touchDevId -= 1;
+
+        final int action = ev.getActionMasked();
+        final int pointerCount = ev.getPointerCount();
+
+        switch (action) {
+            case MotionEvent.ACTION_MOVE:
+                for (int i = 0; i < pointerCount; i++) {
+                    sendTouch(ev, i, touchDevId, action, w, h);
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_DOWN:
+                sendTouch(ev, 0, touchDevId, action, w, h);
+                break;
+            case MotionEvent.ACTION_POINTER_UP:
+            case MotionEvent.ACTION_POINTER_DOWN:
+                sendTouch(ev, ev.getActionIndex(), touchDevId, action, w, h);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void sendTouch(MotionEvent ev, int i, int touchDevId,
+                           int action, int w, int h) {
+        int pointerFingerId = ev.getPointerId(i);
+
+        float x = ev.getX(i) / (float) w;
+        float y = ev.getY(i) / (float) h;
+        if (x < 0f) x = 0f; else if (x > 1f) x = 1f;
+        if (y < 0f) y = 0f; else if (y > 1f) y = 1f;
+
+        float p = ev.getPressure(i);
+        if (p > 1f) p = 1f;
+
+        SDLActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
     }
 
     private void clampKnob(int stickIdx, float x, float y) {
