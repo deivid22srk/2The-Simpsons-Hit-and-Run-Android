@@ -206,7 +206,19 @@ public class GamepadOverlayView extends View {
     // ── Lógica de toque ───────────────────────────────────────────────
 
     private void handleDown(float x, float y, int pid) {
-        // Sticks primeiro
+        // Botoes primeiro — alvos menores e precisos.
+        // Sticks sao zonas amplas; se verificados primeiro,
+        // engolem os botoes (D-Pad e A/B/X/Y estao dentro
+        // da area dos sticks).
+        for (int i = 0; i < BTNS.length; i++) {
+            if (BTNS[i].rect.contains(x, y)) {
+                mActiveButtonIdx = i;
+                mActivePointerId = pid;
+                mActiveStickIdx = -1;
+                return;
+            }
+        }
+        // Sticks depois
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
             float dx = x - s.cx, dy = y - s.cy;
@@ -215,15 +227,6 @@ public class GamepadOverlayView extends View {
                 mActivePointerId = pid;
                 mActiveButtonIdx = -1;
                 clampKnob(i, x, y);
-                return;
-            }
-        }
-        // Botões
-        for (int i = 0; i < BTNS.length; i++) {
-            if (BTNS[i].rect.contains(x, y)) {
-                mActiveButtonIdx = i;
-                mActivePointerId = pid;
-                mActiveStickIdx = -1;
                 return;
             }
         }
