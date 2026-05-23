@@ -81,6 +81,7 @@ public class GamepadOverlayView extends View {
     // ── Paints para sticks ────────────────────────────────────────────
     private Paint mPStkBase;
     private Paint mPStkKnob;
+    private Paint mPBmp;  // reused in onDraw to avoid per-frame allocation
 
     // ── Target surface para forwarding de touch ───────────────────────
     private final View mTargetSurface;
@@ -128,32 +129,42 @@ public class GamepadOverlayView extends View {
         mPStkKnob.setStyle(Paint.Style.FILL);
         mPStkKnob.setColor(Color.argb(STK_KNOB_ALPHA, 255, 255, 255));
 
+        mPBmp = new Paint(Paint.FILTER_BITMAP_FLAG);
+
         // Carrega e escala bitmaps
         loadBitmaps();
     }
 
     private void loadBitmaps() {
+        // Recycle old bitmaps to avoid memory leak on rotation
+        for (int i = 0; i < mBtnBmps.length; i++) {
+            if (mBtnBmps[i] != null) {
+                mBtnBmps[i].recycle();
+                mBtnBmps[i] = null;
+            }
+        }
+
         Resources res = getResources();
         String pkg = getContext().getPackageName();
 
         // Mapeamento: indice do botao -> nome do recurso drawable
-        String[] drawableNames = {
-            "dpad_up",            // 0: UP
-            "dpad_down",          // 1: DOWN
-            "dpad_left",          // 2: LEFT
-            "dpad_right",         // 3: RIGHT
-            "button_a",           // 4: A
-            "button_b",           // 5: B
-            "button_x",           // 6: X
-            "button_y",           // 7: Y
-            "button_start_menu",  // 8: START
-            "button_select_view", // 9: SELECT
-            "button_lb",          // 10: L1
-            "button_lb",          // 11: R1 (flipped in onDraw)
+        int[] resIds = {
+            R.drawable.dpad_up,            // 0: UP
+            R.drawable.dpad_down,          // 1: DOWN
+            R.drawable.dpad_left,          // 2: LEFT
+            R.drawable.dpad_right,         // 3: RIGHT
+            R.drawable.button_a,           // 4: A
+            R.drawable.button_b,           // 5: B
+            R.drawable.button_x,           // 6: X
+            R.drawable.button_y,           // 7: Y
+            R.drawable.button_start_menu,  // 8: START
+            R.drawable.button_select_view, // 9: SELECT
+            R.drawable.button_lb,          // 10: L1
+            R.drawable.button_lb,          // 11: R1 (flipped in onDraw)
         };
 
         for (int i = 0; i < BTNS.length; i++) {
-            int resId = res.getIdentifier(drawableNames[i], "drawable", pkg);
+            int resId = resIds[i];
             if (resId == 0) continue;
 
             Bitmap raw = BitmapFactory.decodeResource(res, resId);
@@ -208,10 +219,8 @@ public class GamepadOverlayView extends View {
             Btn b = BTNS[i];
             int alpha = (mActiveButtonIdx == i) ? 160 : 255;
 
-            Paint p = new Paint(Paint.FILTER_BITMAP_FLAG);
-            p.setAlpha(alpha);
-
-            canvas.drawBitmap(bmp, b.rect.left, b.rect.top, p);
+            mPBmp.setAlpha(alpha);
+            canvas.drawBitmap(bmp, b.rect.left, b.rect.top, mPBmp);
         }
     }
 
