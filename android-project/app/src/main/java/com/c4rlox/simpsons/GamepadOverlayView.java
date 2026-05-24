@@ -65,29 +65,35 @@ public class GamepadOverlayView extends View {
     }
 
     // ── Definicões de botoes (coord normalizadas) ─────────────────────
+    // Layout aprimorado com melhor espaçamento vertical entre sticks e botões,
+    // clusters mais compactos e posições mais ergonômicas.
     // Index 12 = Settings (gear)
     private static final int BTN_IDX_SETTINGS = 12;
 
     private static final Btn[] BTNS = {
-        new Btn("UP",     0.16f, 0.70f, 0.10f, 0.10f, 0),  // 0
-        new Btn("DOWN",   0.16f, 0.88f, 0.10f, 0.10f, 0),  // 1
-        new Btn("LEFT",   0.07f, 0.79f, 0.10f, 0.10f, 0),  // 2
-        new Btn("RIGHT",  0.25f, 0.79f, 0.10f, 0.10f, 0),  // 3
-        new Btn("A",      0.85f, 0.86f, 0.10f, 0.10f, 0),  // 4
-        new Btn("B",      0.95f, 0.76f, 0.10f, 0.10f, 0),  // 5
-        new Btn("X",      0.75f, 0.76f, 0.10f, 0.10f, 0),  // 6
-        new Btn("Y",      0.85f, 0.66f, 0.10f, 0.10f, 0),  // 7
-        new Btn("START",  0.55f, 0.04f, 0.12f, 0.06f, 0),  // 8
-        new Btn("SELECT", 0.43f, 0.04f, 0.12f, 0.06f, 0),  // 9
-        new Btn("L1",     0.14f, 0.04f, 0.14f, 0.08f, 0),  // 10
-        new Btn("R1",     0.86f, 0.04f, 0.14f, 0.08f, 0),  // 11
-        new Btn("SET",    0.92f, 0.06f, 0.06f, 0.06f, 0),  // 12: Settings gear (top right)
+        // ── D-Pad (clusters em diamante, lado esquerdo inferior) ──────
+        new Btn("UP",     0.160f, 0.655f, 0.09f, 0.09f, 0),  // 0
+        new Btn("DOWN",   0.160f, 0.785f, 0.09f, 0.09f, 0),  // 1
+        new Btn("LEFT",   0.095f, 0.720f, 0.09f, 0.09f, 0),  // 2
+        new Btn("RIGHT",  0.225f, 0.720f, 0.09f, 0.09f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (clusters em diamante, lado direito inferior)
+        new Btn("A",      0.840f, 0.785f, 0.09f, 0.09f, 0),  // 4
+        new Btn("B",      0.905f, 0.720f, 0.09f, 0.09f, 0),  // 5
+        new Btn("X",      0.775f, 0.720f, 0.09f, 0.09f, 0),  // 6
+        new Btn("Y",      0.840f, 0.655f, 0.09f, 0.09f, 0),  // 7
+        // ── Botões superiores ─────────────────────────────────────────
+        new Btn("START",  0.550f, 0.045f, 0.10f, 0.05f, 0),  // 8
+        new Btn("SELECT", 0.450f, 0.045f, 0.10f, 0.05f, 0),  // 9
+        new Btn("L1",     0.120f, 0.045f, 0.13f, 0.07f, 0),  // 10
+        new Btn("R1",     0.850f, 0.045f, 0.12f, 0.07f, 0),  // 11
+        new Btn("SET",    0.950f, 0.060f, 0.05f, 0.05f, 0),  // 12: Settings gear (canto superior direito)
     };
 
     // ── Definicões de sticks ──────────────────────────────────────────
+    // Posicionados mais abaixo para evitar sobreposição com D-Pad e face buttons
     private static final Stk[] STKS = {
-        new Stk(0.16f, 0.52f, 0.12f),
-        new Stk(0.84f, 0.52f, 0.12f),
+        new Stk(0.160f, 0.560f, 0.09f),  // Left stick
+        new Stk(0.840f, 0.560f, 0.09f),  // Right stick
     };
 
     // ── Settings panel geometry (normalised, recalculated onSizeChanged) ──
