@@ -51,7 +51,8 @@ TouchGui::TouchGui()
     HUD_LOGI("TouchGui constructed");
 }
 
-TouchGui::~TouchGui() {}
+TouchGui::~TouchGui() {
+}
 
 // ── Initialisation helper ───────────────────────────────────────────
 
@@ -510,7 +511,7 @@ void TouchGui::Update(unsigned int /*elapsedTime*/)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Rendering — Android now uses C++ HUD (Java overlay disabled).
+//  Rendering — Android C++ HUD (Java overlay disabled).
 // ═══════════════════════════════════════════════════════════════════════
 
 void TouchGui::Render()
@@ -521,97 +522,112 @@ void TouchGui::Render()
     mScreenWidth  = static_cast<float>(p3d::display->GetWidth());
     mScreenHeight = static_cast<float>(p3d::display->GetHeight());
 
+    if (mScreenWidth < 1.0f || mScreenHeight < 1.0f) return;
+
+    // ── Save all state so we can restore it cleanly ─────────────────
     pddi->PushState(PDDI_STATE_ALL);
+
+    // ── Force modelview to identity ─────────────────────────────────
+    // Critical: after view EndRender(), the modelview may still have
+    // a camera transform attached. If non-identity, our screen-space
+    // quads would be transformed into world-space and become invisible.
+    pddi->IdentityMatrix(PDDI_MATRIX_MODELVIEW);
+
+    // ── Projection: device (pixel) coordinates ──────────────────────
     pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
+
+    // ── Ensure colour writes are enabled ────────────────────────────
+    pddi->SetColourWrite(true, true, true, true);
+
+    // ── Disable depth testing — HUD must always render on top ───────
     pddi->SetZWrite(false);
     pddi->SetZCompare(PDDI_COMPARE_ALWAYS);
+    pddi->EnableZBuffer(false);
 
-    pddiRect fullScreen(0, 0, static_cast<int>(mScreenWidth), static_cast<int>(mScreenHeight));
-    pddi->SetScissor(&fullScreen);
+    // ── Disable backface culling ────────────────────────────────────
+    pddi->SetCullMode(PDDI_CULL_NONE);
 
-    // ── Hub background vignette ───────────────────────────────────────
-    // A subtle semi-transparent overlay to make controls readable on
-    // any background (bright or dark).  The gradient-like appearance is
-    // achieved with a large inset rect with soft alpha.
-    const pddiColour hubBg(0, 0, 0, 30);   // very subtle dark tint
-    DrawRect(0.0f, 0.0f, mScreenWidth, mScreenHeight, hubBg);
+    // ── Background — dark vignette with full opacity ────────────────
+    DrawRect(0.0f, 0.0f, mScreenWidth, mScreenHeight, pddiColour(0, 0, 0, 220));
 
-    // Bottom control area highlight (D-Pad & sticks zone)
-    const float bottomH = mScreenHeight * 0.35f;
-    const pddiColour areaTint(255, 234, 2, 12); // Simpsons Yellow, very faint
-    DrawRect(0.0f, mScreenHeight - bottomH, mScreenWidth, bottomH, areaTint);
-
-    // Top bar for L1/R1/Start/Select
+    // ── Top bar (L1/R1/Start/Select area) — Simpsons blue ──────────
     const float topBarH = mScreenHeight * 0.12f;
-    const pddiColour topBarCol(17, 31, 161, 20); // Simpsons Blue, very faint
-    DrawRect(0.0f, 0.0f, mScreenWidth, topBarH, topBarCol);
+    DrawRect(0.0f, 0.0f, mScreenWidth, topBarH, pddiColour(17, 31, 161, 180));
 
-    // ── Sticks ────────────────────────────────────────────────────────
-    const pddiColour stickCol(255, 234, 2, 45);   // Simpsons Yellow, transparent
-    const pddiColour knobCol (17,  31,  161, 130); // Simpsons Blue
-    RenderStick(mLeftStick,  stickCol, knobCol);
-    RenderStick(mRightStick, stickCol, knobCol);
+    // ── Bottom control area — Simpsons yellow tint ──────────────────
+    const float bottomH = mScreenHeight * 0.35f;
+    DrawRect(0.0f, mScreenHeight - bottomH, mScreenWidth, bottomH, pddiColour(255, 234, 2, 160));
 
-    // ── Buttons ───────────────────────────────────────────────────────
+    // ── Sticks ──────────────────────────────────────────────────────
+    RenderStick(mLeftStick);
+    RenderStick(mRightStick);
+
+    // ── Buttons ─────────────────────────────────────────────────────
     RenderButtons();
 
-    // ── Hub title (bottom-center subtle branding) ─────────────────────
-    const pddiColour titleCol(255, 234, 2, 60);
+    // ── Branding ────────────────────────────────────────────────────
     pddi->DrawString("SIMPSONS HIT & RUN",
-                     static_cast<int>(mScreenWidth * 0.5f - 80.0f),
-                     static_cast<int>(mScreenHeight - 20.0f),
-                     titleCol);
+        static_cast<int>(mScreenWidth * 0.5f - 80.0f),
+        static_cast<int>(mScreenHeight - 20.0f),
+        pddiColour(255, 234, 2, 220));
 
+    // ── Flush GL commands to ensure they are executed ───────────────
+    pddi->DrawSync();
+
+    // ── Restore previous state ──────────────────────────────────────
     pddi->PopState(PDDI_STATE_ALL);
 }
 
-void TouchGui::RenderStick(const TouchJoystick& stick, pddiColour base, pddiColour knob)
+void TouchGui::RenderStick(const TouchJoystick& stick)
 {
     const float bx = stick.centerX * mScreenWidth;
     const float by = stick.centerY * mScreenHeight;
     const float kw = 60.0f, kh = 60.0f;
-    const float kw2 = 30.0f, kh2 = 30.0f;
+    const float kw2 = 28.0f, kh2 = 28.0f;
 
     // Base ring
-    DrawRect(bx - kw, by - kh, kw * 2.0f, kh * 2.0f, base);
+    DrawRect(bx - kw, by - kh, kw * 2.0f, kh * 2.0f, pddiColour(255, 234, 2, 220));
 
-    // Knob
-    const float kx = (stick.centerX + stick.currX * 0.08f) * mScreenWidth;
-    const float ky = (stick.centerY + stick.currY * 0.08f) * mScreenHeight;
-    DrawRect(kx - kw2, ky - kh2, kw2 * 2.0f, kh2 * 2.0f, knob);
+    // Knob — tracks stick deflection
+    const float kx = (stick.centerX + stick.currX * 0.10f) * mScreenWidth;
+    const float ky = (stick.centerY + stick.currY * 0.10f) * mScreenHeight;
+    DrawRect(kx - kw2, ky - kh2, kw2 * 2.0f, kh2 * 2.0f, pddiColour(17, 31, 161, 240));
 }
 
 void TouchGui::RenderButtons()
 {
-    pddiRenderContext* pddi = p3d::pddi;
-
     for (int i = 0; i < NUM_BUTTONS; ++i) {
         const TouchButton& btn = mButtons[i];
 
-        const pddiColour fill  = btn.pressed ? pddiColour(255, 255, 0, 180) : pddiColour(255, 234, 2, 100);
-        const pddiColour border(17, 31, 161, 160); // Simpsons Blue
+        const pddiColour fill   = btn.pressed ? pddiColour(255, 200, 0, 255) : pddiColour(255, 234, 2, 220);
+        const pddiColour border = pddiColour(17, 31, 161, 240);
 
         const float bx = btn.x * mScreenWidth;
         const float by = btn.y * mScreenHeight;
         const float bw = btn.w * mScreenWidth;
         const float bh = btn.h * mScreenHeight;
 
-        // Border
-        DrawRect(bx - bw * 0.5f - 3.0f, by - bh * 0.5f - 3.0f, bw + 6.0f, bh + 6.0f, border);
+        // Border (outline)
+        DrawRect(bx - bw * 0.5f - 2.0f, by - bh * 0.5f - 2.0f, bw + 4.0f, bh + 4.0f, border);
         // Fill
         DrawRect(bx - bw * 0.5f, by - bh * 0.5f, bw, bh, fill);
 
-        // Label
-        pddi->DrawString(btn.label, static_cast<int>(bx - 9.0f), static_cast<int>(by - 9.0f), pddiColour(255, 255, 255));
-        pddi->DrawString(btn.label, static_cast<int>(bx - 10.0f), static_cast<int>(by - 10.0f), pddiColour(17, 31, 161));
+        // Labels
+        p3d::pddi->DrawString(btn.label,
+            static_cast<int>(bx - 8.0f), static_cast<int>(by - 8.0f),
+            pddiColour(255, 255, 255, 240));
+        p3d::pddi->DrawString(btn.label,
+            static_cast<int>(bx - 9.0f), static_cast<int>(by - 9.0f),
+            pddiColour(17, 31, 161, 240));
     }
 }
 
 void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour)
 {
-    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, 6);
-    p3d::pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
+    pddiPrimStream* stream = p3d::pddi->BeginPrims(nullptr, PDDI_PRIM_TRIANGLES, PDDI_V_C, 6);
+    if (!stream) return;
 
+    // Two triangles forming a quad (clockwise winding)
     stream->Colour(colour); stream->Coord(x,     y,     0.0f);
     stream->Colour(colour); stream->Coord(x + w, y,     0.0f);
     stream->Colour(colour); stream->Coord(x,     y + h, 0.0f);

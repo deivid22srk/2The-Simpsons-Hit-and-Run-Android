@@ -156,10 +156,10 @@ private:
     static void InitButton(TouchButton& btn, float x, float y, float w, float h,
                            int buttonIndex, const char* label);
 
-    // ── Rendering helpers (desktop debug only) ───────────────────────
+    // ── Rendering helpers ────────────────────────────────────────────
 
     void DrawRect(float x, float y, float w, float h, pddiColour colour);
-    void RenderStick(const TouchJoystick& stick, pddiColour base, pddiColour knob);
+    void RenderStick(const TouchJoystick& stick);
     void RenderButtons();
 };
 
