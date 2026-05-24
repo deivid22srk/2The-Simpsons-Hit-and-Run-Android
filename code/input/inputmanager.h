@@ -152,7 +152,7 @@ public:
         LeftStickY = 201,        // Must hack to get camera stuff to compile
         KeyboardEsc = 202        // Cute hack to get escape only back buttons
     };
-#elif defined(RAD_PS2)
+#elif defined(RAD_PS2) || defined(RAD_ANDROID)
     enum eButtonMap
     {
         Select,

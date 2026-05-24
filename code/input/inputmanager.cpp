@@ -158,20 +158,20 @@ void InputManager::Update( unsigned int timeinms )
     // Check if there are any physical controllers detected by the SDL system
     bool physicalGamepadConnected = false;
     if (mxIControllerSystem2 != NULL) {
+        // In some SDL versions, the first controller might be a virtual one or
+        // the number of controllers might not immediately reflect physical ones.
+        // We'll rely on the controller system count.
         physicalGamepadConnected = (mxIControllerSystem2->GetNumberOfControllers() > 0);
     }
 
     if (TouchGui::GetInstance()) {
-        bool showTouch = !physicalGamepadConnected;
-        TouchGui::GetInstance()->SetVisible(showTouch);
+        // Toggle HUD based on physical gamepad presence
+        TouchGui::GetInstance()->SetVisible(!physicalGamepadConnected);
 
         // If we're using touch controls, ensure the first controller is marked as connected
         // so its Update() method will process and dispatch our injected inputs.
-        if (showTouch && !mControllerArray[0].IsConnected()) {
+        if (!physicalGamepadConnected && !mControllerArray[0].IsConnected()) {
             mControllerArray[0].NotifyConnect();
-            // We should also make sure it has some default mappings if it wasn't initialized.
-            // On Android, the UserController mappings are usually set up in Initialize().
-            // Since we're injecting into mButtonArray directly, we rely on existing mappings.
         }
     }
 #endif

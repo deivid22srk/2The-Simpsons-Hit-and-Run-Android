@@ -65,6 +65,8 @@ private:
     TouchJoystick mRightStick;
 
     void DrawRect(float x, float y, float w, float h, pddiColour colour);
+    void DrawCircle(float x, float y, float radius, pddiColour colour);
+    void DrawDonut(float x, float y, float outerRadius, float innerRadius, pddiColour colour);
     void UpdateButton(int index, float x, float y, bool down, SDL_FingerID fingerId);
     void UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId);
 };

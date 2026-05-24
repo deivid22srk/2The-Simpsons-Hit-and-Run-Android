@@ -106,6 +106,7 @@ set(SRR2_SOURCES
 	#"input/forceeffect.cpp"
 	#"input/Gamepad.cpp"
 	"input/inputmanager.cpp"
+	"input/touchGui.cpp"
 	#"input/Keyboard.cpp"
 	"input/mappable.cpp"
 	"input/mapper.cpp"
