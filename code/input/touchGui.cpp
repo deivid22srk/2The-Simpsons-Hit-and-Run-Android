@@ -38,6 +38,7 @@ TouchGui::TouchGui() :
     for(int i = 0; i < NUM_BUTTONS; ++i) {
         mButtons[i].pressed = false;
         mButtons[i].fingerId = -1;
+        mButtons[i].lastEventTime = 0;
     }
 }
 
@@ -51,28 +52,28 @@ void TouchGui::Init() {
     float dpadX = 0.16f;
     float dpadY = 0.79f;
 
-    mButtons[BTN_DPAD_UP]    = {dpadX, 0.70f, dpadSize, dpadSize, InputManager::DPadUp,    false, -1, "UP"};
-    mButtons[BTN_DPAD_DOWN]  = {dpadX, 0.88f, dpadSize, dpadSize, InputManager::DPadDown,  false, -1, "DN"};
-    mButtons[BTN_DPAD_LEFT]  = {0.07f, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF"};
-    mButtons[BTN_DPAD_RIGHT] = {0.25f, dpadY, dpadSize, dpadSize, InputManager::DPadRight,false, -1, "RT"};
+    mButtons[BTN_DPAD_UP]    = {dpadX, 0.70f, dpadSize, dpadSize, InputManager::DPadUp,    false, -1, "UP", 0};
+    mButtons[BTN_DPAD_DOWN]  = {dpadX, 0.88f, dpadSize, dpadSize, InputManager::DPadDown,  false, -1, "DN", 0};
+    mButtons[BTN_DPAD_LEFT]  = {0.07f, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF", 0};
+    mButtons[BTN_DPAD_RIGHT] = {0.25f, dpadY, dpadSize, dpadSize, InputManager::DPadRight,false, -1, "RT", 0};
 
     // Right side: Face buttons
     float faceX = 0.85f;
     float faceY = 0.76f;
     float faceSize = 0.10f;
 
-    mButtons[BTN_A] = {faceX,     faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A"};
-    mButtons[BTN_B] = {faceX + faceSize, faceY,    faceSize, faceSize, InputManager::B, false, -1, "B"};
-    mButtons[BTN_X] = {faceX - faceSize, faceY,    faceSize, faceSize, InputManager::Square, false, -1, "X"};
-    mButtons[BTN_Y] = {faceX,     faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
+    mButtons[BTN_A] = {faceX,     faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A", 0};
+    mButtons[BTN_B] = {faceX + faceSize, faceY,    faceSize, faceSize, InputManager::B, false, -1, "B", 0};
+    mButtons[BTN_X] = {faceX - faceSize, faceY,    faceSize, faceSize, InputManager::Square, false, -1, "X", 0};
+    mButtons[BTN_Y] = {faceX,     faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y", 0};
 
     // Center/Top: Start, Select
-    mButtons[BTN_START]  = {0.55f, 0.04f, 0.12f, 0.06f, InputManager::Start,  false, -1, "START"};
-    mButtons[BTN_SELECT] = {0.43f, 0.04f, 0.12f, 0.06f, InputManager::Select, false, -1, "SELECT"};
+    mButtons[BTN_START]  = {0.55f, 0.04f, 0.12f, 0.06f, InputManager::Start,  false, -1, "START", 0};
+    mButtons[BTN_SELECT] = {0.43f, 0.04f, 0.12f, 0.06f, InputManager::Select, false, -1, "SELECT", 0};
 
     // Shoulder buttons
-    mButtons[BTN_L1] = {0.14f, 0.04f, 0.14f, 0.08f, InputManager::AnalogL1, false, -1, "L1"};
-    mButtons[BTN_R1] = {0.86f, 0.04f, 0.14f, 0.08f, InputManager::AnalogR1, false, -1, "R1"};
+    mButtons[BTN_L1] = {0.14f, 0.04f, 0.14f, 0.08f, InputManager::AnalogL1, false, -1, "L1", 0};
+    mButtons[BTN_R1] = {0.86f, 0.04f, 0.14f, 0.08f, InputManager::AnalogR1, false, -1, "R1", 0};
 
     // Joysticks (mais abaixo para evitar overlap com D-Pad / face buttons)
     mLeftStick.centerX = 0.16f;
@@ -107,6 +108,7 @@ void TouchGui::SetVisible(bool visible) {
                 if (mButtons[i].pressed) {
                     mButtons[i].pressed = false;
                     mButtons[i].fingerId = -1;
+                    mButtons[i].lastEventTime = 0;
                     controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
                 }
             }
@@ -159,7 +161,7 @@ void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down,
             controller->GetInputButton(stick.axisX)->SetValue(valX);
             controller->GetInputButton(stick.axisY)->SetValue(valY);
         }
-    } else if (stick.fingerId == fingerId) {
+    } else if (stick.fingerId == fingerId || stick.active) {
         stick.active = false;
         stick.fingerId = -1;
         stick.currX = 0.0f;
@@ -219,10 +221,14 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
         }
 
         // Release any button currently held by this finger.
+        // Also force-release ALL pressed buttons to guard against Android
+        // fingerId mismatch (FINGERDOWN and FINGERUP of the same physical
+        // touch can be assigned different fingerIds by SDL).
         for (int i = 0; i < NUM_BUTTONS; ++i) {
-            if (mButtons[i].fingerId == fingerId && mButtons[i].pressed) {
+            if (mButtons[i].pressed) {
                 mButtons[i].pressed = false;
                 mButtons[i].fingerId = -1;
+                mButtons[i].lastEventTime = 0;
                 controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
             }
         }
@@ -239,7 +245,7 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
         const radInt64 now = radTimeGetMicroseconds64();
         const radInt64 staleThresholdUs = 500000; // 500ms
 
-        if (mLeftStick.fingerId != -1 && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
+        if (mLeftStick.active && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
             mLeftStick.active = false;
             mLeftStick.fingerId = -1;
             mLeftStick.currX = 0.0f;
@@ -247,7 +253,7 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
             controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
             controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
         }
-        if (mRightStick.fingerId != -1 && (now - mRightStick.lastEventTime) > staleThresholdUs) {
+        if (mRightStick.active && (now - mRightStick.lastEventTime) > staleThresholdUs) {
             mRightStick.active = false;
             mRightStick.fingerId = -1;
             mRightStick.currX = 0.0f;
@@ -303,18 +309,21 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
             if (!mButtons[i].pressed) {
                 mButtons[i].pressed = true;
                 mButtons[i].fingerId = fingerId;
+                mButtons[i].lastEventTime = radTimeGetMicroseconds64();
                 controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
             }
         } else if (event->type == SDL_FINGERMOTION && mButtons[i].fingerId == fingerId && !inBounds) {
             if (mButtons[i].pressed) {
                 mButtons[i].pressed = false;
                 mButtons[i].fingerId = -1;
+                mButtons[i].lastEventTime = 0;
                 controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
             }
         } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mButtons[i].pressed) {
             // Finger moved into a button while not controlling a stick
             mButtons[i].pressed = true;
             mButtons[i].fingerId = fingerId;
+            mButtons[i].lastEventTime = radTimeGetMicroseconds64();
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
         }
     }
@@ -328,6 +337,7 @@ void TouchGui::ReleaseAllInputs() {
         if (mButtons[i].pressed) {
             mButtons[i].pressed = false;
             mButtons[i].fingerId = -1;
+            mButtons[i].lastEventTime = 0;
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
         }
     }
@@ -368,6 +378,16 @@ void TouchGui::AutoReleaseIfStale(UserController* controller) {
         mRightStick.currY = 0.0f;
         controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
         controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+    }
+
+    // Auto-release stale buttons (safety net for missed FINGERUP events)
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        if (mButtons[i].pressed && (now - mButtons[i].lastEventTime) > staleThresholdUs) {
+            mButtons[i].pressed = false;
+            mButtons[i].fingerId = -1;
+            mButtons[i].lastEventTime = 0;
+            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+        }
     }
 
 
