@@ -79,6 +79,40 @@ public class GamepadOverlayView extends View {
         }
     }
 
+    // ── Native HUD position presets (strategic, bigger buttons) ───────
+    private static final float[][] NATIVE_BTN_POS = {
+        {0.120f, 0.680f, 0.100f, 0.100f}, // 0: D-Pad UP
+        {0.120f, 0.800f, 0.100f, 0.100f}, // 1: D-Pad DOWN
+        {0.055f, 0.740f, 0.100f, 0.100f}, // 2: D-Pad LEFT
+        {0.185f, 0.740f, 0.100f, 0.100f}, // 3: D-Pad RIGHT
+        {0.830f, 0.720f, 0.150f, 0.150f}, // 4: A (big action button)
+        {0.830f, 0.545f, 0.130f, 0.130f}, // 5: B
+        {0.935f, 0.630f, 0.100f, 0.100f}, // 6: X (Punch/Talk/Camera)
+        {0.725f, 0.630f, 0.110f, 0.110f}, // 7: Y (Enter/Exit Car)
+        {0.550f, 0.030f, 0.100f, 0.060f}, // 8: START
+        {0.420f, 0.030f, 0.100f, 0.060f}, // 9: SELECT
+        {0.100f, 0.030f, 0.180f, 0.070f}, // 10: L1
+        {0.800f, 0.030f, 0.180f, 0.070f}, // 11: R1
+        {0.950f, 0.030f, 0.060f, 0.060f}, // 12: CONFIG (Settings gear)
+    };
+
+    // ── Gamepad default positions ─────────────────────────────────────
+    private static final float[][] GAMEPAD_BTN_POS = {
+        {0.215f, 0.725f, 0.075f, 0.075f}, // 0: D-Pad UP
+        {0.215f, 0.835f, 0.075f, 0.075f}, // 1: D-Pad DOWN
+        {0.160f, 0.780f, 0.075f, 0.075f}, // 2: D-Pad LEFT
+        {0.270f, 0.780f, 0.075f, 0.075f}, // 3: D-Pad RIGHT
+        {0.875f, 0.665f, 0.075f, 0.075f}, // 4: A
+        {0.930f, 0.610f, 0.075f, 0.075f}, // 5: B
+        {0.820f, 0.610f, 0.075f, 0.075f}, // 6: X
+        {0.875f, 0.555f, 0.075f, 0.075f}, // 7: Y
+        {0.560f, 0.050f, 0.120f, 0.060f}, // 8: START
+        {0.440f, 0.050f, 0.120f, 0.060f}, // 9: SELECT
+        {0.120f, 0.050f, 0.160f, 0.080f}, // 10: L1
+        {0.880f, 0.050f, 0.160f, 0.080f}, // 11: R1
+        {0.950f, 0.050f, 0.060f, 0.060f}, // 12: CONFIG
+    };
+
     // ── Definicões de botoes (coord normalizadas) ─────────────────────
     private static final int BTN_IDX_SETTINGS = 12;
 
@@ -178,6 +212,9 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpAcelerar;
     private Bitmap mBmpFrear;
     private Bitmap mBmpEntrarCarro;
+    private Bitmap mBmpSoco;
+    private Bitmap mBmpMudarCamera;
+    private boolean mNativeLayoutApplied = false;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -368,6 +405,17 @@ public class GamepadOverlayView extends View {
         mSwipeCameraEnabled = sp.getBoolean("swipe_camera_enabled", false);
         mSwipeSensitivity = sp.getFloat("swipe_camera_sensitivity", 1.0f);
         mNativeHudEnabled = sp.getBoolean("native_hud_enabled", false);
+
+        // If native HUD was enabled, ensure the native layout is applied
+        if (mNativeHudEnabled && getWidth() > 0 && getHeight() > 0) {
+            applyLayout(NATIVE_BTN_POS);
+            mNativeLayoutApplied = true;
+            // Check native availability
+            try {
+                SimpsonsActivity.nativeGetHudContext();
+                mNativeAvailable = true;
+            } catch (UnsatisfiedLinkError e) { }
+        }
 
         // If no saved settings exist, do nothing (use default layout)
         if (!sp.contains("btn_0_nx")) {
@@ -578,19 +626,26 @@ public class GamepadOverlayView extends View {
         }
         
         // Face buttons (4: A, 5: B, 6: X, 7: Y)
-        int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
+        int context = 0;
+        try {
+            context = SimpsonsActivity.nativeGetHudContext();
+        } catch (UnsatisfiedLinkError e) {
+            // Native library not loaded
+        }
         if (context == 0 || context == 1) {
             // On Foot or Near Car
-            if (idx == 4) return true; // A (Jump)
-            if (idx == 5) return true; // B (Run/Kick)
+            if (idx == 4) return true; // A (Jump/Accelerate)
+            if (idx == 5) return true; // B (Run/Brake)
+            if (idx == 6) return true; // X (Punch/Talk)
             if (idx == 7) return context == 1; // Y (Enter Car, only when near car)
-            return false; // X is hidden
+            return false;
         } else if (context == 2) {
             // Inside Car
             if (idx == 4) return true; // A (Accelerate)
             if (idx == 5) return true; // B (Brake)
+            if (idx == 6) return true; // X (Change Camera)
             if (idx == 7) return true; // Y (Exit Car)
-            return false; // X is hidden
+            return false;
         }
         return true;
     }
@@ -661,6 +716,9 @@ public class GamepadOverlayView extends View {
         if (mBmpAcelerar != null) { mBmpAcelerar.recycle(); mBmpAcelerar = null; }
         if (mBmpFrear != null) { mBmpFrear.recycle(); mBmpFrear = null; }
         if (mBmpEntrarCarro != null) { mBmpEntrarCarro.recycle(); mBmpEntrarCarro = null; }
+        if (mBmpSoco != null) { mBmpSoco.recycle(); mBmpSoco = null; }
+        if (mBmpConfiguracoes != null) { mBmpConfiguracoes.recycle(); mBmpConfiguracoes = null; }
+        if (mBmpMudarCamera != null) { mBmpMudarCamera.recycle(); mBmpMudarCamera = null; }
 
         Resources res = getResources();
 
@@ -698,6 +756,9 @@ public class GamepadOverlayView extends View {
             mBmpAcelerar = loadResBitmap(res, R.drawable.acelerar, faceW, faceH);
             mBmpFrear = loadResBitmap(res, R.drawable.frear, faceW, faceH);
             mBmpEntrarCarro = loadResBitmap(res, R.drawable.entrar_no_carro, faceW, faceH);
+            mBmpSoco = loadResBitmap(res, R.drawable.soco, faceW, faceH);
+            mBmpConfiguracoes = loadResBitmap(res, R.drawable.configuracoes, faceW * 1.2f, faceH * 1.2f);
+            mBmpMudarCamera = loadResBitmap(res, R.drawable.mudar_camera_no_carro, faceW, faceH);
         }
     }
 
@@ -758,11 +819,16 @@ public class GamepadOverlayView extends View {
 
             Bitmap bmp = mBtnBmps[i];
             if (mNativeHudEnabled && !mEditorMode) {
-                int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
+                int context = 0;
+                try {
+                    context = SimpsonsActivity.nativeGetHudContext();
+                } catch (UnsatisfiedLinkError e) { }
                 if (i == 4) {
                     bmp = (context == 2) ? mBmpAcelerar : mBmpPular;
                 } else if (i == 5) {
                     bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
+                } else if (i == 6) {
+                    bmp = (context == 2) ? mBmpMudarCamera : mBmpSoco;
                 } else if (i == 7) {
                     bmp = mBmpEntrarCarro;
                 }
@@ -812,6 +878,14 @@ public class GamepadOverlayView extends View {
 
     // ── Settings gear icon ────────────────────────────────────────────
     private void drawSettingsGear(Canvas canvas, Btn b) {
+        // Use configuracoes bitmap when native HUD is enabled
+        if (mNativeHudEnabled && mBmpConfiguracoes != null) {
+            int pressAlpha = (mButtonPointerIds[BTN_IDX_SETTINGS] != -1) ? 180 : 255;
+            mPBmp.setAlpha(pressAlpha);
+            canvas.drawBitmap(mBmpConfiguracoes, b.rect.left, b.rect.top, mPBmp);
+            return;
+        }
+
         float cx = b.rect.centerX();
         float cy = b.rect.centerY();
         float r = b.rect.width() * 0.38f;
@@ -1346,6 +1420,24 @@ public class GamepadOverlayView extends View {
         }
     }
 
+    // ── Native HUD / Gamepad layout switches ─────────────────────────
+    private void applyLayout(float[][] positions) {
+        final int w = getWidth();
+        final int h = getHeight();
+        if (w <= 0 || h <= 0) return;
+        
+        for (int i = 0; i < BTNS.length && i < positions.length; i++) {
+            Btn b = BTNS[i];
+            b.nx = positions[i][0];
+            b.ny = positions[i][1];
+            b.nw = positions[i][2];
+            b.nh = positions[i][3];
+        }
+        recalcAllRects(w, h);
+        saveOrigins();
+        loadBitmaps();
+    }
+
     // ── handleDown ────────────────────────────────────────────────────
     private void handleDown(float x, float y, int pid) {
         // ── Editor mode takes priority ─────────────────────────────────
@@ -1536,6 +1628,21 @@ public class GamepadOverlayView extends View {
                 saveProfile();
             } else if (mNativeHudTogglePressed) {
                 mNativeHudEnabled = !mNativeHudEnabled;
+                if (mNativeHudEnabled) {
+                    try {
+                        SimpsonsActivity.nativeGetHudContext();
+                        mNativeAvailable = true;
+                    } catch (UnsatisfiedLinkError e) { }
+                    if (!mNativeLayoutApplied) {
+                        applyLayout(NATIVE_BTN_POS);
+                        mNativeLayoutApplied = true;
+                    }
+                } else {
+                    if (mNativeLayoutApplied) {
+                        applyLayout(GAMEPAD_BTN_POS);
+                        mNativeLayoutApplied = false;
+                    }
+                }
                 saveProfile();
             } else if (mSwipeCameraEnabled && mSensDownPressed) {
                 mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
