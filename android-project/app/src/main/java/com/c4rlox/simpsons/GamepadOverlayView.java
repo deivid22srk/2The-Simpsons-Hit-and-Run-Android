@@ -149,6 +149,7 @@ public class GamepadOverlayView extends View {
     // ── Settings panel rects ──────────────────────────────────────────
     private RectF mSettingsPanelRect = new RectF();
     private RectF mFpsToggleRect = new RectF();
+    private RectF mCameraSwipeToggleRect = new RectF();
     private RectF mSettingsCloseRect = new RectF();
     private RectF mEditorBtnRect = new RectF();  // "Editor de Controles" button
 
@@ -179,12 +180,27 @@ public class GamepadOverlayView extends View {
     private boolean mShowSettings = false;
     private boolean mShowFPS      = false;
     private boolean mNativeAvailable = false;
+    private boolean mSwipeCameraEnabled = false;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
     private boolean mSettingsClosePressed = false;
     private boolean mFpsTogglePressed = false;
+    private boolean mCameraSwipeTogglePressed = false;
     private boolean mEditorBtnPressed = false;
+
+    // ── Swipe camera touch tracking ───────────────────────────────────
+    private int mSwipePointerId = -1;
+    private float mSwipeLastX = 0f;
+    private float mSwipeLastY = 0f;
+    private final android.os.Handler mSwipeHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable mSwipeResetRunnable = new Runnable() {
+        @Override
+        public void run() {
+            SDLControllerManager.onNativeJoy(9999, 2, 0.0f);
+            SDLControllerManager.onNativeJoy(9999, 3, 0.0f);
+        }
+    };
 
     // ── Editor de Controles state ─────────────────────────────────────
     private boolean mEditorMode = false;
@@ -324,6 +340,7 @@ public class GamepadOverlayView extends View {
             editor.putInt("stk_" + i + "_baseAlpha", s.baseAlpha);
             editor.putInt("stk_" + i + "_knobAlpha", s.knobAlpha);
         }
+        editor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
         editor.apply();
         Log.i(TAG, "Profile saved successfully");
     }
@@ -333,6 +350,8 @@ public class GamepadOverlayView extends View {
         if (context == null) return;
         SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
         
+        mSwipeCameraEnabled = sp.getBoolean("swipe_camera_enabled", false);
+
         // If no saved settings exist, do nothing (use default layout)
         if (!sp.contains("btn_0_nx")) {
             return;
@@ -401,9 +420,9 @@ public class GamepadOverlayView extends View {
 
         recalcAllRects(w, h);
 
-        // Settings panel: centered, ~60% width, ~55% height
+        // Settings panel: centered, ~60% width, ~65% height
         float panelW = w * 0.60f;
-        float panelH = h * 0.55f;
+        float panelH = h * 0.65f;
         float panelL = (w - panelW) / 2f;
         float panelT = (h - panelH) / 2f;
         mSettingsPanelRect.set(panelL, panelT, panelL + panelW, panelT + panelH);
@@ -418,16 +437,20 @@ public class GamepadOverlayView extends View {
 
         // FPS toggle: upper-middle of panel
         float toggleW = panelW * 0.5f;
-        float toggleH = panelH * 0.10f;
+        float toggleH = panelH * 0.09f;
         float toggleL = panelL + (panelW - toggleW) / 2f;
-        float toggleT = panelT + panelH * 0.28f;
+        float toggleT = panelT + panelH * 0.22f;
         mFpsToggleRect.set(toggleL, toggleT, toggleL + toggleW, toggleT + toggleH);
 
-        // Editor button: below FPS toggle
+        // Camera Swipe toggle: below FPS toggle
+        float swipeToggleT = toggleT + toggleH + panelH * 0.07f;
+        mCameraSwipeToggleRect.set(toggleL, swipeToggleT, toggleL + toggleW, swipeToggleT + toggleH);
+
+        // Editor button: below Camera Swipe toggle
         float editorBtnW = panelW * 0.6f;
-        float editorBtnH = panelH * 0.10f;
+        float editorBtnH = panelH * 0.09f;
         float editorBtnL = panelL + (panelW - editorBtnW) / 2f;
-        float editorBtnT = toggleT + toggleH + panelH * 0.06f;
+        float editorBtnT = swipeToggleT + toggleH + panelH * 0.07f;
         mEditorBtnRect.set(editorBtnL, editorBtnT, editorBtnL + editorBtnW, editorBtnT + editorBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
@@ -587,6 +610,9 @@ public class GamepadOverlayView extends View {
 
         // ── Desenha sticks ────────────────────────────────────────────
         for (int i = 0; i < STKS.length; i++) {
+            if (i == 1 && mSwipeCameraEnabled && !mEditorMode) {
+                continue;
+            }
             Stk s = STKS[i];
 
             // In editor mode, apply the custom alpha only to the base circle
@@ -764,6 +790,38 @@ public class GamepadOverlayView extends View {
             mFpsToggleRect.centerY() + thumbSize * 0.22f,
             mToggleTextPaint);
 
+        // ── Camera Swipe toggle ──────────────────────────────────────────
+        mPanelLabelPaint.setColor(SETTINGS_TEXT_COLOR);
+        mPanelLabelPaint.setTextSize(h * 0.05f);
+        mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
+        mPanelLabelPaint.setFakeBoldText(false);
+        canvas.drawText("Deslizar Câmera", left + w * 0.1f,
+                         mCameraSwipeToggleRect.top - h * 0.02f, mPanelLabelPaint);
+
+        mToggleBgPaint.setStyle(Paint.Style.FILL);
+        mToggleBgPaint.setColor(mSwipeCameraEnabled ? SETTINGS_TOGGLE_ON : SETTINGS_TOGGLE_OFF);
+        float swipeToggleRound = mCameraSwipeToggleRect.height() / 2f;
+        canvas.drawRoundRect(mCameraSwipeToggleRect, swipeToggleRound, swipeToggleRound, mToggleBgPaint);
+
+        float swipeThumbSize = mCameraSwipeToggleRect.height() * 0.7f;
+        float swipeThumbX = mSwipeCameraEnabled
+            ? mCameraSwipeToggleRect.right - swipeThumbSize - 5f
+            : mCameraSwipeToggleRect.left + 5f;
+        float swipeThumbY = mCameraSwipeToggleRect.centerY();
+        mToggleThumbPaint.setStyle(Paint.Style.FILL);
+        mToggleThumbPaint.setColor(Color.WHITE);
+        canvas.drawCircle(swipeThumbX, swipeThumbY, swipeThumbSize / 2f, mToggleThumbPaint);
+
+        mToggleTextPaint.setColor(Color.WHITE);
+        mToggleTextPaint.setTextSize(swipeThumbSize * 0.5f);
+        mToggleTextPaint.setTextAlign(Paint.Align.CENTER);
+        String swipeToggleLabel = mSwipeCameraEnabled ? "ON" : "OFF";
+        float swipeLabelOffsetX = mSwipeCameraEnabled ? -swipeThumbSize / 2f - 4f : swipeThumbSize / 2f + 4f;
+        canvas.drawText(swipeToggleLabel,
+            mCameraSwipeToggleRect.centerX() + swipeLabelOffsetX,
+            mCameraSwipeToggleRect.centerY() + swipeThumbSize * 0.22f,
+            mToggleTextPaint);
+
         // ── Editor de Controles button ──────────────────────────────────
         boolean editorHover = mEditorBtnPressed;
         mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
@@ -795,7 +853,7 @@ public class GamepadOverlayView extends View {
             mFpsValuePaint.setTextSize(h * 0.04f);
             mFpsValuePaint.setTextAlign(Paint.Align.CENTER);
             canvas.drawText(String.format("FPS atual: %.1f", fps),
-                left + w / 2f, mFpsToggleRect.bottom + h * 0.06f, mFpsValuePaint);
+                left + w / 2f, mEditorBtnRect.bottom + h * 0.05f, mFpsValuePaint);
         }
 
         // Close button (X)
@@ -1066,6 +1124,11 @@ public class GamepadOverlayView extends View {
                 mFpsTogglePressed = true;
                 return;
             }
+            if (mCameraSwipeToggleRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mCameraSwipeTogglePressed = true;
+                return;
+            }
             if (mEditorBtnRect.contains(x, y)) {
                 mSettingsPointerId = pid;
                 mEditorBtnPressed = true;
@@ -1104,12 +1167,24 @@ public class GamepadOverlayView extends View {
             }
         }
         for (int i = 0; i < STKS.length; i++) {
+            if (i == 1 && mSwipeCameraEnabled) continue;
             if (mStickPointerIds[i] != -1) continue;
             Stk s = STKS[i];
             float dx = x - s.cx, dy = y - s.cy;
             if (dx * dx + dy * dy <= s.r * s.r) {
                 mStickPointerIds[i] = pid;
                 clampKnob(i, x, y);
+                return;
+            }
+        }
+
+        // ── Swipe Camera ──────────────────────────────────────────────
+        if (mSwipeCameraEnabled && mSwipePointerId == -1) {
+            if (x > getWidth() / 2f) {
+                mSwipePointerId = pid;
+                mSwipeLastX = x;
+                mSwipeLastY = y;
+                Log.i(TAG, "Swipe camera started pointer=" + pid);
                 return;
             }
         }
@@ -1128,12 +1203,33 @@ public class GamepadOverlayView extends View {
             boolean wasClose = mSettingsClosePressed;
             mSettingsClosePressed = mSettingsCloseRect.contains(x, y);
             mFpsTogglePressed = mFpsToggleRect.contains(x, y);
+            mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
+            return;
+        }
+
+        // Swipe Camera movement
+        if (mSwipeCameraEnabled && mSwipePointerId == pid) {
+            mSwipeHandler.removeCallbacks(mSwipeResetRunnable);
+            float dx = x - mSwipeLastX;
+            float dy = y - mSwipeLastY;
+            mSwipeLastX = x;
+            mSwipeLastY = y;
+
+            float sensitivity = 30f / getWidth();
+            float valX = Math.max(-1.0f, Math.min(1.0f, dx * sensitivity));
+            float valY = Math.max(-1.0f, Math.min(1.0f, dy * sensitivity));
+
+            SDLControllerManager.onNativeJoy(9999, 2, valX);
+            SDLControllerManager.onNativeJoy(9999, 3, valY);
+
+            mSwipeHandler.postDelayed(mSwipeResetRunnable, 40);
             return;
         }
 
         // Sticks
         for (int i = 0; i < STKS.length; i++) {
+            if (i == 1 && mSwipeCameraEnabled) continue;
             if (mStickPointerIds[i] == pid) {
                 clampKnob(i, x, y);
                 return;
@@ -1170,6 +1266,9 @@ public class GamepadOverlayView extends View {
                 mShowSettings = false;
             } else if (mFpsTogglePressed) {
                 mShowFPS = !mShowFPS;
+            } else if (mCameraSwipeTogglePressed) {
+                mSwipeCameraEnabled = !mSwipeCameraEnabled;
+                saveProfile();
             } else if (mEditorBtnPressed) {
                 // Enter editor mode
                 mShowSettings = false;
@@ -1181,7 +1280,17 @@ public class GamepadOverlayView extends View {
             mSettingsPointerId = -1;
             mSettingsClosePressed = false;
             mFpsTogglePressed = false;
+            mCameraSwipeTogglePressed = false;
             mEditorBtnPressed = false;
+            return;
+        }
+
+        // Handle swipe camera pointer release
+        if (mSwipeCameraEnabled && mSwipePointerId == pid) {
+            mSwipePointerId = -1;
+            mSwipeHandler.removeCallbacks(mSwipeResetRunnable);
+            SDLControllerManager.onNativeJoy(9999, 2, 0.0f);
+            SDLControllerManager.onNativeJoy(9999, 3, 0.0f);
             return;
         }
 
@@ -1216,6 +1325,7 @@ public class GamepadOverlayView extends View {
         mSettingsPointerId = -1;
         mSettingsClosePressed = false;
         mFpsTogglePressed = false;
+        mCameraSwipeTogglePressed = false;
         mEditorBtnPressed = false;
 
         if (mEditorMode) {
@@ -1459,6 +1569,12 @@ public class GamepadOverlayView extends View {
             // Reset joystick values to 0.0f
             SDLControllerManager.onNativeJoy(9999, i * 2, 0.0f);
             SDLControllerManager.onNativeJoy(9999, i * 2 + 1, 0.0f);
+        }
+        if (mSwipeCameraEnabled) {
+            mSwipePointerId = -1;
+            mSwipeHandler.removeCallbacks(mSwipeResetRunnable);
+            SDLControllerManager.onNativeJoy(9999, 2, 0.0f);
+            SDLControllerManager.onNativeJoy(9999, 3, 0.0f);
         }
     }
 
