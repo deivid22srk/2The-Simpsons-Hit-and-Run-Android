@@ -87,11 +87,27 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, j
             }
             Character* character = avatar->GetCharacter();
             if (character) {
+                // First check the current handler (existing logic)
                 ActionButton::ButtonHandler* handler = character->GetActionButtonHandler();
                 if (handler) {
                     ActionButton::ButtonHandler::Type type = handler->GetType();
                     if (type == ActionButton::ButtonHandler::GET_IN_CAR || type == ActionButton::ButtonHandler::GET_IN_USER_CAR) {
                         return 1; // Near Car
+                    }
+                }
+                
+                // Backup: Also check all action button handlers for any GET_IN_CAR handler
+                // This ensures the button shows even if a higher priority handler is active
+                for (unsigned int i = 0; i < MAX_ACTION_BUTTON_HANDLERS; ++i) {
+                    ActionButton::ButtonHandler* ah = character->GetActionButtonHandlerByIndex(i);
+                    if (ah) {
+                        ActionButton::ButtonHandler::Type type = ah->GetType();
+                        if (type == ActionButton::ButtonHandler::GET_IN_CAR || type == ActionButton::ButtonHandler::GET_IN_USER_CAR) {
+                            // Found a car entry handler, check if it's enabled
+                            if (ah->IsInstanceEnabled()) {
+                                return 1; // Near Car
+                            }
+                        }
                     }
                 }
             }

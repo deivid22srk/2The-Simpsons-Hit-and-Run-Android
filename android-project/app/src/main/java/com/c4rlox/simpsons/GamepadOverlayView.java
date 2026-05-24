@@ -83,28 +83,28 @@ public class GamepadOverlayView extends View {
     private static final int BTN_IDX_SETTINGS = 12;
 
     private static final Btn[] BTNS = {
-        // ── D-Pad (Xbox style: bottom-left, centered at x=0.215, y=0.780) ──────
-        new Btn("D-Pad: UP",    0.215f, 0.725f, 0.075f, 0.075f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.215f, 0.835f, 0.075f, 0.075f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.160f, 0.780f, 0.075f, 0.075f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.270f, 0.780f, 0.075f, 0.075f, 0),  // 3
-        // ── Face Buttons A/B/X/Y (Xbox style: top-right, centered at x=0.875, y=0.610) ──
-        new Btn("Face: A",      0.875f, 0.665f, 0.075f, 0.075f, 0),  // 4
-        new Btn("Face: B",      0.930f, 0.610f, 0.075f, 0.075f, 0),  // 5
-        new Btn("Face: X",      0.820f, 0.610f, 0.075f, 0.075f, 0),  // 6
-        new Btn("Face: Y",      0.875f, 0.555f, 0.075f, 0.075f, 0),  // 7
-        // ── Top buttons ─────────────────────────────────────────
-        new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
-        new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
-        new Btn("L1",           0.120f, 0.050f, 0.160f, 0.080f, 0),  // 10
-        new Btn("R1",           0.880f, 0.050f, 0.160f, 0.080f, 0),  // 11
-        new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
+        // ── D-Pad (Xbox style: bottom-left, centered at x=0.200, y=0.770) ──────
+        new Btn("D-Pad: UP",    0.200f, 0.710f, 0.090f, 0.090f, 0),  // 0 - Bigger, repositioned
+        new Btn("D-Pad: DOWN",  0.200f, 0.830f, 0.090f, 0.090f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.140f, 0.770f, 0.090f, 0.090f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.260f, 0.770f, 0.090f, 0.090f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (Xbox style: top-right, larger and repositioned) ──
+        new Btn("Face: A",      0.865f, 0.660f, 0.100f, 0.100f, 0),  // 4 - Bigger
+        new Btn("Face: B",      0.940f, 0.590f, 0.100f, 0.100f, 0),  // 5 - Bigger
+        new Btn("Face: X",      0.790f, 0.590f, 0.100f, 0.100f, 0),  // 6 - Bigger
+        new Btn("Face: Y",      0.865f, 0.520f, 0.100f, 0.100f, 0),  // 7 - Bigger
+        // ── Top buttons (bigger, repositioned) ──────────────────────────────────
+        new Btn("START",        0.560f, 0.040f, 0.140f, 0.070f, 0),  // 8
+        new Btn("SELECT",       0.400f, 0.040f, 0.140f, 0.070f, 0),  // 9
+        new Btn("L1",           0.100f, 0.035f, 0.180f, 0.090f, 0),  // 10 - Bigger
+        new Btn("R1",           0.900f, 0.035f, 0.180f, 0.090f, 0),  // 11 - Bigger
+        new Btn("CONFIG",       0.940f, 0.040f, 0.070f, 0.070f, 0),  // 12: Settings gear - Bigger
     };
 
     // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS = {
-        new Stk(0.125f, 0.610f, 0.090f),  // Left stick (Xbox style: top-left)
-        new Stk(0.785f, 0.780f, 0.090f),  // Right stick (Xbox style: bottom-right)
+        new Stk(0.120f, 0.600f, 0.110f),  // Left stick (bigger, repositioned to top-left)
+        new Stk(0.770f, 0.760f, 0.110f),  // Right stick (bigger, repositioned to bottom-right)
     };
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────

@@ -4248,6 +4248,30 @@ ActionButton::ButtonHandler* Character::GetActionButtonHandler( void ) const
 
 /*
 ==============================================================================
+Character::GetActionButtonHandlerByIndex
+==============================================================================
+Description:    Returns the action button handler at the specified index.
+                Used as a backup to check all handlers when the current handler
+                doesn't indicate car entry is available.
+
+Parameters:     ( unsigned int index )
+
+Return:         ActionButton::ButtonHandler*
+
+=============================================================================
+*/
+ActionButton::ButtonHandler* Character::GetActionButtonHandlerByIndex( unsigned int index ) const
+{
+    if ( index < MAX_ACTION_BUTTON_HANDLERS )
+    {
+        return mpActionButtonHandlers[ index ];
+    }
+    return NULL;
+}
+
+
+/*
+==============================================================================
 Character::AddActionButtonHandler
 ==============================================================================
 Description:    Comment

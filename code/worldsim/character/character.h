@@ -180,6 +180,7 @@ public: // MEMBERS
     void SetDesiredSpeed( float fDesiredSpeed );
 
     ActionButton::ButtonHandler* GetActionButtonHandler( void ) const;
+    ActionButton::ButtonHandler* GetActionButtonHandlerByIndex( unsigned int index ) const;
     void AddActionButtonHandler( ActionButton::ButtonHandler* pActionButtonHandler );
     void RemoveActionButtonHandler( ActionButton::ButtonHandler* pActionButtonHandler );
     void ClearAllActionButtonHandlers();
