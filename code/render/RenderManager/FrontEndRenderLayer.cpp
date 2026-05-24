@@ -33,6 +33,7 @@
 #endif
 #ifdef RAD_ANDROID
 #include <presentation/fmvplayer/fmvplayer.h>
+#include <input/touchGui.h>
 #endif
 
 
@@ -317,6 +318,13 @@ void FrontEndRenderLayer::Render()
 
         mpView[ view ]->EndRender();
     }
+
+#ifdef RAD_ANDROID
+    // Render the C++ TouchGui HUD overlay on top of everything.
+    if (TouchGui::GetInstance() && TouchGui::GetInstance()->IsVisible()) {
+        TouchGui::GetInstance()->Render();
+    }
+#endif
 
 #ifdef DEBUGWATCH
     mDebugRenderTime = radTimeGetMicroseconds() - mDebugRenderTime;

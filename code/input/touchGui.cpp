@@ -510,14 +510,11 @@ void TouchGui::Update(unsigned int /*elapsedTime*/)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Rendering — desktop debug builds only (Android uses Java overlay).
+//  Rendering — Android now uses C++ HUD (Java overlay disabled).
 // ═══════════════════════════════════════════════════════════════════════
 
 void TouchGui::Render()
 {
-#ifdef RAD_ANDROID
-    return; // HUD rendered by Java GamepadOverlayView
-#endif
     if (!mVisible) return;
 
     pddiRenderContext* pddi = p3d::pddi;
@@ -532,14 +529,38 @@ void TouchGui::Render()
     pddiRect fullScreen(0, 0, static_cast<int>(mScreenWidth), static_cast<int>(mScreenHeight));
     pddi->SetScissor(&fullScreen);
 
-    // Sticks
-    const pddiColour stickCol(255, 234, 2, 40);   // Simpsons Yellow, transparent
-    const pddiColour knobCol (17,  31,  161, 120); // Simpsons Blue
+    // ── Hub background vignette ───────────────────────────────────────
+    // A subtle semi-transparent overlay to make controls readable on
+    // any background (bright or dark).  The gradient-like appearance is
+    // achieved with a large inset rect with soft alpha.
+    const pddiColour hubBg(0, 0, 0, 30);   // very subtle dark tint
+    DrawRect(0.0f, 0.0f, mScreenWidth, mScreenHeight, hubBg);
+
+    // Bottom control area highlight (D-Pad & sticks zone)
+    const float bottomH = mScreenHeight * 0.35f;
+    const pddiColour areaTint(255, 234, 2, 12); // Simpsons Yellow, very faint
+    DrawRect(0.0f, mScreenHeight - bottomH, mScreenWidth, bottomH, areaTint);
+
+    // Top bar for L1/R1/Start/Select
+    const float topBarH = mScreenHeight * 0.12f;
+    const pddiColour topBarCol(17, 31, 161, 20); // Simpsons Blue, very faint
+    DrawRect(0.0f, 0.0f, mScreenWidth, topBarH, topBarCol);
+
+    // ── Sticks ────────────────────────────────────────────────────────
+    const pddiColour stickCol(255, 234, 2, 45);   // Simpsons Yellow, transparent
+    const pddiColour knobCol (17,  31,  161, 130); // Simpsons Blue
     RenderStick(mLeftStick,  stickCol, knobCol);
     RenderStick(mRightStick, stickCol, knobCol);
 
-    // Buttons
+    // ── Buttons ───────────────────────────────────────────────────────
     RenderButtons();
+
+    // ── Hub title (bottom-center subtle branding) ─────────────────────
+    const pddiColour titleCol(255, 234, 2, 60);
+    pddi->DrawString("SIMPSONS HIT & RUN",
+                     static_cast<int>(mScreenWidth * 0.5f - 80.0f),
+                     static_cast<int>(mScreenHeight - 20.0f),
+                     titleCol);
 
     pddi->PopState(PDDI_STATE_ALL);
 }

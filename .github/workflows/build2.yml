@@ -2,7 +2,7 @@ name: Build APK (NTSC Only)
 
 on:
   push:
-    branches: [ "main", "master", "feature/settings-fps-display" ]
+    branches: [ "main", "master", "feature/settings-fps-display", "feature/cpp-touch-hud-v2" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
