@@ -73,7 +73,6 @@ private:
     void DrawRect(float x, float y, float w, float h, pddiColour colour);
     void UpdateButton(int index, float x, float y, bool down, SDL_FingerID fingerId);
     void UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId);
-    void ReleaseAllInputs();
     void AutoReleaseIfStale(UserController* controller);
 };
 

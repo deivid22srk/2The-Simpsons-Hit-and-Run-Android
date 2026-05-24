@@ -151,7 +151,8 @@ public class GamepadOverlayView extends View {
 
         Resources res = getResources();
 
-        // Mapeamento: indice do botao -> nome do recurso drawable            int[] resIds = {
+        // Mapeamento: indice do botao -> nome do recurso drawable
+        int[] resIds = {
             R.drawable.dpad_up,            // 0: UP
             R.drawable.dpad_down,          // 1: DOWN
             R.drawable.dpad_left,          // 2: LEFT
