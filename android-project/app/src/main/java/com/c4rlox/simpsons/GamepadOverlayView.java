@@ -14,6 +14,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
+import android.content.SharedPreferences;
 import org.libsdl.app.R;
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLControllerManager;
@@ -298,8 +299,72 @@ public class GamepadOverlayView extends View {
             mStickKnobX[i] = STKS[i].cx;
             mStickKnobY[i] = STKS[i].cy;
         }
+    }
 
-        Log.i(TAG, "All controls reset to original values");
+    // ── Save/Load layout profiles using SharedPreferences ─────────────
+    private void saveProfile() {
+        Context context = getContext();
+        if (context == null) return;
+        SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sp.edit();
+
+        for (int i = 0; i < BTNS.length; i++) {
+            Btn b = BTNS[i];
+            editor.putFloat("btn_" + i + "_nx", b.nx);
+            editor.putFloat("btn_" + i + "_ny", b.ny);
+            editor.putFloat("btn_" + i + "_nw", b.nw);
+            editor.putFloat("btn_" + i + "_nh", b.nh);
+            editor.putInt("btn_" + i + "_alpha", b.alpha);
+        }
+        for (int i = 0; i < STKS.length; i++) {
+            Stk s = STKS[i];
+            editor.putFloat("stk_" + i + "_ncx", s.ncx);
+            editor.putFloat("stk_" + i + "_ncy", s.ncy);
+            editor.putFloat("stk_" + i + "_nr", s.nr);
+            editor.putInt("stk_" + i + "_baseAlpha", s.baseAlpha);
+            editor.putInt("stk_" + i + "_knobAlpha", s.knobAlpha);
+        }
+        editor.apply();
+        Log.i(TAG, "Profile saved successfully");
+    }
+
+    private void loadProfile() {
+        Context context = getContext();
+        if (context == null) return;
+        SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
+        
+        // If no saved settings exist, do nothing (use default layout)
+        if (!sp.contains("btn_0_nx")) {
+            return;
+        }
+
+        for (int i = 0; i < BTNS.length; i++) {
+            Btn b = BTNS[i];
+            b.nx = sp.getFloat("btn_" + i + "_nx", b.nx);
+            b.ny = sp.getFloat("btn_" + i + "_ny", b.ny);
+            b.nw = sp.getFloat("btn_" + i + "_nw", b.nw);
+            b.nh = sp.getFloat("btn_" + i + "_nh", b.nh);
+            b.alpha = sp.getInt("btn_" + i + "_alpha", b.alpha);
+        }
+        for (int i = 0; i < STKS.length; i++) {
+            Stk s = STKS[i];
+            s.ncx = sp.getFloat("stk_" + i + "_ncx", s.ncx);
+            s.ncy = sp.getFloat("stk_" + i + "_ncy", s.ncy);
+            s.nr = sp.getFloat("stk_" + i + "_nr", s.nr);
+            s.baseAlpha = sp.getInt("stk_" + i + "_baseAlpha", s.baseAlpha);
+            s.knobAlpha = sp.getInt("stk_" + i + "_knobAlpha", s.knobAlpha);
+        }
+        
+        final int w = getWidth();
+        final int h = getHeight();
+        if (w > 0 && h > 0) {
+            recalcAllRects(w, h);
+            for (int i = 0; i < STKS.length; i++) {
+                mStickKnobX[i] = STKS[i].cx;
+                mStickKnobY[i] = STKS[i].cy;
+            }
+        }
+        Log.i(TAG, "Profile loaded successfully");
     }
 
     // ── Recalculate a single button's rect ────────────────────────────
@@ -423,6 +488,7 @@ public class GamepadOverlayView extends View {
         // Save originals for Reset
         if (oldw == 0 || oldh == 0) {
             saveOrigins();
+            loadProfile();
         }
 
         loadBitmaps();
@@ -1305,6 +1371,7 @@ public class GamepadOverlayView extends View {
         if (mEditorPointerId != pid) return;
         mEditorPointerId = -1;
         mEditorDragging = false;
+        saveProfile();
 
         final int w = getWidth();
         final int h = getHeight();
@@ -1314,16 +1381,22 @@ public class GamepadOverlayView extends View {
             mEditorMode = false;
             mEditorSelectedIdx = -1;
             Log.i(TAG, "Editor: closed");
+            saveProfile();
         } else if (mEditorResetPressed && mEditorSelectedIdx != -1) {
             resetToOrigins();
+            saveProfile();
         } else if (mEditorSizeDownPressed && mEditorSelectedIdx != -1) {
             adjustSize(-EDITOR_SIZE_STEP, w, h);
+            saveProfile();
         } else if (mEditorSizeUpPressed && mEditorSelectedIdx != -1) {
             adjustSize(EDITOR_SIZE_STEP, w, h);
+            saveProfile();
         } else if (mEditorAlphaDownPressed && mEditorSelectedIdx != -1) {
             adjustAlpha(-EDITOR_ALPHA_STEP);
+            saveProfile();
         } else if (mEditorAlphaUpPressed && mEditorSelectedIdx != -1) {
             adjustAlpha(EDITOR_ALPHA_STEP);
+            saveProfile();
         }
 
         mEditorSizeDownPressed = false;
