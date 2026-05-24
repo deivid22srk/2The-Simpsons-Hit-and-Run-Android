@@ -2,7 +2,7 @@ name: Build APK (NTSC Only)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "feature/settings-fps-display" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -43,3 +43,78 @@ jobs:
       with:
         name: SimpsonHitAndRun-NTSC
         path: android-project/app/build/outputs/apk/ntsc/release/*.apk
+
+    - name: Upload APK to Buzzheavier
+      run: |
+        APK_PATH=$(find android-project/app/build/outputs/apk/ntsc/release -name "*.apk" | head -1)
+        if [ -z "$APK_PATH" ]; then
+          echo "❌ No APK found!"
+          exit 1
+        fi
+        echo "📤 Uploading $APK_PATH to Buzzheavier..."
+        HTTP_CODE=$(curl -s -o /tmp/buzz_response.json -w '%{http_code}' -T "$APK_PATH" "https://w.buzzheavier.com/simpsons-hr-${GITHUB_SHA::7}.apk")
+        RESPONSE=$(cat /tmp/buzz_response.json)
+        echo "📥 Buzzheavier HTTP $HTTP_CODE: $RESPONSE"
+        if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+          echo "❌ Buzzheavier upload failed with HTTP $HTTP_CODE"
+          exit 1
+        fi
+        BUZZ_CODE=$(echo "$RESPONSE" | jq -r '.code')
+        if [ "$BUZZ_CODE" != "201" ]; then
+          echo "❌ Buzzheavier returned code $BUZZ_CODE (expected 201)"
+          exit 1
+        fi
+        BUZZ_ID=$(echo "$RESPONSE" | jq -r '.data.id')
+        if [ -z "$BUZZ_ID" ] || [ "$BUZZ_ID" = "null" ]; then
+          echo "❌ Failed to extract Buzzheavier ID from response"
+          exit 1
+        fi
+        BUZZ_LINK="https://buzzheavier.com/$BUZZ_ID"
+        echo "✅ Buzzheavier link: $BUZZ_LINK"
+        echo "BUZZ_LINK=$BUZZ_LINK" >> $GITHUB_ENV
+
+    - name: Setup Node.js for Supabase publish
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install Supabase client
+      run: npm install @supabase/supabase-js ws --no-save
+
+    - name: Publish version to Supabase
+      env:
+        SUPABASE_URL: https://dbvmkochemjmeyookgsu.supabase.co
+        SUPABASE_KEY: ${{ secrets.Supabasekey }}
+        COMMIT_SHA: ${{ github.sha }}
+        REF_NAME: ${{ github.ref_name }}
+      run: |
+        node << EOF
+        const { createClient } = require('@supabase/supabase-js');
+        const ws = require('ws');
+        const url = process.env.SUPABASE_URL;
+        const key = process.env.SUPABASE_KEY;
+        const buzzLink = '$BUZZ_LINK';
+        const sha = process.env.COMMIT_SHA;
+        const ref = process.env.REF_NAME;
+        console.log('📡 Connecting to Supabase...');
+        const supabase = createClient(url, key, {
+          realtime: { transport: ws }
+        });
+        console.log('📤 Publishing version to Supabase with link: ' + buzzLink);
+        supabase.from('versions').insert([{
+          version_code: 'debug-' + sha.substring(0, 7),
+          title: 'Debug Build - ' + sha.substring(0, 7),
+          description: 'Automated debug build from commit ' + sha + ' on branch ' + ref,
+          download_url: buzzLink,
+          is_stable: false,
+          change_log: ['Automated CI build from GitHub Actions (build2.yml)'],
+          ai_involvement: ''
+        }]).select().then(({ data, error }) => {
+          if (error) { console.error('❌ Supabase error:', JSON.stringify(error)); process.exit(1); }
+          if (!data || data.length === 0) { console.error('❌ No data returned from Supabase'); process.exit(1); }
+          console.log('✅ Version published:', JSON.stringify(data[0]));
+        }).catch(err => {
+          console.error('❌ Supabase request failed:', err.message || err);
+          process.exit(1);
+        });
+        EOF

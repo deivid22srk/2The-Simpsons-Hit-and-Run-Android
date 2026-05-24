@@ -19,6 +19,10 @@ import org.libsdl.app.SDLActivity;
 /**
  * HUD de controle touch que sobrepoe a SDLSurface usando icones Xbox.
  * Botoes usam bitmaps dos assets; sticks sao desenhados como circulos.
+ *
+ * Tambem inclui icone de configuracoes (engrenagem) que abre um painel
+ * de configuracoes com toggle para exibir/ocultar o FPS real do jogo,
+ * obtido via ponte JNI (SimpsonsActivity.nativeGetFPS).
  */
 public class GamepadOverlayView extends View {
 
@@ -28,6 +32,14 @@ public class GamepadOverlayView extends View {
     // ── Cores tema Simpsons ───────────────────────────────────────────
     private static final int STK_BASE_ALPHA = 120;
     private static final int STK_KNOB_ALPHA = 140;
+
+    // ── Settings UI constants ─────────────────────────────────────────
+    private static final int SETTINGS_PANEL_ALPHA = 200;
+    private static final int SETTINGS_TEXT_COLOR  = Color.WHITE;
+    private static final int SETTINGS_BG_COLOR    = Color.argb(SETTINGS_PANEL_ALPHA, 20, 20, 50);
+    private static final int SETTINGS_TOGGLE_ON   = Color.rgb(0, 200, 100);
+    private static final int SETTINGS_TOGGLE_OFF  = Color.rgb(100, 100, 100);
+    private static final int SETTINGS_ACCENT      = Color.rgb(255, 234, 2); // Simpsons yellow
 
     // ── Classes de dados ──────────────────────────────────────────────
     private static class Btn {
@@ -53,7 +65,9 @@ public class GamepadOverlayView extends View {
     }
 
     // ── Definicões de botoes (coord normalizadas) ─────────────────────
-    // Botoes maiores e melhor espacados para ergonomia mobile.
+    // Index 12 = Settings (gear)
+    private static final int BTN_IDX_SETTINGS = 12;
+
     private static final Btn[] BTNS = {
         new Btn("UP",     0.16f, 0.70f, 0.10f, 0.10f, 0),  // 0
         new Btn("DOWN",   0.16f, 0.88f, 0.10f, 0.10f, 0),  // 1
@@ -67,14 +81,21 @@ public class GamepadOverlayView extends View {
         new Btn("SELECT", 0.43f, 0.04f, 0.12f, 0.06f, 0),  // 9
         new Btn("L1",     0.14f, 0.04f, 0.14f, 0.08f, 0),  // 10
         new Btn("R1",     0.86f, 0.04f, 0.14f, 0.08f, 0),  // 11
+        new Btn("SET",    0.92f, 0.06f, 0.06f, 0.06f, 0),  // 12: Settings gear (top right)
     };
 
     // ── Definicões de sticks ──────────────────────────────────────────
-    // Sticks maiores e mais abaixo para evitar overlap com D-Pad/face buttons.
     private static final Stk[] STKS = {
         new Stk(0.16f, 0.52f, 0.12f),
         new Stk(0.84f, 0.52f, 0.12f),
     };
+
+    // ── Settings panel geometry (normalised, recalculated onSizeChanged) ──
+    private RectF mSettingsPanelRect = new RectF();
+    // FPS toggle switch rect inside settings panel
+    private RectF mFpsToggleRect = new RectF();
+    // Close button inside settings panel
+    private RectF mSettingsCloseRect = new RectF();
 
     // ── Estado de toque (multi-touch real) ────────────────────────────
     private int[] mButtonPointerIds = new int[BTNS.length];  // -1 = não pressionado
@@ -89,6 +110,35 @@ public class GamepadOverlayView extends View {
     private Paint mPStkBase;
     private Paint mPStkKnob;
     private Paint mPBmp;  // reused in onDraw to avoid per-frame allocation
+
+    // ── Settings state ────────────────────────────────────────────────
+    private boolean mShowSettings = false;
+    private boolean mShowFPS      = false;
+    private boolean mNativeAvailable = false;  // set true on first successful JNI call
+
+    // ── Settings touch tracking ───────────────────────────────────────
+    private int mSettingsPointerId = -1;  // finger holding settings panel
+    private boolean mSettingsClosePressed = false;
+    private boolean mFpsTogglePressed = false;
+
+    // ── Pre-allocated Paints (to avoid per-frame GC) ──────────────────
+    // Gear icon paints
+    private Paint mGearStrokePaint;
+    private Paint mGearDotPaint;
+    // Settings panel paints
+    private Paint mPanelBgPaint;
+    private Paint mPanelBorderPaint;
+    private Paint mPanelTitlePaint;
+    private Paint mPanelLinePaint;
+    private Paint mPanelLabelPaint;
+    private Paint mToggleBgPaint;
+    private Paint mToggleThumbPaint;
+    private Paint mToggleTextPaint;
+    private Paint mFpsValuePaint;
+    private Paint mCloseBtnPaint;
+    // FPS overlay paints
+    private Paint mFpsBgPaint;
+    private Paint mFpsTextPaint;
 
     // ── Construtor ────────────────────────────────────────────────────
     public GamepadOverlayView(Context ctx) {
@@ -124,6 +174,28 @@ public class GamepadOverlayView extends View {
             s.r = s.nr * minDim;
         }
 
+        // Settings panel: centered rectangle covering ~60% of screen
+        float panelW = w * 0.60f;
+        float panelH = h * 0.50f;
+        float panelL = (w - panelW) / 2f;
+        float panelT = (h - panelH) / 2f;
+        mSettingsPanelRect.set(panelL, panelT, panelL + panelW, panelT + panelH);
+
+        // Close button (X): top-right of panel
+        float closeSize = Math.min(w, h) * 0.04f;
+        mSettingsCloseRect.set(
+            mSettingsPanelRect.right - closeSize - 10f,
+            mSettingsPanelRect.top + 10f,
+            mSettingsPanelRect.right - 10f,
+            mSettingsPanelRect.top + 10f + closeSize);
+
+        // FPS toggle: middle of panel
+        float toggleW = panelW * 0.5f;
+        float toggleH = panelH * 0.12f;
+        float toggleL = panelL + (panelW - toggleW) / 2f;
+        float toggleT = panelT + panelH * 0.40f;
+        mFpsToggleRect.set(toggleL, toggleT, toggleL + toggleW, toggleT + toggleH);
+
         // Inicializa knobs dos sticks no centro
         for (int i = 0; i < STKS.length; i++) {
             mStickKnobX[i] = STKS[i].cx;
@@ -141,6 +213,26 @@ public class GamepadOverlayView extends View {
         mPStkKnob.setColor(Color.argb(STK_KNOB_ALPHA, 255, 255, 255));
 
         mPBmp = new Paint(Paint.FILTER_BITMAP_FLAG);
+
+        // Pre-allocated paints for gear icon
+        mGearStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mGearDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        // Pre-allocated paints for settings panel
+        mPanelBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPanelBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPanelTitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPanelLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPanelLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mToggleBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mToggleThumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mToggleTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mFpsValuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mCloseBtnPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        // Pre-allocated paints for FPS overlay
+        mFpsBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mFpsTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         // Carrega e escala bitmaps
         loadBitmaps();
@@ -171,17 +263,17 @@ public class GamepadOverlayView extends View {
             R.drawable.button_select_view, // 9: SELECT
             R.drawable.button_lt,          // 10: L1
             R.drawable.button_lt,          // 11: R1 (flipped in onDraw)
+            0,                             // 12: SETTINGS (drawn programmatically)
         };
 
         for (int i = 0; i < BTNS.length; i++) {
             int resId = resIds[i];
-            if (resId == 0) continue;
+            if (resId == 0) continue; // skip settings button (no bitmap)
 
             Bitmap raw = BitmapFactory.decodeResource(res, resId);
             if (raw == null) continue;
 
             Btn b = BTNS[i];
-            // Mantem aspect ratio do bitmap original para evitar esticamento
             float targetW = b.rect.width();
             float targetH = b.rect.height();
             float scale = Math.min(targetW / raw.getWidth(), targetH / raw.getHeight());
@@ -189,7 +281,6 @@ public class GamepadOverlayView extends View {
             int bh = Math.max(1, (int)(raw.getHeight() * scale));
 
             if (i == 10 || i == 11) {
-                // L1 / R1: flip horizontal para parecer shoulder direita/esquerda
                 Bitmap scaled = Bitmap.createScaledBitmap(raw, bw, bh, true);
                 Matrix matrix = new Matrix();
                 matrix.preScale(i == 11 ? -1f : 1f, 1f);
@@ -210,10 +301,8 @@ public class GamepadOverlayView extends View {
         // Desenha sticks (circulos)
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
-            // Base do stick
             canvas.drawCircle(s.cx, s.cy, s.r, mPStkBase);
 
-            // Knob — usa a posicao do stick ativo, ou centro como fallback
             float kx = mStickKnobX[i];
             float ky = mStickKnobY[i];
             canvas.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
@@ -221,15 +310,193 @@ public class GamepadOverlayView extends View {
 
         // Desenha botoes (bitmaps)
         for (int i = 0; i < BTNS.length; i++) {
+            Btn b = BTNS[i];
+
+            if (i == BTN_IDX_SETTINGS) {
+                // Draw settings gear icon programmatically
+                drawSettingsGear(canvas, b);
+                continue;
+            }
+
             Bitmap bmp = mBtnBmps[i];
             if (bmp == null) continue;
 
-            Btn b = BTNS[i];
             int alpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
-
             mPBmp.setAlpha(alpha);
             canvas.drawBitmap(bmp, b.rect.left, b.rect.top, mPBmp);
         }
+
+        // ── Settings panel (drawn on top) ─────────────────────────────
+        if (mShowSettings) {
+            drawSettingsPanel(canvas);
+        }
+
+        // ── FPS display (drawn when enabled, top-left corner) ─────────
+        if (mShowFPS) {
+            drawFPSDisplay(canvas);
+            // Keep redrawing continuously while FPS is visible.
+            // Without this, onDraw only fires on touch events and the
+            // FPS counter appears frozen when the user isn't touching.
+            postInvalidateDelayed(33); // ~30 fps refresh for the overlay
+        }
+    }
+
+    // ── Settings gear icon (drawn programmatically) ───────────────────
+    private void drawSettingsGear(Canvas canvas, Btn b) {
+        float cx = b.rect.centerX();
+        float cy = b.rect.centerY();
+        float r = b.rect.width() * 0.38f;
+        float rInner = r * 0.55f;
+
+        boolean pressed = mButtonPointerIds[BTN_IDX_SETTINGS] != -1;
+        int gearColor = pressed ? SETTINGS_ACCENT : Color.argb(180, 255, 255, 255);
+
+        mGearStrokePaint.setStyle(Paint.Style.STROKE);
+        mGearStrokePaint.setStrokeWidth(r * 0.22f);
+        mGearStrokePaint.setColor(gearColor);
+
+        // Draw gear teeth (8 teeth)
+        int teeth = 8;
+        for (int i = 0; i < teeth; i++) {
+            double angle = (Math.PI * 2 * i) / teeth;
+            float sx = cx + (float)(Math.cos(angle) * r);
+            float sy = cy + (float)(Math.sin(angle) * r);
+            float ex = cx + (float)(Math.cos(angle) * rInner);
+            float ey = cy + (float)(Math.sin(angle) * rInner);
+            canvas.drawLine(sx, sy, ex, ey, mGearStrokePaint);
+        }
+
+        // Draw outer ring
+        mGearStrokePaint.setStyle(Paint.Style.STROKE);
+        mGearStrokePaint.setStrokeWidth(r * 0.15f);
+        canvas.drawCircle(cx, cy, r, mGearStrokePaint);
+
+        // Draw inner dot
+        mGearDotPaint.setStyle(Paint.Style.FILL);
+        mGearDotPaint.setColor(gearColor);
+        canvas.drawCircle(cx, cy, r * 0.35f, mGearDotPaint);
+    }
+
+    // ── Settings panel ────────────────────────────────────────────────
+    private void drawSettingsPanel(Canvas canvas) {
+        float left = mSettingsPanelRect.left;
+        float top = mSettingsPanelRect.top;
+        float right = mSettingsPanelRect.right;
+        float w = mSettingsPanelRect.width();
+        float h = mSettingsPanelRect.height();
+
+        // Panel background
+        mPanelBgPaint.setStyle(Paint.Style.FILL);
+        mPanelBgPaint.setColor(SETTINGS_BG_COLOR);
+        canvas.drawRoundRect(mSettingsPanelRect, 16f, 16f, mPanelBgPaint);
+
+        // Panel border
+        mPanelBorderPaint.setStyle(Paint.Style.STROKE);
+        mPanelBorderPaint.setStrokeWidth(3f);
+        mPanelBorderPaint.setColor(SETTINGS_ACCENT);
+        canvas.drawRoundRect(mSettingsPanelRect, 16f, 16f, mPanelBorderPaint);
+
+        // Title text
+        mPanelTitlePaint.setColor(SETTINGS_TEXT_COLOR);
+        mPanelTitlePaint.setTextSize(h * 0.08f);
+        mPanelTitlePaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("CONFIGURACOES", left + w / 2f, top + h * 0.12f, mPanelTitlePaint);
+
+        // Separator line
+        mPanelLinePaint.setColor(Color.argb(100, 255, 255, 255));
+        mPanelLinePaint.setStrokeWidth(1f);
+        float lineY = top + h * 0.17f;
+        canvas.drawLine(left + w * 0.1f, lineY, right - w * 0.1f, lineY, mPanelLinePaint);
+
+        // FPS toggle label
+        mPanelLabelPaint.setColor(SETTINGS_TEXT_COLOR);
+        mPanelLabelPaint.setTextSize(h * 0.055f);
+        mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
+        canvas.drawText("Exibir FPS", left + w * 0.1f,
+                         mFpsToggleRect.top - h * 0.02f, mPanelLabelPaint);
+
+        // FPS toggle switch background
+        mToggleBgPaint.setStyle(Paint.Style.FILL);
+        mToggleBgPaint.setColor(mShowFPS ? SETTINGS_TOGGLE_ON : SETTINGS_TOGGLE_OFF);
+        float toggleRound = mFpsToggleRect.height() / 2f;
+        canvas.drawRoundRect(mFpsToggleRect, toggleRound, toggleRound, mToggleBgPaint);
+
+        // Toggle thumb
+        float thumbSize = mFpsToggleRect.height() * 0.7f;
+        float thumbX = mShowFPS
+            ? mFpsToggleRect.right - thumbSize - 5f
+            : mFpsToggleRect.left + 5f;
+        float thumbY = mFpsToggleRect.centerY();
+        mToggleThumbPaint.setStyle(Paint.Style.FILL);
+        mToggleThumbPaint.setColor(Color.WHITE);
+        canvas.drawCircle(thumbX, thumbY, thumbSize / 2f, mToggleThumbPaint);
+
+        // Toggle text (ON/OFF)
+        mToggleTextPaint.setColor(Color.WHITE);
+        mToggleTextPaint.setTextSize(thumbSize * 0.6f);
+        mToggleTextPaint.setTextAlign(Paint.Align.CENTER);
+        String toggleLabel = mShowFPS ? "ON" : "OFF";
+        float labelOffsetX = mShowFPS ? -thumbSize / 2f - 5f : thumbSize / 2f + 5f;
+        canvas.drawText(toggleLabel,
+            mFpsToggleRect.centerX() + labelOffsetX,
+            mFpsToggleRect.centerY() + thumbSize * 0.25f,
+            mToggleTextPaint);
+
+        // FPS current value text
+        if (mShowFPS && mNativeAvailable) {
+            float fps = SimpsonsActivity.nativeGetFPS();
+            mFpsValuePaint.setColor(SETTINGS_ACCENT);
+            mFpsValuePaint.setTextSize(h * 0.05f);
+            mFpsValuePaint.setTextAlign(Paint.Align.CENTER);
+            canvas.drawText(String.format("FPS atual: %.1f", fps),
+                left + w / 2f, mFpsToggleRect.bottom + h * 0.08f, mFpsValuePaint);
+        }
+
+        // Close button (X)
+        mCloseBtnPaint.setStyle(Paint.Style.STROKE);
+        mCloseBtnPaint.setStrokeWidth(3f);
+        mCloseBtnPaint.setColor(mSettingsClosePressed ? SETTINGS_ACCENT : Color.argb(180, 255, 255, 255));
+        float cx = mSettingsCloseRect.centerX();
+        float cy = mSettingsCloseRect.centerY();
+        float half = mSettingsCloseRect.width() / 2f;
+        canvas.drawLine(cx - half, cy - half, cx + half, cy + half, mCloseBtnPaint);
+        canvas.drawLine(cx + half, cy - half, cx - half, cy + half, mCloseBtnPaint);
+    }
+
+    // ── FPS display (top-left corner overlay) ─────────────────────────
+    private void drawFPSDisplay(Canvas canvas) {
+        // Avoid per-frame UnsatisfiedLinkError — check once
+        if (!mNativeAvailable) {
+            try {
+                SimpsonsActivity.nativeGetFPS();
+                mNativeAvailable = true;
+            } catch (UnsatisfiedLinkError e) {
+                // JNI not yet loaded — silently skip
+                return;
+            }
+        }
+
+        float fps = SimpsonsActivity.nativeGetFPS();
+
+        mFpsBgPaint.setStyle(Paint.Style.FILL);
+        mFpsBgPaint.setColor(Color.argb(140, 0, 0, 0));
+
+        float textSize = getHeight() * 0.035f;
+        float boxW = textSize * 5f;
+        float boxH = textSize * 1.6f;
+        float margin = 10f;
+
+        canvas.drawRoundRect(margin, margin, margin + boxW, margin + boxH, 8f, 8f, mFpsBgPaint);
+
+        mFpsTextPaint.setColor(Color.argb(255, 0, 255, 100)); // green
+        mFpsTextPaint.setTextSize(textSize);
+        mFpsTextPaint.setTextAlign(Paint.Align.LEFT);
+        mFpsTextPaint.setFakeBoldText(true);
+
+        canvas.drawText(String.format("FPS: %.1f", fps),
+            margin + textSize * 0.3f,
+            margin + textSize * 1.1f,
+            mFpsTextPaint);
     }
 
     // ── Touch event handling ──────────────────────────────────────────
@@ -290,11 +557,54 @@ public class GamepadOverlayView extends View {
     }
 
     private void handleDown(float x, float y, int pid) {
-        // Botoes primeiro (mais precisos)
+        // ── Settings panel interactions (when visible) ────────────────
+        if (mShowSettings) {
+            // Settings panel steals all touches when visible.
+            // Check close button first.
+            if (mSettingsCloseRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mSettingsClosePressed = true;
+                Log.i(TAG, "Settings close button pressed");
+                return;
+            }
+            // Check FPS toggle
+            if (mFpsToggleRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mFpsTogglePressed = true;
+                Log.i(TAG, "FPS toggle pressed");
+                return;
+            }
+            // Tapping outside panel closes it
+            if (!mSettingsPanelRect.contains(x, y)) {
+                mShowSettings = false;
+                Log.i(TAG, "Settings panel closed (tap outside)");
+                return;
+            }
+            // Tap inside panel (non-interactive area) — consume but do nothing
+            mSettingsPointerId = pid;
+            return;
+        }
+
+        // ── Normal HUD interaction ────────────────────────────────────
+        // Settings button (check first, before other buttons — it's a special UI element)
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == -1 && BTNS[i].rect.contains(x, y)) {
                 mButtonPointerIds[i] = pid;
-                Log.i(TAG, String.format("BTN %s PRESSED pid=%d pos=(%.3f,%.3f)", BTNS[i].label, pid, x / getWidth(), y / getHeight()));
+                String label = BTNS[i].label;
+                Log.i(TAG, String.format("BTN %s PRESSED pid=%d pos=(%.3f,%.3f)", label, pid, x / getWidth(), y / getHeight()));
+
+                if (i == BTN_IDX_SETTINGS) {
+                    // Toggle settings panel
+                    mShowSettings = !mShowSettings;
+                    mButtonPointerIds[i] = -1; // instant release — it's a toggle, not a hold
+                    Log.i(TAG, "Settings panel " + (mShowSettings ? "opened" : "closed"));
+
+                    // When settings opens, release all active game inputs to prevent
+                    // stuck buttons/sticks (SDL won't receive ACTION_UP while panel is open).
+                    if (mShowSettings) {
+                        releaseAllGameInputs();
+                    }
+                }
                 return;
             }
         }
@@ -313,11 +623,23 @@ public class GamepadOverlayView extends View {
     }
 
     private void handleMove(float x, float y, int pid) {
+        // ── Settings panel drag handling ──────────────────────────────
+        if (mShowSettings && mSettingsPointerId == pid) {
+            // Update close button pressed state
+            boolean wasClosePressed = mSettingsClosePressed;
+            mSettingsClosePressed = mSettingsCloseRect.contains(x, y);
+            mFpsTogglePressed = mFpsToggleRect.contains(x, y);
+            if (wasClosePressed != mSettingsClosePressed || mFpsTogglePressed) {
+                // state changed, invalidate
+            }
+            return;
+        }
+
         // Atualiza sticks ativos para este pointer
         for (int i = 0; i < STKS.length; i++) {
             if (mStickPointerIds[i] == pid) {
                 clampKnob(i, x, y);
-                return; // um dedo so controla um stick
+                return;
             }
         }
         // Atualiza botoes: libera se saiu do rect
@@ -330,6 +652,21 @@ public class GamepadOverlayView extends View {
     }
 
     private void handleUp(int pid) {
+        // ── Settings panel touch up ───────────────────────────────────
+        if (mShowSettings && mSettingsPointerId == pid) {
+            if (mSettingsClosePressed) {
+                mShowSettings = false;
+                Log.i(TAG, "Settings panel closed via X button");
+            } else if (mFpsTogglePressed) {
+                mShowFPS = !mShowFPS;
+                Log.i(TAG, "FPS display toggled: " + (mShowFPS ? "ON" : "OFF"));
+            }
+            mSettingsPointerId = -1;
+            mSettingsClosePressed = false;
+            mFpsTogglePressed = false;
+            return;
+        }
+
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid) {
                 Log.i(TAG, String.format("BTN %s RELEASED pid=%d", BTNS[i].label, pid));
@@ -347,6 +684,14 @@ public class GamepadOverlayView extends View {
     }
 
     private void handleCancel() {
+        releaseAllGameInputs();
+        mSettingsPointerId = -1;
+        mSettingsClosePressed = false;
+        mFpsTogglePressed = false;
+    }
+
+    /** Release all button and stick inputs and reset knobs to center. */
+    private void releaseAllGameInputs() {
         int btnCount = 0, stkCount = 0;
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] != -1) btnCount++;
@@ -359,7 +704,7 @@ public class GamepadOverlayView extends View {
             mStickKnobY[i] = STKS[i].cy;
         }
         if (btnCount > 0 || stkCount > 0) {
-            Log.w(TAG, String.format("ACTION_CANCEL: released %d button(s) + %d stick(s)", btnCount, stkCount));
+            Log.i(TAG, String.format("Released %d button(s) + %d stick(s)", btnCount, stkCount));
         }
     }
 
@@ -374,6 +719,9 @@ public class GamepadOverlayView extends View {
 
         final int action = ev.getActionMasked();
         final int pointerCount = ev.getPointerCount();
+
+        // When settings panel is visible, don't forward non-game touches to SDL
+        if (mShowSettings) return;
 
         switch (action) {
             case MotionEvent.ACTION_MOVE:
@@ -395,7 +743,6 @@ public class GamepadOverlayView extends View {
                 break;
             case MotionEvent.ACTION_CANCEL:
                 Log.w(TAG, String.format("forwardToSDL ACTION_CANCEL: sending UP for %d pointer(s)", pointerCount));
-                // Envia release para todos os pontos ativos para evitar botao preso
                 for (int i = 0; i < pointerCount; i++) {
                     sendTouch(ev, i, touchDevId, MotionEvent.ACTION_UP, w, h);
                 }
@@ -417,7 +764,6 @@ public class GamepadOverlayView extends View {
         float p = ev.getPressure(i);
         if (p > 1f) p = 1f;
 
-        // Log all non-MOVE events at debug level (MOVE would be too noisy)
         if (action != MotionEvent.ACTION_MOVE) {
             Log.d(TAG, String.format("sendTouch action=%s pid=%d devId=%d pos=(%.3f,%.3f) pressure=%.2f",
                      actionName(action), pointerFingerId, touchDevId, x, y, p));

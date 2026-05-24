@@ -137,6 +137,7 @@ set(SRR2_SOURCES
 	"loading/scroobyfilehandler.cpp"
 	"loading/soundfilehandler.cpp"
 	"main/commandlineoptions.cpp"
+	"main/fpscounter.cpp"
 	"main/game.cpp"
 	"main/pchsrr2.cpp"
 	"main/singletons.cpp"

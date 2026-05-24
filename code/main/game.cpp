@@ -54,6 +54,7 @@
 #include <input/inputmanager.h>
 #ifdef RAD_ANDROID
 #include <input/touchGui.h>
+#include <main/fpscounter.h>
 #endif
 
 //******************************************************************************
@@ -398,6 +399,9 @@ void Game::Initialize()
 #ifdef RAD_ANDROID
     TouchGui::CreateInstance();
     TouchGui::GetInstance()->Init();
+
+    // Create FPS counter for Java HUD bridge.
+    g_FPSCounter = new(GMA_PERSISTENT) FPSCounter();
 #endif
 
 #ifdef RAD_E3
@@ -425,6 +429,10 @@ void Game::Terminate()
 {
 #ifdef RAD_ANDROID
     TouchGui::DestroyInstance();
+    if (g_FPSCounter) {
+        delete g_FPSCounter;
+        g_FPSCounter = NULL;
+    }
 #endif
 
     rAssert( mpGameFlow != NULL );
@@ -630,6 +638,13 @@ void Game::Run()
         DEMOPROFILE( g_DemoProfiler.Stop(PROFILE_CHANNEL_LOAD); )
 
         ++mFrameCount;
+
+#ifdef RAD_ANDROID
+        // Update FPS counter every frame for Java HUD bridge.
+        if (g_FPSCounter) {
+            g_FPSCounter->Update();
+        }
+#endif
 
         DEMOPROFILE( g_DemoProfiler.Stop(PROFILE_CHANNEL_ALL); )
 
