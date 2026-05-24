@@ -20,6 +20,7 @@ public class SimpsonsActivity extends SDLActivity {
     // ── Native bridge: real-time FPS from C++ game loop ──────────────
     // Called by GamepadOverlayView each frame to query smoothed FPS.
     public static native float nativeGetFPS();
+    public static native int nativeGetHudContext();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

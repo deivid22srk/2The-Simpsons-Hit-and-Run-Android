@@ -150,6 +150,7 @@ public class GamepadOverlayView extends View {
     private RectF mSettingsPanelRect = new RectF();
     private RectF mFpsToggleRect = new RectF();
     private RectF mCameraSwipeToggleRect = new RectF();
+    private RectF mNativeHudToggleRect = new RectF();
     private RectF mSensDownRect = new RectF();
     private RectF mSensUpRect = new RectF();
     private RectF mSettingsCloseRect = new RectF();
@@ -172,6 +173,11 @@ public class GamepadOverlayView extends View {
 
     // ── Bitmaps dos botoes ────────────────────────────────────────────
     private Bitmap[] mBtnBmps;
+    private Bitmap mBmpPular;
+    private Bitmap mBmpCorrer;
+    private Bitmap mBmpAcelerar;
+    private Bitmap mBmpFrear;
+    private Bitmap mBmpEntrarCarro;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -184,12 +190,14 @@ public class GamepadOverlayView extends View {
     private boolean mNativeAvailable = false;
     private boolean mSwipeCameraEnabled = false;
     private float   mSwipeSensitivity = 1.0f;
+    private boolean mNativeHudEnabled = false;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
     private boolean mSettingsClosePressed = false;
     private boolean mFpsTogglePressed = false;
     private boolean mCameraSwipeTogglePressed = false;
+    private boolean mNativeHudTogglePressed = false;
     private boolean mSensDownPressed = false;
     private boolean mSensUpPressed = false;
     private boolean mEditorBtnPressed = false;
@@ -347,6 +355,7 @@ public class GamepadOverlayView extends View {
         }
         editor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
         editor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
+        editor.putBoolean("native_hud_enabled", mNativeHudEnabled);
         editor.apply();
         Log.i(TAG, "Profile saved successfully");
     }
@@ -358,6 +367,7 @@ public class GamepadOverlayView extends View {
         
         mSwipeCameraEnabled = sp.getBoolean("swipe_camera_enabled", false);
         mSwipeSensitivity = sp.getFloat("swipe_camera_sensitivity", 1.0f);
+        mNativeHudEnabled = sp.getBoolean("native_hud_enabled", false);
 
         // If no saved settings exist, do nothing (use default layout)
         if (!sp.contains("btn_0_nx")) {
@@ -427,9 +437,9 @@ public class GamepadOverlayView extends View {
 
         recalcAllRects(w, h);
 
-        // Settings panel: centered, ~65% width, ~72% height
+        // Settings panel: centered, ~65% width, ~78% height
         float panelW = w * 0.65f;
-        float panelH = h * 0.72f;
+        float panelH = h * 0.78f;
         float panelL = (w - panelW) / 2f;
         float panelT = (h - panelH) / 2f;
         mSettingsPanelRect.set(panelL, panelT, panelL + panelW, panelT + panelH);
@@ -448,8 +458,8 @@ public class GamepadOverlayView extends View {
         float cardR = cardL + cardW;
 
         // Card vertical bounds
-        float rowH = panelH * 0.12f;
-        float rowSpacing = panelH * 0.03f;
+        float rowH = panelH * 0.11f;
+        float rowSpacing = panelH * 0.02f;
 
         // Row 1 (FPS Toggle Row):
         float row1T = panelT + panelH * 0.18f;
@@ -461,13 +471,18 @@ public class GamepadOverlayView extends View {
         float row2B = row2T + rowH;
         mCameraSwipeToggleRect.set(cardL, row2T, cardR, row2B);
 
-        // Row 3 (Sensitivity Row):
+        // Row 3 (Native HUD Toggle Row):
         float row3T = row2B + rowSpacing;
         float row3B = row3T + rowH;
+        mNativeHudToggleRect.set(cardL, row3T, cardR, row3B);
+
+        // Row 4 (Sensitivity Row):
+        float row4T = row3B + rowSpacing;
+        float row4B = row4T + rowH;
         
-        // Position sensitivity buttons inside Row 3 Card
+        // Position sensitivity buttons inside Row 4 Card
         float btnSize = rowH * 0.7f;
-        float btnY = row3T + (rowH - btnSize) / 2f;
+        float btnY = row4T + (rowH - btnSize) / 2f;
         float upRight = cardR - panelW * 0.04f;
         float upLeft = upRight - btnSize;
         mSensUpRect.set(upLeft, btnY, upRight, btnY + btnSize);
@@ -479,9 +494,9 @@ public class GamepadOverlayView extends View {
 
         // Editor button: bottom of panel
         float editorBtnW = panelW * 0.65f;
-        float editorBtnH = panelH * 0.10f;
+        float editorBtnH = panelH * 0.09f;
         float editorBtnL = panelL + (panelW - editorBtnW) / 2f;
-        float editorBtnT = panelT + panelH * 0.80f;
+        float editorBtnT = panelT + panelH * 0.82f;
         mEditorBtnRect.set(editorBtnL, editorBtnT, editorBtnL + editorBtnW, editorBtnT + editorBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
@@ -548,6 +563,50 @@ public class GamepadOverlayView extends View {
         loadBitmaps();
     }
 
+    private boolean isBtnVisible(int idx) {
+        if (!mNativeHudEnabled || mEditorMode) {
+            return true; // Always show all buttons in Xbox mode or Editor mode
+        }
+        if (idx == BTN_IDX_SETTINGS) {
+            return true; // Config gear is always visible
+        }
+        if (idx >= 0 && idx <= 3) {
+            return true; // D-pad is always visible
+        }
+        if (idx == 8 || idx == 9 || idx == 10 || idx == 11) {
+            return true; // Start, Select, L1, R1 are always visible
+        }
+        
+        // Face buttons (4: A, 5: B, 6: X, 7: Y)
+        int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
+        if (context == 0 || context == 1) {
+            // On Foot or Near Car
+            if (idx == 4) return true; // A (Jump)
+            if (idx == 5) return true; // B (Run/Kick)
+            if (idx == 7) return context == 1; // Y (Enter Car, only when near car)
+            return false; // X is hidden
+        } else if (context == 2) {
+            // Inside Car
+            if (idx == 4) return true; // A (Accelerate)
+            if (idx == 5) return true; // B (Brake)
+            if (idx == 7) return true; // Y (Exit Car)
+            return false; // X is hidden
+        }
+        return true;
+    }
+
+    private Bitmap loadResBitmap(Resources res, int resId, float targetW, float targetH) {
+        if (resId == 0) return null;
+        Bitmap raw = BitmapFactory.decodeResource(res, resId);
+        if (raw == null) return null;
+        float scale = Math.min(targetW / raw.getWidth(), targetH / raw.getHeight());
+        int bw = Math.max(1, (int)(raw.getWidth() * scale));
+        int bh = Math.max(1, (int)(raw.getHeight() * scale));
+        Bitmap scaled = Bitmap.createScaledBitmap(raw, bw, bh, true);
+        if (scaled != raw) raw.recycle();
+        return scaled;
+    }
+
     private void initPaints() {
         mPStkBase = new Paint(Paint.ANTI_ALIAS_FLAG);
         mPStkBase.setStyle(Paint.Style.STROKE);
@@ -597,6 +656,11 @@ public class GamepadOverlayView extends View {
                 mBtnBmps[i] = null;
             }
         }
+        if (mBmpPular != null) { mBmpPular.recycle(); mBmpPular = null; }
+        if (mBmpCorrer != null) { mBmpCorrer.recycle(); mBmpCorrer = null; }
+        if (mBmpAcelerar != null) { mBmpAcelerar.recycle(); mBmpAcelerar = null; }
+        if (mBmpFrear != null) { mBmpFrear.recycle(); mBmpFrear = null; }
+        if (mBmpEntrarCarro != null) { mBmpEntrarCarro.recycle(); mBmpEntrarCarro = null; }
 
         Resources res = getResources();
 
@@ -624,6 +688,16 @@ public class GamepadOverlayView extends View {
                 mBtnBmps[i] = Bitmap.createScaledBitmap(raw, bw, bh, true);
             }
             if (mBtnBmps[i] != raw) raw.recycle();
+        }
+
+        float faceW = BTNS[4].rect.width();
+        float faceH = BTNS[4].rect.height();
+        if (faceW > 0 && faceH > 0) {
+            mBmpPular = loadResBitmap(res, R.drawable.pular, faceW, faceH);
+            mBmpCorrer = loadResBitmap(res, R.drawable.correr, faceW, faceH);
+            mBmpAcelerar = loadResBitmap(res, R.drawable.acelerar, faceW, faceH);
+            mBmpFrear = loadResBitmap(res, R.drawable.frear, faceW, faceH);
+            mBmpEntrarCarro = loadResBitmap(res, R.drawable.entrar_no_carro, faceW, faceH);
         }
     }
 
@@ -680,7 +754,19 @@ public class GamepadOverlayView extends View {
                 continue;
             }
 
+            if (!isBtnVisible(i)) continue;
+
             Bitmap bmp = mBtnBmps[i];
+            if (mNativeHudEnabled && !mEditorMode) {
+                int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
+                if (i == 4) {
+                    bmp = (context == 2) ? mBmpAcelerar : mBmpPular;
+                } else if (i == 5) {
+                    bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
+                } else if (i == 7) {
+                    bmp = mBmpEntrarCarro;
+                }
+            }
             if (bmp == null) continue;
 
             int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
@@ -885,10 +971,41 @@ public class GamepadOverlayView extends View {
             canvas.drawText("OFF", swL + swW * 0.65f, thumbY2 + swH * 0.15f, mToggleTextPaint);
         }
 
-        // 5. Row 3: Swipe Camera Sensitivity Control (only visible if enabled)
+        // 4.5. Row 3: HUD Nativo Toggle Row
+        // Card background
+        canvas.drawRoundRect(mNativeHudToggleRect, 16f, 16f, cardBgPaint);
+        canvas.drawRoundRect(mNativeHudToggleRect, 16f, 16f, cardBorderPaint);
+
+        // Label
+        canvas.drawText("HUD Nativo", mNativeHudToggleRect.left + w * 0.05f,
+                         mNativeHudToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+        // Switch Toggle
+        float swT3 = mNativeHudToggleRect.centerY() - swH / 2f;
+        float swB3 = mNativeHudToggleRect.centerY() + swH / 2f;
+        RectF switchRect3 = new RectF(swL, swT3, swR, swB3);
+
+        mToggleBgPaint.setColor(mNativeHudEnabled ? Color.rgb(0, 184, 148) : Color.rgb(45, 52, 54));
+        canvas.drawRoundRect(switchRect3, swH / 2f, swH / 2f, mToggleBgPaint);
+
+        float thumbX3 = mNativeHudEnabled ? swR - thumbRadius - 4f : swL + thumbRadius + 4f;
+        float thumbY3 = mNativeHudToggleRect.centerY();
+
+        canvas.drawCircle(thumbX3, thumbY3 + 2f, thumbRadius + 1f, thumbShadow);
+        canvas.drawCircle(thumbX3, thumbY3, thumbRadius, mToggleThumbPaint);
+
+        if (mNativeHudEnabled) {
+            canvas.drawText("ON", swL + swW * 0.35f, thumbY3 + swH * 0.15f, mToggleTextPaint);
+        } else {
+            canvas.drawText("OFF", swL + swW * 0.65f, thumbY3 + swH * 0.15f, mToggleTextPaint);
+        }
+
+        // 5. Row 4: Swipe Camera Sensitivity Control (only visible if enabled)
         if (mSwipeCameraEnabled) {
-            RectF sensRowRect = new RectF(mCameraSwipeToggleRect.left, mSensDownRect.top - (mCameraSwipeToggleRect.height() - mSensDownRect.height()) / 2f,
-                                          mCameraSwipeToggleRect.right, mSensDownRect.bottom + (mCameraSwipeToggleRect.height() - mSensDownRect.height()) / 2f);
+            float cardH = mCameraSwipeToggleRect.height();
+            float sensRowT = mSensDownRect.centerY() - cardH / 2f;
+            float sensRowB = mSensDownRect.centerY() + cardH / 2f;
+            RectF sensRowRect = new RectF(mCameraSwipeToggleRect.left, sensRowT, mCameraSwipeToggleRect.right, sensRowB);
             
             // Card background
             canvas.drawRoundRect(sensRowRect, 16f, 16f, cardBgPaint);
@@ -1254,6 +1371,11 @@ public class GamepadOverlayView extends View {
                 mCameraSwipeTogglePressed = true;
                 return;
             }
+            if (mNativeHudToggleRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mNativeHudTogglePressed = true;
+                return;
+            }
             if (mSwipeCameraEnabled) {
                 if (mSensDownRect.contains(x, y)) {
                     mSettingsPointerId = pid;
@@ -1281,6 +1403,7 @@ public class GamepadOverlayView extends View {
 
         // ── Normal HUD ────────────────────────────────────────────────
         for (int i = 0; i < BTNS.length; i++) {
+            if (!isBtnVisible(i)) continue;
             if (mButtonPointerIds[i] == -1 && BTNS[i].rect.contains(x, y)) {
                 mButtonPointerIds[i] = pid;
                 Log.i(TAG, String.format("BTN %s PRESSED pid=%d pos=(%.3f,%.3f)",
@@ -1341,6 +1464,7 @@ public class GamepadOverlayView extends View {
             mSettingsClosePressed = mSettingsCloseRect.contains(x, y);
             mFpsTogglePressed = mFpsToggleRect.contains(x, y);
             mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
+            mNativeHudTogglePressed = mNativeHudToggleRect.contains(x, y);
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
             if (mSwipeCameraEnabled) {
                 mSensDownPressed = mSensDownRect.contains(x, y);
@@ -1410,6 +1534,9 @@ public class GamepadOverlayView extends View {
             } else if (mCameraSwipeTogglePressed) {
                 mSwipeCameraEnabled = !mSwipeCameraEnabled;
                 saveProfile();
+            } else if (mNativeHudTogglePressed) {
+                mNativeHudEnabled = !mNativeHudEnabled;
+                saveProfile();
             } else if (mSwipeCameraEnabled && mSensDownPressed) {
                 mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
                 saveProfile();
@@ -1428,6 +1555,7 @@ public class GamepadOverlayView extends View {
             mSettingsClosePressed = false;
             mFpsTogglePressed = false;
             mCameraSwipeTogglePressed = false;
+            mNativeHudTogglePressed = false;
             mSensDownPressed = false;
             mSensUpPressed = false;
             mEditorBtnPressed = false;

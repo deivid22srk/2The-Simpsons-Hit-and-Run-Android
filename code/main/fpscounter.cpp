@@ -4,6 +4,9 @@
   #include <jni.h>
   #include <android/log.h>
   #define FPS_LOGI(...) __android_log_print(ANDROID_LOG_INFO, "FPSCounter", __VA_ARGS__)
+  #include <worldsim/avatarmanager.h>
+  #include <worldsim/character/character.h>
+  #include <ai/actionbuttonhandler.h>
 #else
   #include <cstdio>
   #define FPS_LOGI(...) do { std::printf("[FPSCounter] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
@@ -70,6 +73,31 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetFPS(JNIEnv* /*env*/, jclass /
         return static_cast<jfloat>(g_FPSCounter->GetFPS());
     }
     return 0.0f;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, jclass /*clazz*/)
+{
+    AvatarManager* am = GetAvatarManager();
+    if (am) {
+        Avatar* avatar = am->GetAvatarForPlayer(0);
+        if (avatar) {
+            if (avatar->IsInCar()) {
+                return 2; // Inside Car
+            }
+            Character* character = avatar->GetCharacter();
+            if (character) {
+                ActionButton::ButtonHandler* handler = character->GetActionButtonHandler();
+                if (handler) {
+                    ActionButton::ButtonHandler::Type type = handler->GetType();
+                    if (type == ActionButton::ButtonHandler::GET_IN_CAR || type == ActionButton::ButtonHandler::GET_IN_USER_CAR) {
+                        return 1; // Near Car
+                    }
+                }
+            }
+        }
+    }
+    return 0; // On Foot (Normal)
 }
 
 #endif // RAD_ANDROID
