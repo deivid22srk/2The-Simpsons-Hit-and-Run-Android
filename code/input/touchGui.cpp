@@ -107,10 +107,10 @@ void TouchGui::SetVisible(bool visible) {
                     controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
                 }
             }
-            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.5f);
-            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.5f);
-            controller->GetInputButton(mRightStick.axisX)->SetValue(0.5f);
-            controller->GetInputButton(mRightStick.axisY)->SetValue(0.5f);
+            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+            controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
         }
         mLeftStick.active = false;
         mLeftStick.fingerId = -1;
@@ -140,20 +140,28 @@ void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down,
             stick.currX = dx / stick.radius;
             stick.currY = dy / stick.radius;
 
-            // Map to 0.0 - 1.0 (centered at 0.5)
-            // Note: Some systems use -1 to 1, but SRR2 Button::SetValue expects normalized for sticks too?
-            // InputManager handles deadzones and calibration.
-            // Let's check sdlcontroller.cpp: newValue += 0.5f; for axis.
-            controller->GetInputButton(stick.axisX)->SetValue(stick.currX * 0.5f + 0.5f);
-            controller->GetInputButton(stick.axisY)->SetValue(-stick.currY * 0.5f + 0.5f); // Invert Y
+            // The game expects analog stick values in [-1, 1] with 0.0 as center.
+            // Apply a small deadzone so tiny movements near center register as 0.
+            const float deadzone = 0.15f;
+            float valX = stick.currX;
+            float valY = -stick.currY; // Invert Y for game coordinates
+
+            if (fabsf(valX) < deadzone) valX = 0.0f;
+            else valX = (valX - (valX > 0.0f ? deadzone : -deadzone)) / (1.0f - deadzone);
+
+            if (fabsf(valY) < deadzone) valY = 0.0f;
+            else valY = (valY - (valY > 0.0f ? deadzone : -deadzone)) / (1.0f - deadzone);
+
+            controller->GetInputButton(stick.axisX)->SetValue(valX);
+            controller->GetInputButton(stick.axisY)->SetValue(valY);
         }
     } else if (stick.fingerId == fingerId) {
         stick.active = false;
         stick.fingerId = -1;
         stick.currX = 0.0f;
         stick.currY = 0.0f;
-        controller->GetInputButton(stick.axisX)->SetValue(0.5f);
-        controller->GetInputButton(stick.axisY)->SetValue(0.5f);
+        controller->GetInputButton(stick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(stick.axisY)->SetValue(0.0f);
     }
 }
 
@@ -182,8 +190,21 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     if (!controller) return;
 
     // Check sticks first (they are larger and usually at corners)
-    if (x < 0.5f) UpdateJoystick(mLeftStick, x, y, down, fingerId);
-    else UpdateJoystick(mRightStick, x, y, down, fingerId);
+    // Only update the stick that is already active for this finger,
+    // or claim an inactive stick if the touch is in its zone.
+    bool stickClaimed = false;
+    if (mLeftStick.fingerId == fingerId || (mLeftStick.fingerId == -1 && x < 0.5f)) {
+        UpdateJoystick(mLeftStick, x, y, down, fingerId);
+        if (mLeftStick.fingerId == fingerId) stickClaimed = true;
+    }
+    if (mRightStick.fingerId == fingerId || (mRightStick.fingerId == -1 && x >= 0.5f)) {
+        UpdateJoystick(mRightStick, x, y, down, fingerId);
+        if (mRightStick.fingerId == fingerId) stickClaimed = true;
+    }
+    if (stickClaimed) {
+        // Don't let this finger also press buttons while dragging a stick.
+        return;
+    }
 
     // Check buttons
     for (int i = 0; i < NUM_BUTTONS; ++i) {

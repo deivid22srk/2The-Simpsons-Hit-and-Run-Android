@@ -167,6 +167,14 @@ void InputManager::Update( unsigned int timeinms )
         if (showTouch && !mControllerArray[0].IsConnected()) {
             mControllerArray[0].NotifyConnect();
         }
+
+        // Without a physical gamepad, mButtonNames are empty and LoadControllerMappings
+        // cannot create any associations. Set up virtual button names so touch inputs
+        // are properly mapped to logical game actions.
+        if (showTouch && !mControllerArray[0].AreInputPointsRegistered()) {
+            mControllerArray[0].InitializeVirtualForTouch();
+            mControllerArray[0].LoadControllerMappings();
+        }
     }
 #endif
 
