@@ -1071,6 +1071,7 @@ public class GamepadOverlayView extends View {
                 return;
             }
         }
+
         // Buttons: release if slid out
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid && !BTNS[i].rect.contains(x, y)) {
@@ -1423,14 +1424,44 @@ public class GamepadOverlayView extends View {
     private void sendTouch(MotionEvent ev, int i, int touchDevId,
                            int action, int w, int h) {
         int pointerFingerId = ev.getPointerId(i);
-        float x = ev.getX(i) / (float) w;
-        float y = ev.getY(i) / (float) h;
+        float rawX = ev.getX(i);
+        float rawY = ev.getY(i);
+
+        // NÃO encaminhar toques que acertam botoes/sticks do HUD.
+        // Esses elementos ja enviam key events (KEY_DOWN/KEY_UP) para o jogo nativo.
+        // Se encaminharmos o toque bruto tambem, o jogo nativo pode interpreta-lo
+        // como comando em uma regiao fixa (posicao ORIGINAL do botao) e ignorar
+        // o key event, fazendo com que o clique na NOVA posicao do botao nao funcione.
+        if (hitsHudElement(rawX, rawY)) {
+            return;
+        }
+
+        float x = rawX / (float) w;
+        float y = rawY / (float) h;
         if (x < 0f) x = 0f; else if (x > 1f) x = 1f;
         if (y < 0f) y = 0f; else if (y > 1f) y = 1f;
         float p = ev.getPressure(i);
         if (p > 1f) p = 1f;
 
         SDLActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
+    }
+
+    // ── Verifica se um ponto de toque atinge algum elemento do HUD ────
+    private boolean hitsHudElement(float x, float y) {
+        // Check all buttons (including settings gear)
+        for (int i = 0; i < BTNS.length; i++) {
+            if (BTNS[i].rect.contains(x, y)) {
+                return true;
+            }
+        }
+        // Check all sticks (inner area)
+        for (Stk s : STKS) {
+            float dx = x - s.cx, dy = y - s.cy;
+            if (dx * dx + dy * dy <= s.r * s.r) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void clampKnob(int stickIdx, float x, float y) {
