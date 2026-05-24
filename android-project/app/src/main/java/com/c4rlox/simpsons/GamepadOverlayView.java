@@ -347,9 +347,11 @@ public class GamepadOverlayView extends View {
                 }
                 break;
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_DOWN:
-                sendTouch(ev, 0, touchDevId, action, w, h);
+            case MotionEvent.ACTION_DOWN: {
+                final int idx = ev.getActionIndex();
+                sendTouch(ev, idx, touchDevId, action, w, h);
                 break;
+            }
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_DOWN:
                 sendTouch(ev, ev.getActionIndex(), touchDevId, action, w, h);

@@ -74,7 +74,7 @@ private:
     void UpdateButton(int index, float x, float y, bool down, SDL_FingerID fingerId);
     void UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId);
     void ReleaseAllInputs();
-    void AutoReleaseSticksIfStale(UserController* controller);
+    void AutoReleaseIfStale(UserController* controller);
 };
 
 #endif
