@@ -82,28 +82,28 @@ public class GamepadOverlayView extends View {
     private static final int BTN_IDX_SETTINGS = 12;
 
     private static final Btn[] BTNS = {
-        // ── D-Pad (clusters em diamante, lado esquerdo inferior) ──────
-        new Btn("D-Pad: UP",    0.160f, 0.655f, 0.09f, 0.09f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.160f, 0.785f, 0.09f, 0.09f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.095f, 0.720f, 0.09f, 0.09f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.225f, 0.720f, 0.09f, 0.09f, 0),  // 3
-        // ── Face Buttons A/B/X/Y ──────────────────────────────────────
-        new Btn("Face: A",      0.840f, 0.785f, 0.09f, 0.09f, 0),  // 4
-        new Btn("Face: B",      0.905f, 0.720f, 0.09f, 0.09f, 0),  // 5
-        new Btn("Face: X",      0.775f, 0.720f, 0.09f, 0.09f, 0),  // 6
-        new Btn("Face: Y",      0.840f, 0.655f, 0.09f, 0.09f, 0),  // 7
-        // ── Botões superiores ─────────────────────────────────────────
-        new Btn("START",        0.550f, 0.045f, 0.10f, 0.05f, 0),  // 8
-        new Btn("SELECT",       0.450f, 0.045f, 0.10f, 0.05f, 0),  // 9
-        new Btn("L1",           0.120f, 0.045f, 0.13f, 0.07f, 0),  // 10
-        new Btn("R1",           0.850f, 0.045f, 0.12f, 0.07f, 0),  // 11
-        new Btn("CONFIG",       0.950f, 0.060f, 0.05f, 0.05f, 0),  // 12: Settings gear
+        // ── D-Pad (Xbox style: bottom-left, centered at x=0.215, y=0.780) ──────
+        new Btn("D-Pad: UP",    0.215f, 0.725f, 0.075f, 0.075f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.215f, 0.835f, 0.075f, 0.075f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.160f, 0.780f, 0.075f, 0.075f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.270f, 0.780f, 0.075f, 0.075f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (Xbox style: top-right, centered at x=0.875, y=0.610) ──
+        new Btn("Face: A",      0.875f, 0.665f, 0.075f, 0.075f, 0),  // 4
+        new Btn("Face: B",      0.930f, 0.610f, 0.075f, 0.075f, 0),  // 5
+        new Btn("Face: X",      0.820f, 0.610f, 0.075f, 0.075f, 0),  // 6
+        new Btn("Face: Y",      0.875f, 0.555f, 0.075f, 0.075f, 0),  // 7
+        // ── Top buttons ─────────────────────────────────────────
+        new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
+        new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
+        new Btn("L1",           0.120f, 0.050f, 0.160f, 0.080f, 0),  // 10
+        new Btn("R1",           0.880f, 0.050f, 0.160f, 0.080f, 0),  // 11
+        new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
     };
 
     // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS = {
-        new Stk(0.160f, 0.560f, 0.09f),  // Left stick
-        new Stk(0.840f, 0.560f, 0.09f),  // Right stick
+        new Stk(0.125f, 0.610f, 0.090f),  // Left stick (Xbox style: top-left)
+        new Stk(0.785f, 0.780f, 0.090f),  // Right stick (Xbox style: bottom-right)
     };
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
@@ -305,10 +305,11 @@ public class GamepadOverlayView extends View {
     // ── Recalculate a single button's rect ────────────────────────────
     private void recalcBtnRect(int idx, int w, int h) {
         Btn b = BTNS[idx];
+        float minDim = Math.min(w, h);
         float cx = b.nx * w;
         float cy = b.ny * h;
-        float halfW = (b.nw * w) / 2f;
-        float halfH = (b.nh * h) / 2f;
+        float halfW = (b.nw * minDim) / 2f;
+        float halfH = (b.nh * minDim) / 2f;
         b.rect.set(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
     }
 
