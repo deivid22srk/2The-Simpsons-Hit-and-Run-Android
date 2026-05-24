@@ -10,6 +10,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -107,6 +108,23 @@ public class GamepadOverlayView extends View {
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
     private static final String[] STICK_NAMES = {
         "Left Stick", "Right Stick"
+    };
+
+    // ── Keycodes Android para cada botao (enviados ao SDL nativo) ────
+    private static final int[] BTN_KEYCODES = {
+        KeyEvent.KEYCODE_DPAD_UP,       // 0: D-Pad UP
+        KeyEvent.KEYCODE_DPAD_DOWN,     // 1: D-Pad DOWN
+        KeyEvent.KEYCODE_DPAD_LEFT,     // 2: D-Pad LEFT
+        KeyEvent.KEYCODE_DPAD_RIGHT,    // 3: D-Pad RIGHT
+        KeyEvent.KEYCODE_BUTTON_A,      // 4: A
+        KeyEvent.KEYCODE_BUTTON_B,      // 5: B
+        KeyEvent.KEYCODE_BUTTON_X,      // 6: X
+        KeyEvent.KEYCODE_BUTTON_Y,      // 7: Y
+        KeyEvent.KEYCODE_BUTTON_START,  // 8: START
+        KeyEvent.KEYCODE_BUTTON_SELECT, // 9: SELECT
+        KeyEvent.KEYCODE_BUTTON_L1,     // 10: L1
+        KeyEvent.KEYCODE_BUTTON_R1,     // 11: R1
+        0,                              // 12: SETTINGS (no key event)
     };
 
     // ── Resource IDs para bitmaps ─────────────────────────────────────
@@ -1006,6 +1024,13 @@ public class GamepadOverlayView extends View {
                     if (mShowSettings) {
                         releaseAllGameInputs();
                     }
+                } else {
+                    // Send KEY_DOWN to native game layer
+                    int kc = BTN_KEYCODES[i];
+                    if (kc != 0) {
+                        SDLActivity.onNativeKeyDown(kc);
+                        Log.v(TAG, String.format("KEY_DOWN 0x%x (%s)", kc, BTNS[i].label));
+                    }
                 }
                 return;
             }
@@ -1050,6 +1075,14 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid && !BTNS[i].rect.contains(x, y)) {
                 mButtonPointerIds[i] = -1;
+                // Send KEY_UP when finger slides off a button
+                if (i != BTN_IDX_SETTINGS) {
+                    int kc = BTN_KEYCODES[i];
+                    if (kc != 0) {
+                        SDLActivity.onNativeKeyUp(kc);
+                        Log.v(TAG, String.format("KEY_UP (slide out) 0x%x (%s)", kc, BTNS[i].label));
+                    }
+                }
             }
         }
     }
@@ -1086,6 +1119,14 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid) {
                 mButtonPointerIds[i] = -1;
+                // Send KEY_UP to native game layer
+                if (i != BTN_IDX_SETTINGS) {
+                    int kc = BTN_KEYCODES[i];
+                    if (kc != 0) {
+                        SDLActivity.onNativeKeyUp(kc);
+                        Log.v(TAG, String.format("KEY_UP 0x%x (%s)", kc, BTNS[i].label));
+                    }
+                }
             }
         }
         for (int i = 0; i < STKS.length; i++) {
@@ -1325,7 +1366,11 @@ public class GamepadOverlayView extends View {
 
     // ── releaseAllGameInputs ──────────────────────────────────────────
     private void releaseAllGameInputs() {
+        // Send KEY_UP for all pressed buttons to prevent stuck keys
         for (int i = 0; i < BTNS.length; i++) {
+            if (mButtonPointerIds[i] != -1 && i != BTN_IDX_SETTINGS && BTN_KEYCODES[i] != 0) {
+                SDLActivity.onNativeKeyUp(BTN_KEYCODES[i]);
+            }
             mButtonPointerIds[i] = -1;
         }
         for (int i = 0; i < STKS.length; i++) {
