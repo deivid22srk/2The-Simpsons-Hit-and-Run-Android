@@ -241,6 +241,50 @@ class SDLJoystickHandler_API16 extends SDLJoystickHandler {
     public void pollInputDevices() {
         int[] deviceIds = InputDevice.getDeviceIds();
 
+        // Count physical joysticks
+        int physicalJoystickCount = 0;
+        for (int device_id : deviceIds) {
+            if (SDLControllerManager.isDeviceSDLJoystick(device_id)) {
+                physicalJoystickCount++;
+            }
+        }
+
+        int virtualDeviceId = 9999;
+
+        if (physicalJoystickCount == 0) {
+            // Register virtual gamepad if not already registered
+            SDLJoystick virtualJoystick = getJoystick(virtualDeviceId);
+            if (virtualJoystick == null) {
+                virtualJoystick = new SDLJoystick();
+                virtualJoystick.device_id = virtualDeviceId;
+                virtualJoystick.name = "Xbox 360 Controller";
+                virtualJoystick.desc = "Virtual Gamepad";
+                virtualJoystick.axes = new ArrayList<InputDevice.MotionRange>();
+                virtualJoystick.hats = new ArrayList<InputDevice.MotionRange>();
+                mJoysticks.add(virtualJoystick);
+                SDLControllerManager.nativeAddJoystick(
+                    virtualDeviceId, 
+                    virtualJoystick.name, 
+                    virtualJoystick.desc,
+                    0x045e, 
+                    0x028e, 
+                    false,
+                    -1, 
+                    4, 
+                    0x000f, 
+                    0, 
+                    0
+                );
+            }
+        } else {
+            // Physical gamepad connected, remove virtual gamepad if registered
+            SDLJoystick virtualJoystick = getJoystick(virtualDeviceId);
+            if (virtualJoystick != null) {
+                mJoysticks.remove(virtualJoystick);
+                SDLControllerManager.nativeRemoveJoystick(virtualDeviceId);
+            }
+        }
+
         for (int device_id : deviceIds) {
             if (SDLControllerManager.isDeviceSDLJoystick(device_id)) {
                 SDLJoystick joystick = getJoystick(device_id);
@@ -277,6 +321,7 @@ class SDLJoystickHandler_API16 extends SDLJoystickHandler {
         ArrayList<Integer> removedDevices = null;
         for (SDLJoystick joystick : mJoysticks) {
             int device_id = joystick.device_id;
+            if (device_id == virtualDeviceId) continue; // Skip virtual gamepad
             int i;
             for (i = 0; i < deviceIds.length; i++) {
                 if (device_id == deviceIds[i]) break;

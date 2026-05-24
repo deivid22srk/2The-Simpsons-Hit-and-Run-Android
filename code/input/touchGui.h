@@ -19,6 +19,7 @@ class UserController;
 // On Android, visual rendering is handled by the Java GamepadOverlayView.
 // The C++ Render() path exists only for desktop debug builds.
 // ============================================================================
+#ifndef RAD_ANDROID
 class TouchGui
 {
 public:
@@ -162,5 +163,6 @@ private:
     void RenderStick(const TouchJoystick& stick, pddiColour base, pddiColour knob);
     void RenderButtons();
 };
+#endif
 
 #endif // TOUCH_GUI_H

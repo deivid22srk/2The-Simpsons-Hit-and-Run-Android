@@ -16,6 +16,7 @@ import android.view.View;
 
 import org.libsdl.app.R;
 import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLControllerManager;
 
 /**
  * HUD de controle touch que sobrepoe a SDLSurface usando icones Xbox.
@@ -1025,11 +1026,11 @@ public class GamepadOverlayView extends View {
                         releaseAllGameInputs();
                     }
                 } else {
-                    // Send KEY_DOWN to native game layer
+                    // Send PAD_DOWN to native game layer via virtual gamepad (Device ID 9999)
                     int kc = BTN_KEYCODES[i];
                     if (kc != 0) {
-                        SDLActivity.onNativeKeyDown(kc);
-                        Log.v(TAG, String.format("KEY_DOWN 0x%x (%s)", kc, BTNS[i].label));
+                        SDLControllerManager.onNativePadDown(9999, kc);
+                        Log.v(TAG, String.format("PAD_DOWN 0x%x (%s)", kc, BTNS[i].label));
                     }
                 }
                 return;
@@ -1076,12 +1077,12 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid && !BTNS[i].rect.contains(x, y)) {
                 mButtonPointerIds[i] = -1;
-                // Send KEY_UP when finger slides off a button
+                // Send PAD_UP when finger slides off a button via virtual gamepad (Device ID 9999)
                 if (i != BTN_IDX_SETTINGS) {
                     int kc = BTN_KEYCODES[i];
                     if (kc != 0) {
-                        SDLActivity.onNativeKeyUp(kc);
-                        Log.v(TAG, String.format("KEY_UP (slide out) 0x%x (%s)", kc, BTNS[i].label));
+                        SDLControllerManager.onNativePadUp(9999, kc);
+                        Log.v(TAG, String.format("PAD_UP (slide out) 0x%x (%s)", kc, BTNS[i].label));
                     }
                 }
             }
@@ -1120,12 +1121,12 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid) {
                 mButtonPointerIds[i] = -1;
-                // Send KEY_UP to native game layer
+                // Send PAD_UP to native game layer via virtual gamepad (Device ID 9999)
                 if (i != BTN_IDX_SETTINGS) {
                     int kc = BTN_KEYCODES[i];
                     if (kc != 0) {
-                        SDLActivity.onNativeKeyUp(kc);
-                        Log.v(TAG, String.format("KEY_UP 0x%x (%s)", kc, BTNS[i].label));
+                        SDLControllerManager.onNativePadUp(9999, kc);
+                        Log.v(TAG, String.format("PAD_UP 0x%x (%s)", kc, BTNS[i].label));
                     }
                 }
             }
@@ -1135,6 +1136,9 @@ public class GamepadOverlayView extends View {
                 mStickPointerIds[i] = -1;
                 mStickKnobX[i] = STKS[i].cx;
                 mStickKnobY[i] = STKS[i].cy;
+                // Reset joystick values to 0.0f
+                SDLControllerManager.onNativeJoy(9999, i * 2, 0.0f);
+                SDLControllerManager.onNativeJoy(9999, i * 2 + 1, 0.0f);
             }
         }
     }
@@ -1367,10 +1371,10 @@ public class GamepadOverlayView extends View {
 
     // ── releaseAllGameInputs ──────────────────────────────────────────
     private void releaseAllGameInputs() {
-        // Send KEY_UP for all pressed buttons to prevent stuck keys
+        // Send PAD_UP for all pressed buttons to prevent stuck keys
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] != -1 && i != BTN_IDX_SETTINGS && BTN_KEYCODES[i] != 0) {
-                SDLActivity.onNativeKeyUp(BTN_KEYCODES[i]);
+                SDLControllerManager.onNativePadUp(9999, BTN_KEYCODES[i]);
             }
             mButtonPointerIds[i] = -1;
         }
@@ -1378,6 +1382,9 @@ public class GamepadOverlayView extends View {
             mStickPointerIds[i] = -1;
             mStickKnobX[i] = STKS[i].cx;
             mStickKnobY[i] = STKS[i].cy;
+            // Reset joystick values to 0.0f
+            SDLControllerManager.onNativeJoy(9999, i * 2, 0.0f);
+            SDLControllerManager.onNativeJoy(9999, i * 2 + 1, 0.0f);
         }
     }
 
@@ -1476,5 +1483,11 @@ public class GamepadOverlayView extends View {
         }
         mStickKnobX[stickIdx] = s.cx + dx;
         mStickKnobY[stickIdx] = s.cy + dy;
+
+        // Send to JNI virtual gamepad
+        float valX = dx / s.r;
+        float valY = dy / s.r;
+        SDLControllerManager.onNativeJoy(9999, stickIdx * 2, valX);
+        SDLControllerManager.onNativeJoy(9999, stickIdx * 2 + 1, valY);
     }
 }

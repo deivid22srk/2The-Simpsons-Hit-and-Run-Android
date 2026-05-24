@@ -53,8 +53,10 @@
 #include <sound/soundmanager.h>
 #include <input/inputmanager.h>
 #ifdef RAD_ANDROID
-#include <input/touchGui.h>
 #include <main/fpscounter.h>
+#endif
+#ifndef RAD_ANDROID
+#include <input/touchGui.h>
 #endif
 
 //******************************************************************************
@@ -397,11 +399,12 @@ void Game::Initialize()
     CGuiScreenMissionLoad::InitializePermanentVariables();
 
 #ifdef RAD_ANDROID
-    TouchGui::CreateInstance();
-    TouchGui::GetInstance()->Init();
-
     // Create FPS counter for Java HUD bridge.
     g_FPSCounter = new(GMA_PERSISTENT) FPSCounter();
+#endif
+#ifndef RAD_ANDROID
+    TouchGui::CreateInstance();
+    TouchGui::GetInstance()->Init();
 #endif
 
 #ifdef RAD_E3
@@ -428,11 +431,13 @@ void Game::Initialize()
 void Game::Terminate() 
 {
 #ifdef RAD_ANDROID
-    TouchGui::DestroyInstance();
     if (g_FPSCounter) {
         delete g_FPSCounter;
         g_FPSCounter = NULL;
     }
+#endif
+#ifndef RAD_ANDROID
+    TouchGui::DestroyInstance();
 #endif
 
     rAssert( mpGameFlow != NULL );
@@ -526,7 +531,7 @@ void Game::Run()
         SDL_Event msg;
         while( SDL_PollEvent( &msg ) )
         {
-#ifdef RAD_ANDROID
+#ifndef RAD_ANDROID
             // Lifecycle events: release all touch inputs when app loses focus
             // to prevent stuck buttons/sticks when the game is backgrounded.
             if (msg.type == SDL_APP_WILLENTERBACKGROUND || msg.type == SDL_APP_DIDENTERBACKGROUND) {

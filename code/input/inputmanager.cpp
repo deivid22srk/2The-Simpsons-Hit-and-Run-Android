@@ -27,7 +27,7 @@
 #else
 #include <input/usercontroller.h>
 #endif
-#ifdef RAD_ANDROID
+#if defined(RAD_ANDROID) && 0
 #include <input/touchGui.h>
 #endif
 #include <input/button.h>
@@ -154,7 +154,7 @@ MEMTRACK_POP_GROUP("InputManager");
 
 void InputManager::Update( unsigned int timeinms )
 {
-#ifdef RAD_ANDROID
+#if defined(RAD_ANDROID) && 0
     // Always show touch controls on Android. SDL may misidentify built-in
     // sensors (accelerometer, gyroscope, etc.) as gamepads via
     // SDL_NumJoysticks(), which would incorrectly hide the HUD.
@@ -181,7 +181,7 @@ void InputManager::Update( unsigned int timeinms )
     // update the button timestamp (so we can tell when buttons were pressed)
     Button::Tick(timeinms);
 
-#ifdef RAD_ANDROID
+#if defined(RAD_ANDROID) && 0
     // TouchGui::Update() MUST run AFTER Button::Tick().
     // See SyncControllerValues() in touchGui.cpp for the detailed
     // explanation — the gist is that SetValue(0.0f) for release must

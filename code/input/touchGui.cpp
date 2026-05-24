@@ -1,3 +1,4 @@
+#ifndef RAD_ANDROID
 #include <input/touchGui.h>
 #include <input/inputmanager.h>
 #include <input/usercontroller.h>
@@ -601,3 +602,4 @@ void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour)
 
     p3d::pddi->EndPrims(stream);
 }
+#endif
