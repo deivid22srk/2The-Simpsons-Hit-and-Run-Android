@@ -191,6 +191,34 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     UserController* controller = GetInputManager()->GetController(0);
     if (!controller) return;
 
+    // ========================================================================
+    // FINGERUP must be handled FIRST, before any stick/button logic, to ensure
+    // that both sticks AND buttons held by the lifting finger are properly
+    // released. Previously the code returned early after releasing only buttons,
+    // causing sticks to remain active indefinitely (Bug #1).
+    // ========================================================================
+    if (event->type == SDL_FINGERUP) {
+        // Release any analog stick currently captured by this finger.
+        if (mLeftStick.fingerId == fingerId) {
+            UpdateJoystick(mLeftStick, x, y, false, fingerId);
+        }
+        if (mRightStick.fingerId == fingerId) {
+            UpdateJoystick(mRightStick, x, y, false, fingerId);
+        }
+
+        // Release any button currently held by this finger.
+        for (int i = 0; i < NUM_BUTTONS; ++i) {
+            if (mButtons[i].fingerId == fingerId && mButtons[i].pressed) {
+                mButtons[i].pressed = false;
+                mButtons[i].fingerId = -1;
+                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+            }
+        }
+        return;
+    }
+
+    // From this point on, event is guaranteed to be FINGERDOWN or FINGERMOTION.
+
     // Check sticks first.
     // A finger already captured by a stick only updates that stick.
     // A new finger can only claim a stick if it starts inside the stick radius.
@@ -205,37 +233,22 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     float rdist = sqrtf(rdx*rdx + rdy*rdy);
 
     if (mLeftStick.fingerId == fingerId) {
-        UpdateJoystick(mLeftStick, x, y, down, fingerId);
+        UpdateJoystick(mLeftStick, x, y, true, fingerId);
         stickClaimed = true;
-    } else if (down && mLeftStick.fingerId == -1 && ldist < mLeftStick.radius) {
-        UpdateJoystick(mLeftStick, x, y, down, fingerId);
+    } else if (mLeftStick.fingerId == -1 && ldist < mLeftStick.radius) {
+        UpdateJoystick(mLeftStick, x, y, true, fingerId);
         stickClaimed = true;
     }
 
     if (mRightStick.fingerId == fingerId) {
-        UpdateJoystick(mRightStick, x, y, down, fingerId);
+        UpdateJoystick(mRightStick, x, y, true, fingerId);
         stickClaimed = true;
-    } else if (!stickClaimed && down && mRightStick.fingerId == -1 && rdist < mRightStick.radius) {
-        UpdateJoystick(mRightStick, x, y, down, fingerId);
+    } else if (!stickClaimed && mRightStick.fingerId == -1 && rdist < mRightStick.radius) {
+        UpdateJoystick(mRightStick, x, y, true, fingerId);
         stickClaimed = true;
     }
 
     if (stickClaimed) {
-        // Don't let this finger also press buttons while dragging a stick.
-        return;
-    }
-
-    // If this is a finger-up event, release any button currently held by this finger.
-    // This is a robustness fallback in case a SDL_FINGERUP arrives while the finger
-    // is technically outside the button bounds (e.g. due to coordinate drift).
-    if (event->type == SDL_FINGERUP) {
-        for (int i = 0; i < NUM_BUTTONS; ++i) {
-            if (mButtons[i].fingerId == fingerId && mButtons[i].pressed) {
-                mButtons[i].pressed = false;
-                mButtons[i].fingerId = -1;
-                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
-            }
-        }
         return;
     }
 
