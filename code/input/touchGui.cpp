@@ -178,7 +178,7 @@ bool TouchGui::ProcessStickDown(TouchJoystick& stick, float x, float y,
 }
 
 void TouchGui::UpdateStickMotion(TouchJoystick& stick, float x, float y,
-                                 radTime64 timestamp, UserController* controller)
+                                 radTime64 timestamp, UserController* /*controller*/)
 {
     float dx = x - stick.centerX;
     float dy = y - stick.centerY;
@@ -193,15 +193,13 @@ void TouchGui::UpdateStickMotion(TouchJoystick& stick, float x, float y,
     stick.currY = dy / stick.radius;
     stick.lastEventTime = timestamp;
 
-    // Game expects [-1, 1] with Y inverted.
-    float valX = ApplyDeadzone(stick.currX, DEADZONE);
-    float valY = ApplyDeadzone(-stick.currY, DEADZONE);
-
-    controller->GetInputButton(stick.axisX)->SetValue(valX);
-    controller->GetInputButton(stick.axisY)->SetValue(valY);
+    // NOTE: SetValue is NOT called here.
+    // All controller writes are deferred to SyncControllerValues() in Update(),
+    // which runs AFTER Button::Tick().  See the detailed explanation above
+    // SyncControllerValues().
 }
 
-void TouchGui::ReleaseStick(TouchJoystick& stick, UserController* controller)
+void TouchGui::ReleaseStick(TouchJoystick& stick, UserController* /*controller*/)
 {
     const char* name = (&stick == &mLeftStick) ? "LStick" : "RStick";
     HUD_LOGI("%s RELEASED fingerId=%lld", name, (long long)stick.fingerId);
@@ -212,25 +210,27 @@ void TouchGui::ReleaseStick(TouchJoystick& stick, UserController* controller)
     stick.currY         = 0.0f;
     stick.lastEventTime = 0;
 
-    controller->GetInputButton(stick.axisX)->SetValue(0.0f);
-    controller->GetInputButton(stick.axisY)->SetValue(0.0f);
+    // NOTE: SetValue(0.0f) is NOT called here.
+    // The zero-out is deferred to SyncControllerValues() in Update(),
+    // which runs AFTER Button::Tick() so the dispatch is not silently
+    // dropped (see the detailed explanation above SyncControllerValues).
 }
 
 // ── Button helpers ───────────────────────────────────────────────────
 
 void TouchGui::PressButton(int index, SDL_FingerID fingerId,
-                           radTime64 timestamp, UserController* controller)
+                           radTime64 timestamp, UserController* /*controller*/)
 {
     TouchButton& btn = mButtons[index];
     btn.pressed       = true;
     btn.fingerId      = fingerId;
     btn.lastEventTime = timestamp;
 
-    controller->GetInputButton(btn.buttonIndex)->SetValue(1.0f);
+    // NOTE: SetValue(1.0f) is NOT called here — deferred to SyncControllerValues().
     HUD_LOGI("BTN %s PRESSED fingerId=%lld", btn.label, (long long)fingerId);
 }
 
-void TouchGui::ReleaseButton(int index, UserController* controller)
+void TouchGui::ReleaseButton(int index, UserController* /*controller*/)
 {
     TouchButton& btn = mButtons[index];
     HUD_LOGI("BTN %s RELEASED fingerId=%lld", btn.label, (long long)btn.fingerId);
@@ -239,7 +239,7 @@ void TouchGui::ReleaseButton(int index, UserController* controller)
     btn.fingerId      = -1;
     btn.lastEventTime = 0;
 
-    controller->GetInputButton(btn.buttonIndex)->SetValue(0.0f);
+    // NOTE: SetValue(0.0f) is NOT called here — deferred to SyncControllerValues().
 }
 
 // ── Touch-event dispatcher ───────────────────────────────────────────
@@ -364,18 +364,11 @@ void TouchGui::ReleaseAllInputs()
 {
     HUD_LOGI("ReleaseAllInputs() called");
 
-    UserController* controller = GetInputManager()->GetController(0);
-    if (!controller) {
-        HUD_LOGE("ReleaseAllInputs: GetController(0) returned null!");
-        return;
-    }
-
     for (int i = 0; i < NUM_BUTTONS; ++i) {
         if (mButtons[i].pressed) {
             mButtons[i].pressed       = false;
             mButtons[i].fingerId      = -1;
             mButtons[i].lastEventTime = 0;
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
         }
     }
 
@@ -384,21 +377,22 @@ void TouchGui::ReleaseAllInputs()
     mLeftStick.currX         = 0.0f;
     mLeftStick.currY         = 0.0f;
     mLeftStick.lastEventTime = 0;
-    controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
-    controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
 
     mRightStick.active        = false;
     mRightStick.fingerId      = -1;
     mRightStick.currX         = 0.0f;
     mRightStick.currY         = 0.0f;
     mRightStick.lastEventTime = 0;
-    controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
-    controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+
+    // NOTE: SetValue(0.0f) is NOT called here.
+    // The zero-out is deferred to the next Update() → SyncControllerValues(),
+    // which runs AFTER Button::Tick() so the dispatch is not silently dropped.
+    // For lifecycle events (app backgrounding) this one-frame delay is acceptable.
 }
 
 // ── Staleness guard ──────────────────────────────────────────────────
 
-void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
+void TouchGui::AutoReleaseStaleInputs(UserController* /*controller*/, radTime64 now)
 {
     // Check left stick.
     if (mLeftStick.active && (now - mLeftStick.lastEventTime) > STALE_TIMEOUT_US) {
@@ -408,8 +402,6 @@ void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
         mLeftStick.currX         = 0.0f;
         mLeftStick.currY         = 0.0f;
         mLeftStick.lastEventTime = 0;
-        controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
-        controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
     }
 
     // Check right stick.
@@ -420,8 +412,6 @@ void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
         mRightStick.currX         = 0.0f;
         mRightStick.currY         = 0.0f;
         mRightStick.lastEventTime = 0;
-        controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
-        controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
     }
 
     // Check all buttons.
@@ -432,8 +422,63 @@ void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
             mButtons[i].pressed       = false;
             mButtons[i].fingerId      = -1;
             mButtons[i].lastEventTime = 0;
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SyncControllerValues
+//
+//  Single source of truth for writing TouchGui state → UserController
+//  button array.  This MUST run AFTER Button::Tick() so that
+//  SetValue(0.0f) on release correctly sets mTickCountAtChange to the
+//  current (post-Tick) mTickCount, making TimeSinceChange() == 0 in
+//  UserController::Update().
+//
+//  Background:
+//  ───────────
+//  UserController::Update() dispatches a button to mappables only when:
+//    TimeSinceChange() == 0   (value just changed)
+//    OR IsDown()              (value is non-zero)
+//
+//  If SetValue(0.0f) is called BEFORE Button::Tick(), then by the time
+//  UserController::Update() runs, TimeSinceChange() > 0 AND IsDown() is
+//  false — the release dispatch is silently dropped and the game keeps
+//  seeing the last non-zero value ("ghost input").
+//
+//  Physical gamepads don't have this problem because hardware polling
+//  (radControllerSystemService) runs AFTER Button::Tick(), so
+//  OnControllerInputPointChange → SetValue happens post-Tick.
+// ═══════════════════════════════════════════════════════════════════════
+
+void TouchGui::SyncControllerValues(UserController* controller)
+{
+    // ── Left stick ───────────────────────────────────────────────────
+    if (mLeftStick.active) {
+        float valX = ApplyDeadzone(mLeftStick.currX, DEADZONE);
+        float valY = ApplyDeadzone(-mLeftStick.currY, DEADZONE);
+        controller->GetInputButton(mLeftStick.axisX)->SetValue(valX);
+        controller->GetInputButton(mLeftStick.axisY)->SetValue(valY);
+    } else {
+        controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+    }
+
+    // ── Right stick ──────────────────────────────────────────────────
+    if (mRightStick.active) {
+        float valX = ApplyDeadzone(mRightStick.currX, DEADZONE);
+        float valY = ApplyDeadzone(-mRightStick.currY, DEADZONE);
+        controller->GetInputButton(mRightStick.axisX)->SetValue(valX);
+        controller->GetInputButton(mRightStick.axisY)->SetValue(valY);
+    } else {
+        controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+    }
+
+    // ── Buttons ──────────────────────────────────────────────────────
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(
+            mButtons[i].pressed ? 1.0f : 0.0f);
     }
 }
 
@@ -442,9 +487,19 @@ void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
 void TouchGui::Update(unsigned int /*elapsedTime*/)
 {
     UserController* controller = GetInputManager()->GetController(0);
-    if (controller) {
-        AutoReleaseStaleInputs(controller, radTimeGetMicroseconds64());
-    }
+    if (!controller) return;
+
+    radTime64 now = radTimeGetMicroseconds64();
+
+    // 1. First, check for stale inputs (fingerId mismatches, missed UP events).
+    //    This only marks them inactive — the actual SetValue(0.0f) happens below.
+    AutoReleaseStaleInputs(controller, now);
+
+    // 2. Then sync ALL values to the controller.  This is the single point
+    //    where TouchGui state is written to UserController::mButtonArray.
+    //    It runs AFTER Button::Tick() (see InputManager::Update) so release
+    //    dispatches are not silently dropped.
+    SyncControllerValues(controller);
 }
 
 // ═══════════════════════════════════════════════════════════════════════

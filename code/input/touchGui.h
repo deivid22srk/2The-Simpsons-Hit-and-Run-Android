@@ -132,7 +132,12 @@ private:
                      UserController* controller);
     void ReleaseButton(int index, UserController* controller);
 
-    // ── Staleness guard ──────────────────────────────────────────────
+    // ── Per-frame sync ────────────────────────────────────────────
+
+    // Called every frame by Update().  Writes all TouchGui state to the
+    // UserController button array.  MUST run after Button::Tick() so
+    // release dispatches (SetValue(0.0f)) are not silently dropped.
+    void SyncControllerValues(UserController* controller);
 
     // Called every frame by Update().  If a stick or button hasn't seen
     // a touch event for STALE_TIMEOUT_US, it is force-released.  This is

@@ -175,14 +175,22 @@ void InputManager::Update( unsigned int timeinms )
             mControllerArray[0].InitializeVirtualForTouch();
             mControllerArray[0].LoadControllerMappings();
         }
-
-        // Update touch GUI (auto-release stale sticks, etc.)
-        TouchGui::GetInstance()->Update(timeinms);
     }
 #endif
 
     // update the button timestamp (so we can tell when buttons were pressed)
     Button::Tick(timeinms);
+
+#ifdef RAD_ANDROID
+    // TouchGui::Update() MUST run AFTER Button::Tick().
+    // See SyncControllerValues() in touchGui.cpp for the detailed
+    // explanation — the gist is that SetValue(0.0f) for release must
+    // set mTickCountAtChange to the POST-Tick mTickCount so that
+    // TimeSinceChange() == 0 in UserController::Update().
+    if (TouchGui::GetInstance()) {
+        TouchGui::GetInstance()->Update(timeinms);
+    }
+#endif
 
     ::radControllerSystemService();
 
