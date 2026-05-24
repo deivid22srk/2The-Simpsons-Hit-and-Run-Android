@@ -526,6 +526,14 @@ void Game::Run()
                     TouchGui::GetInstance()->ReleaseAllInputs();
                 }
             }
+            // Also handle window focus loss (e.g. notification shade pulled down
+            // without fully backgrounding the app). This catches ACTION_CANCEL
+            // scenarios where FINGERUP is never delivered by SDL.
+            if (msg.type == SDL_WINDOWEVENT && msg.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                if (TouchGui::GetInstance()) {
+                    TouchGui::GetInstance()->ReleaseAllInputs();
+                }
+            }
             TouchGui::GetInstance()->HandleTouchEvent(&msg);
 #endif
 

@@ -30,8 +30,10 @@ TouchGui::TouchGui() :
 {
     mLeftStick.fingerId = -1;
     mLeftStick.active = false;
+    mLeftStick.lastEventTime = 0;
     mRightStick.fingerId = -1;
     mRightStick.active = false;
+    mRightStick.lastEventTime = 0;
 
     for(int i = 0; i < NUM_BUTTONS; ++i) {
         mButtons[i].pressed = false;
@@ -194,16 +196,26 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     // ========================================================================
     // FINGERUP must be handled FIRST, before any stick/button logic, to ensure
     // that both sticks AND buttons held by the lifting finger are properly
-    // released. Previously the code returned early after releasing only buttons,
-    // causing sticks to remain active indefinitely (Bug #1).
+    // released. 
+    //
+    // Additionally, we force-release ANY active stick as a fallback, even if
+    // the FINGERUP fingerId doesn't match the stick's captured fingerId. This
+    // handles two key scenarios reported on actual Android devices:
+    //   1. SDL/fingerId mismatch: on some devices the FINGERUP fingerId may
+    //      differ from the FINGERDOWN fingerId for the same physical touch.
+    //   2. System gesture interception: Android may send ACTION_CANCEL instead
+    //      of ACTION_UP (e.g. notification shade, back gesture), causing SDL
+    //      to NOT generate FINGERUP at all. In that case the staleness guard
+    //      (AutoReleaseIfStale / 500ms threshold) cleans up on the next touch.
     // ========================================================================
     if (event->type == SDL_FINGERUP) {
-        // Release any analog stick currently captured by this finger.
-        if (mLeftStick.fingerId == fingerId) {
-            UpdateJoystick(mLeftStick, x, y, false, fingerId);
+        // Release STICKS: match by fingerId OR force-release any active stick.
+        // This is the key fix for fingerId mismatches.
+        if (mLeftStick.fingerId == fingerId || mLeftStick.active) {
+            UpdateJoystick(mLeftStick, x, y, false, mLeftStick.fingerId != -1 ? mLeftStick.fingerId : fingerId);
         }
-        if (mRightStick.fingerId == fingerId) {
-            UpdateJoystick(mRightStick, x, y, false, fingerId);
+        if (mRightStick.fingerId == fingerId || mRightStick.active) {
+            UpdateJoystick(mRightStick, x, y, false, mRightStick.fingerId != -1 ? mRightStick.fingerId : fingerId);
         }
 
         // Release any button currently held by this finger.
@@ -217,7 +229,37 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
         return;
     }
 
+    // ========================================================================
+    // Before processing this touch event, release any stick whose owner
+    // finger went stale (lost FINGERUP due to system gesture interception).
+    // This prevents "ghost capture" where a new finger cannot claim a stick
+    // because a stale fingerId is still sitting on it.
+    // ========================================================================
+    {
+        const radInt64 now = radTimeGetMicroseconds64();
+        const radInt64 staleThresholdUs = 500000; // 500ms
+
+        if (mLeftStick.fingerId != -1 && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
+            mLeftStick.active = false;
+            mLeftStick.fingerId = -1;
+            mLeftStick.currX = 0.0f;
+            mLeftStick.currY = 0.0f;
+            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+        }
+        if (mRightStick.fingerId != -1 && (now - mRightStick.lastEventTime) > staleThresholdUs) {
+            mRightStick.active = false;
+            mRightStick.fingerId = -1;
+            mRightStick.currX = 0.0f;
+            mRightStick.currY = 0.0f;
+            controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+        }
+    }
+
     // From this point on, event is guaranteed to be FINGERDOWN or FINGERMOTION.
+    // Note: it's possible the stick.fingerId != -1 but the stick is not active
+    // (transitional state). We still allow the matching finger to update it.
 
     // Check sticks first.
     // A finger already captured by a stick only updates that stick.
@@ -308,7 +350,7 @@ void TouchGui::ReleaseAllInputs() {
 void TouchGui::AutoReleaseIfStale(UserController* controller) {
     if (!controller) return;
     const radInt64 now = radTimeGetMicroseconds64();
-    const radInt64 staleThresholdUs = 3000000; // 3000 ms (3s)
+    const radInt64 staleThresholdUs = 500000; // 500 ms (reduced from 3s for faster ghost-input cleanup)
 
     // Auto-release sticks if no touch event arrived for a while (ghost-finger guard)
     if (mLeftStick.active && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
