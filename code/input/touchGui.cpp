@@ -43,38 +43,39 @@ TouchGui::~TouchGui() {}
 
 void TouchGui::Init() {
     // Define button positions (normalized 0.0 - 1.0)
-    // Left side: D-Pad
-    float dpadSize = 0.08f;
-    float dpadX = 0.15f;
-    float dpadY = 0.75f;
+    // Alinhado com GamepadOverlayView.java (botões maiores e mais espaçados)
+    // Alinhado com GamepadOverlayView.java
+    float dpadSize = 0.10f;
+    float dpadX = 0.16f;
+    float dpadY = 0.79f;
 
-    mButtons[BTN_DPAD_UP] = {dpadX, dpadY - dpadSize, dpadSize, dpadSize, InputManager::DPadUp, false, -1, "UP"};
-    mButtons[BTN_DPAD_DOWN] = {dpadX, dpadY + dpadSize, dpadSize, dpadSize, InputManager::DPadDown, false, -1, "DN"};
-    mButtons[BTN_DPAD_LEFT] = {dpadX - dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF"};
-    mButtons[BTN_DPAD_RIGHT] = {dpadX + dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadRight, false, -1, "RT"};
+    mButtons[BTN_DPAD_UP]    = {dpadX, 0.70f, dpadSize, dpadSize, InputManager::DPadUp,    false, -1, "UP"};
+    mButtons[BTN_DPAD_DOWN]  = {dpadX, 0.88f, dpadSize, dpadSize, InputManager::DPadDown,  false, -1, "DN"};
+    mButtons[BTN_DPAD_LEFT]  = {0.07f, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF"};
+    mButtons[BTN_DPAD_RIGHT] = {0.25f, dpadY, dpadSize, dpadSize, InputManager::DPadRight,false, -1, "RT"};
 
     // Right side: Face buttons
     float faceX = 0.85f;
-    float faceY = 0.75f;
-    float faceSize = 0.08f;
+    float faceY = 0.76f;
+    float faceSize = 0.10f;
 
-    mButtons[BTN_A] = {faceX, faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A"};
-    mButtons[BTN_B] = {faceX + faceSize, faceY, faceSize, faceSize, InputManager::B, false, -1, "B"};
-    mButtons[BTN_X] = {faceX - faceSize, faceY, faceSize, faceSize, InputManager::Square, false, -1, "X"};
-    mButtons[BTN_Y] = {faceX, faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
+    mButtons[BTN_A] = {faceX,     faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A"};
+    mButtons[BTN_B] = {faceX + faceSize, faceY,    faceSize, faceSize, InputManager::B, false, -1, "B"};
+    mButtons[BTN_X] = {faceX - faceSize, faceY,    faceSize, faceSize, InputManager::Square, false, -1, "X"};
+    mButtons[BTN_Y] = {faceX,     faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
 
     // Center/Top: Start, Select
-    mButtons[BTN_START] = {0.55f, 0.05f, 0.10f, 0.05f, InputManager::Start, false, -1, "START"};
-    mButtons[BTN_SELECT] = {0.45f, 0.05f, 0.10f, 0.05f, InputManager::Select, false, -1, "SELECT"};
+    mButtons[BTN_START]  = {0.55f, 0.04f, 0.12f, 0.06f, InputManager::Start,  false, -1, "START"};
+    mButtons[BTN_SELECT] = {0.43f, 0.04f, 0.12f, 0.06f, InputManager::Select, false, -1, "SELECT"};
 
     // Shoulder buttons
-    mButtons[BTN_L1] = {0.15f, 0.05f, 0.12f, 0.07f, InputManager::AnalogL1, false, -1, "L1"};
-    mButtons[BTN_R1] = {0.85f, 0.05f, 0.12f, 0.07f, InputManager::AnalogR1, false, -1, "R1"};
+    mButtons[BTN_L1] = {0.14f, 0.04f, 0.14f, 0.08f, InputManager::AnalogL1, false, -1, "L1"};
+    mButtons[BTN_R1] = {0.86f, 0.04f, 0.14f, 0.08f, InputManager::AnalogR1, false, -1, "R1"};
 
-    // Joysticks
-    mLeftStick.centerX = 0.15f;
+    // Joysticks (mais abaixo para evitar overlap com D-Pad / face buttons)
+    mLeftStick.centerX = 0.16f;
     mLeftStick.centerY = 0.52f;
-    mLeftStick.radius = 0.10f;
+    mLeftStick.radius = 0.12f;
     mLeftStick.currX = 0.0f;
     mLeftStick.currY = 0.0f;
     mLeftStick.axisX = InputManager::LeftStickX;
@@ -82,9 +83,9 @@ void TouchGui::Init() {
     mLeftStick.fingerId = -1;
     mLeftStick.active = false;
 
-    mRightStick.centerX = 0.85f;
+    mRightStick.centerX = 0.84f;
     mRightStick.centerY = 0.52f;
-    mRightStick.radius = 0.10f;
+    mRightStick.radius = 0.12f;
     mRightStick.currX = 0.0f;
     mRightStick.currY = 0.0f;
     mRightStick.axisX = InputManager::RightStickX;
@@ -131,6 +132,7 @@ void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down,
         if (stick.fingerId == fingerId || (stick.fingerId == -1 && dist < stick.radius)) {
             stick.fingerId = fingerId;
             stick.active = true;
+            stick.lastEventTime = radTimeGetMicroseconds64();
 
             if (dist > stick.radius) {
                 dx = (dx / dist) * stick.radius;
@@ -141,8 +143,8 @@ void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down,
             stick.currY = dy / stick.radius;
 
             // The game expects analog stick values in [-1, 1] with 0.0 as center.
-            // Apply a small deadzone so tiny movements near center register as 0.
-            const float deadzone = 0.15f;
+            // Apply a generous deadzone so tiny movements near center register as 0.
+            const float deadzone = 0.18f;
             float valX = stick.currX;
             float valY = -stick.currY; // Invert Y for game coordinates
 
@@ -189,18 +191,35 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     UserController* controller = GetInputManager()->GetController(0);
     if (!controller) return;
 
-    // Check sticks first (they are larger and usually at corners)
-    // Only update the stick that is already active for this finger,
-    // or claim an inactive stick if the touch is in its zone.
+    // Check sticks first.
+    // A finger already captured by a stick only updates that stick.
+    // A new finger can only claim a stick if it starts inside the stick radius.
     bool stickClaimed = false;
-    if (mLeftStick.fingerId == fingerId || (mLeftStick.fingerId == -1 && x < 0.5f)) {
+
+    float ldx = x - mLeftStick.centerX;
+    float ldy = y - mLeftStick.centerY;
+    float ldist = sqrtf(ldx*ldx + ldy*ldy);
+
+    float rdx = x - mRightStick.centerX;
+    float rdy = y - mRightStick.centerY;
+    float rdist = sqrtf(rdx*rdx + rdy*rdy);
+
+    if (mLeftStick.fingerId == fingerId) {
         UpdateJoystick(mLeftStick, x, y, down, fingerId);
-        if (mLeftStick.fingerId == fingerId) stickClaimed = true;
+        stickClaimed = true;
+    } else if (down && mLeftStick.fingerId == -1 && ldist < mLeftStick.radius) {
+        UpdateJoystick(mLeftStick, x, y, down, fingerId);
+        stickClaimed = true;
     }
-    if (mRightStick.fingerId == fingerId || (mRightStick.fingerId == -1 && x >= 0.5f)) {
+
+    if (mRightStick.fingerId == fingerId) {
         UpdateJoystick(mRightStick, x, y, down, fingerId);
-        if (mRightStick.fingerId == fingerId) stickClaimed = true;
+        stickClaimed = true;
+    } else if (!stickClaimed && down && mRightStick.fingerId == -1 && rdist < mRightStick.radius) {
+        UpdateJoystick(mRightStick, x, y, down, fingerId);
+        stickClaimed = true;
     }
+
     if (stickClaimed) {
         // Don't let this finger also press buttons while dragging a stick.
         return;
@@ -229,8 +248,8 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
                 mButtons[i].fingerId = -1;
                 controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
             }
-        } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mButtons[i].pressed && !mLeftStick.active && !mRightStick.active) {
-            // Only capture if not already handled by stick and not already pressed
+        } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mButtons[i].pressed) {
+            // Finger moved into a button while not controlling a stick
             mButtons[i].pressed = true;
             mButtons[i].fingerId = fingerId;
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
@@ -238,7 +257,60 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
     }
 }
 
-void TouchGui::Update(unsigned int elapsedTime) {}
+void TouchGui::ReleaseAllInputs() {
+    UserController* controller = GetInputManager()->GetController(0);
+    if (!controller) return;
+
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        if (mButtons[i].pressed) {
+            mButtons[i].pressed = false;
+            mButtons[i].fingerId = -1;
+            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+        }
+    }
+
+    mLeftStick.active = false;
+    mLeftStick.fingerId = -1;
+    mLeftStick.currX = 0.0f;
+    mLeftStick.currY = 0.0f;
+    controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+    controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+
+    mRightStick.active = false;
+    mRightStick.fingerId = -1;
+    mRightStick.currX = 0.0f;
+    mRightStick.currY = 0.0f;
+    controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+    controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+}
+
+void TouchGui::AutoReleaseSticksIfStale(UserController* controller) {
+    if (!controller) return;
+    const radInt64 now = radTimeGetMicroseconds64();
+    const radInt64 staleThresholdUs = 3000000; // 3000 ms (3s)
+
+    if (mLeftStick.active && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
+        mLeftStick.active = false;
+        mLeftStick.fingerId = -1;
+        mLeftStick.currX = 0.0f;
+        mLeftStick.currY = 0.0f;
+        controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+    }
+    if (mRightStick.active && (now - mRightStick.lastEventTime) > staleThresholdUs) {
+        mRightStick.active = false;
+        mRightStick.fingerId = -1;
+        mRightStick.currX = 0.0f;
+        mRightStick.currY = 0.0f;
+        controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+    }
+}
+
+void TouchGui::Update(unsigned int elapsedTime) {
+    UserController* controller = GetInputManager()->GetController(0);
+    AutoReleaseSticksIfStale(controller);
+}
 
 void TouchGui::Render() {
 #ifdef RAD_ANDROID

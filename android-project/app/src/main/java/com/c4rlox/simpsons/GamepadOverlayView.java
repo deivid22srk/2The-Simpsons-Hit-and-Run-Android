@@ -49,34 +49,34 @@ public class GamepadOverlayView extends View {
     }
 
     // ── Definicões de botoes (coord normalizadas) ─────────────────────
-    // Os resIds serao preenchidos com placeholder 0 e substituidos
-    // no construtor via getResources().
+    // Botoes maiores e melhor espacados para ergonomia mobile.
     private static final Btn[] BTNS = {
-        new Btn("UP",     0.15f, 0.67f, 0.08f, 0.08f, 0),  // 0
-        new Btn("DOWN",   0.15f, 0.83f, 0.08f, 0.08f, 0),  // 1
-        new Btn("LEFT",   0.07f, 0.75f, 0.08f, 0.08f, 0),  // 2
-        new Btn("RIGHT",  0.23f, 0.75f, 0.08f, 0.08f, 0),  // 3
-        new Btn("A",      0.85f, 0.83f, 0.08f, 0.08f, 0),  // 4
-        new Btn("B",      0.93f, 0.75f, 0.08f, 0.08f, 0),  // 5
-        new Btn("X",      0.77f, 0.75f, 0.08f, 0.08f, 0),  // 6
-        new Btn("Y",      0.85f, 0.67f, 0.08f, 0.08f, 0),  // 7
-        new Btn("START",  0.55f, 0.05f, 0.10f, 0.05f, 0),  // 8
-        new Btn("SELECT", 0.45f, 0.05f, 0.10f, 0.05f, 0),  // 9
-        new Btn("L1",     0.15f, 0.05f, 0.12f, 0.07f, 0),  // 10
-        new Btn("R1",     0.85f, 0.05f, 0.12f, 0.07f, 0),  // 11
+        new Btn("UP",     0.16f, 0.70f, 0.10f, 0.10f, 0),  // 0
+        new Btn("DOWN",   0.16f, 0.88f, 0.10f, 0.10f, 0),  // 1
+        new Btn("LEFT",   0.07f, 0.79f, 0.10f, 0.10f, 0),  // 2
+        new Btn("RIGHT",  0.25f, 0.79f, 0.10f, 0.10f, 0),  // 3
+        new Btn("A",      0.85f, 0.86f, 0.10f, 0.10f, 0),  // 4
+        new Btn("B",      0.95f, 0.76f, 0.10f, 0.10f, 0),  // 5
+        new Btn("X",      0.75f, 0.76f, 0.10f, 0.10f, 0),  // 6
+        new Btn("Y",      0.85f, 0.66f, 0.10f, 0.10f, 0),  // 7
+        new Btn("START",  0.55f, 0.04f, 0.12f, 0.06f, 0),  // 8
+        new Btn("SELECT", 0.43f, 0.04f, 0.12f, 0.06f, 0),  // 9
+        new Btn("L1",     0.14f, 0.04f, 0.14f, 0.08f, 0),  // 10
+        new Btn("R1",     0.86f, 0.04f, 0.14f, 0.08f, 0),  // 11
     };
 
     // ── Definicões de sticks ──────────────────────────────────────────
+    // Sticks maiores e mais abaixo para evitar overlap com D-Pad/face buttons.
     private static final Stk[] STKS = {
-        new Stk(0.15f, 0.52f, 0.10f),
-        new Stk(0.85f, 0.52f, 0.10f),
+        new Stk(0.16f, 0.52f, 0.12f),
+        new Stk(0.84f, 0.52f, 0.12f),
     };
 
-    // ── Estado de toque ───────────────────────────────────────────────
-    private int mActivePointerId = -1;
-    private int mActiveButtonIdx = -1;
-    private int mActiveStickIdx = -1;
-    private float mStickKnobX, mStickKnobY;
+    // ── Estado de toque (multi-touch real) ────────────────────────────
+    private int[] mButtonPointerIds = new int[BTNS.length];  // -1 = não pressionado
+    private int[] mStickPointerIds  = new int[STKS.length];  // -1 = não ativo
+    private float[] mStickKnobX     = new float[STKS.length];
+    private float[] mStickKnobY     = new float[STKS.length];
 
     // ── Bitmaps dos botoes ────────────────────────────────────────────
     private Bitmap[] mBtnBmps;
@@ -90,6 +90,8 @@ public class GamepadOverlayView extends View {
     public GamepadOverlayView(Context ctx) {
         super(ctx);
         mBtnBmps = new Bitmap[BTNS.length];
+        for (int i = 0; i < BTNS.length; i++) mButtonPointerIds[i] = -1;
+        for (int i = 0; i < STKS.length; i++)  mStickPointerIds[i] = -1;
     }
 
     // ── onSizeChanged: calcula geometria e carrega bitmaps ────────────
@@ -116,10 +118,10 @@ public class GamepadOverlayView extends View {
             s.r = s.nr * minDim;
         }
 
-        // Inicializa knob do stick no centro do primeiro stick
-        if (STKS.length > 0) {
-            mStickKnobX = STKS[0].cx;
-            mStickKnobY = STKS[0].cy;
+        // Inicializa knobs dos sticks no centro
+        for (int i = 0; i < STKS.length; i++) {
+            mStickKnobX[i] = STKS[i].cx;
+            mStickKnobY[i] = STKS[i].cy;
         }
 
         // Paints dos sticks
@@ -148,10 +150,8 @@ public class GamepadOverlayView extends View {
         }
 
         Resources res = getResources();
-        String pkg = getContext().getPackageName();
 
-        // Mapeamento: indice do botao -> nome do recurso drawable
-        int[] resIds = {
+        // Mapeamento: indice do botao -> nome do recurso drawable            int[] resIds = {
             R.drawable.dpad_up,            // 0: UP
             R.drawable.dpad_down,          // 1: DOWN
             R.drawable.dpad_left,          // 2: LEFT
@@ -162,8 +162,8 @@ public class GamepadOverlayView extends View {
             R.drawable.button_y,           // 7: Y
             R.drawable.button_start_menu,  // 8: START
             R.drawable.button_select_view, // 9: SELECT
-            R.drawable.button_lb,          // 10: L1
-            R.drawable.button_lb,          // 11: R1 (flipped in onDraw)
+            R.drawable.button_lt,          // 10: L1
+            R.drawable.button_lt,          // 11: R1 (flipped in onDraw)
         };
 
         for (int i = 0; i < BTNS.length; i++) {
@@ -181,11 +181,11 @@ public class GamepadOverlayView extends View {
             int bw = Math.max(1, (int)(raw.getWidth() * scale));
             int bh = Math.max(1, (int)(raw.getHeight() * scale));
 
-            if (i == 11) {
-                // R1: flip horizontal
+            if (i == 10 || i == 11) {
+                // L1 / R1: flip horizontal para parecer shoulder direita/esquerda
                 Bitmap scaled = Bitmap.createScaledBitmap(raw, bw, bh, true);
                 Matrix matrix = new Matrix();
-                matrix.preScale(-1f, 1f);
+                matrix.preScale(i == 11 ? -1f : 1f, 1f);
                 mBtnBmps[i] = Bitmap.createBitmap(scaled, 0, 0, bw, bh, matrix, true);
                 if (scaled != raw) scaled.recycle();
             } else {
@@ -207,14 +207,8 @@ public class GamepadOverlayView extends View {
             canvas.drawCircle(s.cx, s.cy, s.r, mPStkBase);
 
             // Knob — usa a posicao do stick ativo, ou centro como fallback
-            float kx, ky;
-            if (mActiveStickIdx == i) {
-                kx = mStickKnobX;
-                ky = mStickKnobY;
-            } else {
-                kx = s.cx;
-                ky = s.cy;
-            }
+            float kx = mStickKnobX[i];
+            float ky = mStickKnobY[i];
             canvas.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
         }
 
@@ -224,7 +218,7 @@ public class GamepadOverlayView extends View {
             if (bmp == null) continue;
 
             Btn b = BTNS[i];
-            int alpha = (mActiveButtonIdx == i) ? 160 : 255;
+            int alpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
 
             mPBmp.setAlpha(alpha);
             canvas.drawBitmap(bmp, b.rect.left, b.rect.top, mPBmp);
@@ -235,26 +229,36 @@ public class GamepadOverlayView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         final int action = ev.getActionMasked();
-        final int pid = ev.getPointerId(ev.getActionIndex());
-        final float x = ev.getX(ev.getActionIndex());
-        final float y = ev.getY(ev.getActionIndex());
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_POINTER_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN: {
+                final int idx = ev.getActionIndex();
+                final int pid = ev.getPointerId(idx);
+                final float x = ev.getX(idx);
+                final float y = ev.getY(idx);
                 handleDown(x, y, pid);
                 break;
-            case MotionEvent.ACTION_MOVE:
-                if (pid == mActivePointerId) {
-                    handleMove(x, y);
+            }
+            case MotionEvent.ACTION_MOVE: {
+                final int pc = ev.getPointerCount();
+                for (int i = 0; i < pc; i++) {
+                    final int pid = ev.getPointerId(i);
+                    final float x = ev.getX(i);
+                    final float y = ev.getY(i);
+                    handleMove(x, y, pid);
                 }
                 break;
+            }
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_POINTER_UP:
+            case MotionEvent.ACTION_POINTER_UP: {
+                final int idx = ev.getActionIndex();
+                final int pid = ev.getPointerId(idx);
+                handleUp(pid);
+                break;
+            }
             case MotionEvent.ACTION_CANCEL:
-                if (pid == mActivePointerId) {
-                    handleUp();
-                }
+                handleCancel();
                 break;
         }
 
@@ -268,46 +272,59 @@ public class GamepadOverlayView extends View {
     private void handleDown(float x, float y, int pid) {
         // Botoes primeiro (mais precisos)
         for (int i = 0; i < BTNS.length; i++) {
-            if (BTNS[i].rect.contains(x, y)) {
-                mActiveButtonIdx = i;
-                mActivePointerId = pid;
-                mActiveStickIdx = -1;
+            if (mButtonPointerIds[i] == -1 && BTNS[i].rect.contains(x, y)) {
+                mButtonPointerIds[i] = pid;
                 return;
             }
         }
         // Sticks depois
         for (int i = 0; i < STKS.length; i++) {
+            if (mStickPointerIds[i] != -1) continue;
             Stk s = STKS[i];
             float dx = x - s.cx, dy = y - s.cy;
-            if (dx * dx + dy * dy <= s.r * s.r * 1.2f) {
-                mActiveStickIdx = i;
-                mActivePointerId = pid;
-                mActiveButtonIdx = -1;
+            if (dx * dx + dy * dy <= s.r * s.r) {
+                mStickPointerIds[i] = pid;
                 clampKnob(i, x, y);
                 return;
             }
         }
     }
 
-    private void handleMove(float x, float y) {
-        if (mActiveStickIdx >= 0) {
-            clampKnob(mActiveStickIdx, x, y);
-        } else if (mActiveButtonIdx >= 0) {
-            if (!BTNS[mActiveButtonIdx].rect.contains(x, y)) {
-                mActiveButtonIdx = -1;
-                mActivePointerId = -1;
+    private void handleMove(float x, float y, int pid) {
+        // Atualiza sticks ativos para este pointer
+        for (int i = 0; i < STKS.length; i++) {
+            if (mStickPointerIds[i] == pid) {
+                clampKnob(i, x, y);
+                return; // um dedo so controla um stick
+            }
+        }
+        // Atualiza botoes: libera se saiu do rect
+        for (int i = 0; i < BTNS.length; i++) {
+            if (mButtonPointerIds[i] == pid && !BTNS[i].rect.contains(x, y)) {
+                mButtonPointerIds[i] = -1;
             }
         }
     }
 
-    private void handleUp() {
-        mActiveButtonIdx = -1;
-        mActiveStickIdx = -1;
-        mActivePointerId = -1;
-        // Reseta knob para o centro do stick 0
-        if (STKS.length > 0) {
-            mStickKnobX = STKS[0].cx;
-            mStickKnobY = STKS[0].cy;
+    private void handleUp(int pid) {
+        for (int i = 0; i < BTNS.length; i++) {
+            if (mButtonPointerIds[i] == pid) mButtonPointerIds[i] = -1;
+        }
+        for (int i = 0; i < STKS.length; i++) {
+            if (mStickPointerIds[i] == pid) {
+                mStickPointerIds[i] = -1;
+                mStickKnobX[i] = STKS[i].cx;
+                mStickKnobY[i] = STKS[i].cy;
+            }
+        }
+    }
+
+    private void handleCancel() {
+        for (int i = 0; i < BTNS.length; i++) mButtonPointerIds[i] = -1;
+        for (int i = 0; i < STKS.length; i++) {
+            mStickPointerIds[i] = -1;
+            mStickKnobX[i] = STKS[i].cx;
+            mStickKnobY[i] = STKS[i].cy;
         }
     }
 
@@ -373,7 +390,7 @@ public class GamepadOverlayView extends View {
             dx *= scale;
             dy *= scale;
         }
-        mStickKnobX = s.cx + dx;
-        mStickKnobY = s.cy + dy;
+        mStickKnobX[stickIdx] = s.cx + dx;
+        mStickKnobY[stickIdx] = s.cy + dy;
     }
 }

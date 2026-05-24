@@ -519,6 +519,13 @@ void Game::Run()
         while( SDL_PollEvent( &msg ) )
         {
 #ifdef RAD_ANDROID
+            // Lifecycle events: release all touch inputs when app loses focus
+            // to prevent stuck buttons/sticks when the game is backgrounded.
+            if (msg.type == SDL_APP_WILLENTERBACKGROUND || msg.type == SDL_APP_DIDENTERBACKGROUND) {
+                if (TouchGui::GetInstance()) {
+                    TouchGui::GetInstance()->ReleaseAllInputs();
+                }
+            }
             TouchGui::GetInstance()->HandleTouchEvent(&msg);
 #endif
 

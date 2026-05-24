@@ -3,6 +3,9 @@
 
 #include <SDL.h>
 #include <pddi/pddi.hpp>
+#include <radtime.hpp>
+
+class UserController;
 
 class TouchGui {
 public:
@@ -17,6 +20,8 @@ public:
 
     void SetVisible(bool visible);
     bool IsVisible() const { return mVisible; }
+
+    void ReleaseAllInputs();
 
 private:
     TouchGui();
@@ -59,6 +64,7 @@ private:
         int axisX, axisY;
         SDL_FingerID fingerId;
         bool active;
+        radTime64 lastEventTime;
     };
 
     TouchJoystick mLeftStick;
@@ -67,6 +73,8 @@ private:
     void DrawRect(float x, float y, float w, float h, pddiColour colour);
     void UpdateButton(int index, float x, float y, bool down, SDL_FingerID fingerId);
     void UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId);
+    void ReleaseAllInputs();
+    void AutoReleaseSticksIfStale(UserController* controller);
 };
 
 #endif

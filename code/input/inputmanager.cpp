@@ -175,6 +175,9 @@ void InputManager::Update( unsigned int timeinms )
             mControllerArray[0].InitializeVirtualForTouch();
             mControllerArray[0].LoadControllerMappings();
         }
+
+        // Update touch GUI (auto-release stale sticks, etc.)
+        TouchGui::GetInstance()->Update(timeinms);
     }
 #endif
 
