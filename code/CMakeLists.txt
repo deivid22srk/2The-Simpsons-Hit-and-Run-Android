@@ -107,6 +107,7 @@ set(SRR2_SOURCES
 	#"input/Gamepad.cpp"
 	"input/inputmanager.cpp"
 	"input/touchGui.cpp"
+	"input/jni_touch_bridge.cpp"
 	#"input/Keyboard.cpp"
 	"input/mappable.cpp"
 	"input/mapper.cpp"

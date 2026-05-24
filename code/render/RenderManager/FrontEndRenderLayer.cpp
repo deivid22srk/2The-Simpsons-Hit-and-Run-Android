@@ -33,7 +33,6 @@
 #endif
 #ifdef RAD_ANDROID
 #include <presentation/fmvplayer/fmvplayer.h>
-#include <input/touchGui.h>
 #endif
 
 
@@ -306,10 +305,6 @@ void FrontEndRenderLayer::Render()
         {
             mpScroobyApp->DrawFrame( static_cast<float>( g_scroobySimulationTime ) );
         }
-
-#ifdef RAD_ANDROID
-        TouchGui::GetInstance()->Render();
-#endif
 
 #ifdef RAD_PC
         GetInputManager()->GetFEMouse()->Update();

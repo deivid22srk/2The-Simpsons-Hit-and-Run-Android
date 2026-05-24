@@ -1,8 +1,6 @@
 #include <input/touchGui.h>
 #include <input/inputmanager.h>
 #include <input/usercontroller.h>
-#include <p3d/utility.hpp>
-#include <pddi/pddi.hpp>
 #include <main/game.h>
 #include <math.h>
 #include <cmath>
@@ -26,9 +24,7 @@ void TouchGui::DestroyInstance() {
 }
 
 TouchGui::TouchGui() :
-    mVisible(true),
-    mScreenWidth(640.0f),
-    mScreenHeight(480.0f)
+    mVisible(true)
 {
     mLeftStick.fingerId = -1;
     mLeftStick.active = false;
@@ -213,145 +209,21 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
 
 void TouchGui::Update(unsigned int elapsedTime) {}
 
-void TouchGui::Render() {
-    if (!mVisible) return;
+// ---- JNI Query Methods (called via JNI from the Java overlay) ----
 
-    pddiRenderContext* pddi = p3d::pddi;
-    mScreenWidth = (float)pddi->GetDisplayInfo().xRes;
-    mScreenHeight = (float)pddi->GetDisplayInfo().yRes;
-
-    pddi->PushState(PDDI_STATE_ALL);
-    pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
-    pddi->SetZWrite(false);
-    pddi->SetZCompare(PDDI_COMPARE_ALWAYS);
-
-    // Simpsons Colors
-    pddiColour simpsonYellow = pddiColour(255, 217, 15);
-    pddiColour simpsonBlue = pddiColour(31, 74, 184);
-
-    // Draw Joysticks
-    pddiColour stickBaseCol = simpsonYellow;
-    stickBaseCol.SetAlpha(40);
-    pddiColour stickKnobCol = simpsonBlue;
-    stickKnobCol.SetAlpha(100);
-
-    float stickBaseRadius = 0.10f * mScreenWidth;
-    float stickInnerRadius = 0.08f * mScreenWidth;
-    float knobRadius = 0.04f * mScreenWidth;
-    float knobOffset = 0.06f;
-
-    // Left Stick
-    DrawDonut(mLeftStick.centerX * mScreenWidth, mLeftStick.centerY * mScreenHeight, stickBaseRadius, stickInnerRadius, stickBaseCol);
-    DrawCircle((mLeftStick.centerX + mLeftStick.currX * knobOffset) * mScreenWidth,
-               (mLeftStick.centerY + mLeftStick.currY * knobOffset) * mScreenHeight, knobRadius, stickKnobCol);
-
-    // Right Stick
-    DrawDonut(mRightStick.centerX * mScreenWidth, mRightStick.centerY * mScreenHeight, stickBaseRadius, stickInnerRadius, stickBaseCol);
-    DrawCircle((mRightStick.centerX + mRightStick.currX * knobOffset) * mScreenWidth,
-               (mRightStick.centerY + mRightStick.currY * knobOffset) * mScreenHeight, knobRadius, stickKnobCol);
-
-    // Draw Buttons
-    for (int i = 0; i < NUM_BUTTONS; ++i) {
-        pddiColour col = simpsonYellow;
-        col.SetAlpha(mButtons[i].pressed ? 180 : 80);
-
-        pddiColour borderCol = simpsonBlue;
-        borderCol.SetAlpha(mButtons[i].pressed ? 220 : 120);
-
-        float x = mButtons[i].x * mScreenWidth;
-        float y = mButtons[i].y * mScreenHeight;
-        float radius = (mButtons[i].w * mScreenWidth + mButtons[i].h * mScreenHeight) / 4.0f;
-
-        if (i == BTN_START || i == BTN_SELECT || i == BTN_L1 || i == BTN_R1) {
-            // Use rounded rect style for these
-            float w = mButtons[i].w * mScreenWidth;
-            float h = mButtons[i].h * mScreenHeight;
-            DrawRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, borderCol);
-            DrawRect(x - w/2, y - h/2, w, h, col);
-        } else {
-            // Use circle style for face buttons and dpad
-            DrawCircle(x, y, radius + 2, borderCol);
-            DrawCircle(x, y, radius, col);
-        }
-
-        // Draw Label with shadow (centered)
-        int labelLen = strlen(mButtons[i].label);
-        int offsetX = labelLen * 4;
-        pddi->DrawString(mButtons[i].label, (int)(x - offsetX + 1), (int)(y - 7 + 1), pddiColour(0, 0, 0));
-        pddi->DrawString(mButtons[i].label, (int)(x - offsetX), (int)(y - 7), pddiColour(255, 255, 255));
-    }
-
-    pddi->PopState(PDDI_STATE_ALL);
+bool TouchGui::IsButtonPressed(int buttonIndex) const {
+    if (buttonIndex < 0 || buttonIndex >= NUM_BUTTONS) return false;
+    return mButtons[buttonIndex].pressed;
 }
 
-void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour) {
-    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, 6);
-
-    stream->Colour(colour);
-    stream->Coord(x, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x + w, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x, y + h, 0.0f);
-
-    stream->Colour(colour);
-    stream->Coord(x + w, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x + w, y + h, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x, y + h, 0.0f);
-
-    p3d::pddi->EndPrims(stream);
+float TouchGui::GetJoystickX(int stickIndex) const {
+    if (stickIndex == 0) return mLeftStick.currX;
+    if (stickIndex == 1) return mRightStick.currX;
+    return 0.0f;
 }
 
-void TouchGui::DrawCircle(float x, float y, float radius, pddiColour colour) {
-    const int segments = 16;
-    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, segments * 3);
-
-    for (int i = 0; i < segments; ++i) {
-        float theta1 = (2.0f * 3.1415926f * (float)i) / (float)segments;
-        float theta2 = (2.0f * 3.1415926f * (float)(i + 1)) / (float)segments;
-
-        stream->Colour(colour);
-        stream->Coord(x, y, 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + radius * cosf(theta1), y + radius * sinf(theta1), 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + radius * cosf(theta2), y + radius * sinf(theta2), 0.0f);
-    }
-
-    p3d::pddi->EndPrims(stream);
-}
-
-void TouchGui::DrawDonut(float x, float y, float outerRadius, float innerRadius, pddiColour colour) {
-    const int segments = 16;
-    pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, segments * 6);
-
-    for (int i = 0; i < segments; ++i) {
-        float theta1 = (2.0f * 3.1415926f * (float)i) / (float)segments;
-        float theta2 = (2.0f * 3.1415926f * (float)(i + 1)) / (float)segments;
-
-        float c1 = cosf(theta1);
-        float s1 = sinf(theta1);
-        float c2 = cosf(theta2);
-        float s2 = sinf(theta2);
-
-        // First triangle
-        stream->Colour(colour);
-        stream->Coord(x + innerRadius * c1, y + innerRadius * s1, 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + outerRadius * c1, y + outerRadius * s1, 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + outerRadius * c2, y + outerRadius * s2, 0.0f);
-
-        // Second triangle
-        stream->Colour(colour);
-        stream->Coord(x + innerRadius * c1, y + innerRadius * s1, 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + outerRadius * c2, y + outerRadius * s2, 0.0f);
-        stream->Colour(colour);
-        stream->Coord(x + innerRadius * c2, y + innerRadius * s2, 0.0f);
-    }
-
-    p3d::pddi->EndPrims(stream);
+float TouchGui::GetJoystickY(int stickIndex) const {
+    if (stickIndex == 0) return mLeftStick.currY;
+    if (stickIndex == 1) return mRightStick.currY;
+    return 0.0f;
 }

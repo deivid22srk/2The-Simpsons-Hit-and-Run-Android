@@ -2,7 +2,6 @@
 #define TOUCH_GUI_H
 
 #include <SDL.h>
-#include <pddi/pddi.hpp>
 
 class TouchGui {
 public:
@@ -12,11 +11,15 @@ public:
 
     void Init();
     void Update(unsigned int elapsedTime);
-    void Render();
     void HandleTouchEvent(SDL_Event* event);
 
     void SetVisible(bool visible);
     bool IsVisible() const { return mVisible; }
+
+    // JNI query methods for Java overlay
+    bool IsButtonPressed(int buttonIndex) const;
+    float GetJoystickX(int stickIndex) const; // 0=left, 1=right
+    float GetJoystickY(int stickIndex) const;
 
 private:
     TouchGui();
@@ -24,8 +27,6 @@ private:
 
     static TouchGui* spInstance;
     bool mVisible;
-    float mScreenWidth;
-    float mScreenHeight;
 
     struct TouchButton {
         float x, y, w, h; // Normalized coordinates (0.0 to 1.0)
@@ -64,9 +65,6 @@ private:
     TouchJoystick mLeftStick;
     TouchJoystick mRightStick;
 
-    void DrawRect(float x, float y, float w, float h, pddiColour colour);
-    void DrawCircle(float x, float y, float radius, pddiColour colour);
-    void DrawDonut(float x, float y, float outerRadius, float innerRadius, pddiColour colour);
     void UpdateButton(int index, float x, float y, bool down, SDL_FingerID fingerId);
     void UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId);
 };
