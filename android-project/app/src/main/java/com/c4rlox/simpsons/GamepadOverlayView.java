@@ -213,6 +213,7 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpFrear;
     private Bitmap mBmpEntrarCarro;
     private Bitmap mBmpSoco;
+    private Bitmap mBmpConfiguracoes;
     private Bitmap mBmpMudarCamera;
     private boolean mNativeLayoutApplied = false;
 
