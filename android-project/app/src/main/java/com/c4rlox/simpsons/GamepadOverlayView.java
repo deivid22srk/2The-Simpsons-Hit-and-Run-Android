@@ -99,9 +99,13 @@ public class GamepadOverlayView extends View {
 
         if (w == 0 || h == 0) return;
 
-        // Calcula rects dos botoes
+        // Calcula rects dos botoes usando centro + metade-dimensao (igual ao C++)
         for (Btn b : BTNS) {
-            b.rect.set(b.nx * w, b.ny * h, (b.nx + b.nw) * w, (b.ny + b.nh) * h);
+            float cx = b.nx * w;
+            float cy = b.ny * h;
+            float halfW = (b.nw * w) / 2f;
+            float halfH = (b.nh * h) / 2f;
+            b.rect.set(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
         }
 
         // Calcula posicoes dos sticks
@@ -170,8 +174,12 @@ public class GamepadOverlayView extends View {
             if (raw == null) continue;
 
             Btn b = BTNS[i];
-            int bw = Math.max(1, (int) b.rect.width());
-            int bh = Math.max(1, (int) b.rect.height());
+            // Mantem aspect ratio do bitmap original para evitar esticamento
+            float targetW = b.rect.width();
+            float targetH = b.rect.height();
+            float scale = Math.min(targetW / raw.getWidth(), targetH / raw.getHeight());
+            int bw = Math.max(1, (int)(raw.getWidth() * scale));
+            int bh = Math.max(1, (int)(raw.getHeight() * scale));
 
             if (i == 11) {
                 // R1: flip horizontal
@@ -328,6 +336,12 @@ public class GamepadOverlayView extends View {
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_DOWN:
                 sendTouch(ev, ev.getActionIndex(), touchDevId, action, w, h);
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                // Envia release para todos os pontos ativos para evitar botao preso
+                for (int i = 0; i < pointerCount; i++) {
+                    sendTouch(ev, i, touchDevId, MotionEvent.ACTION_UP, w, h);
+                }
                 break;
             default:
                 break;

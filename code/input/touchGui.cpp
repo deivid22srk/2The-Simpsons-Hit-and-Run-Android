@@ -191,19 +191,25 @@ void TouchGui::HandleTouchEvent(SDL_Event* event) {
                          y >= mButtons[i].y - mButtons[i].h/2 && y <= mButtons[i].y + mButtons[i].h/2);
 
         if (event->type == SDL_FINGERDOWN && inBounds) {
-            mButtons[i].pressed = true;
-            mButtons[i].fingerId = fingerId;
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
+            if (!mButtons[i].pressed) {
+                mButtons[i].pressed = true;
+                mButtons[i].fingerId = fingerId;
+                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
+            }
         } else if (event->type == SDL_FINGERUP && mButtons[i].fingerId == fingerId) {
-            mButtons[i].pressed = false;
-            mButtons[i].fingerId = -1;
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+            if (mButtons[i].pressed) {
+                mButtons[i].pressed = false;
+                mButtons[i].fingerId = -1;
+                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+            }
         } else if (event->type == SDL_FINGERMOTION && mButtons[i].fingerId == fingerId && !inBounds) {
-            mButtons[i].pressed = false;
-            mButtons[i].fingerId = -1;
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
-        } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mLeftStick.active && !mRightStick.active) {
-            // Only capture if not already handled by stick
+            if (mButtons[i].pressed) {
+                mButtons[i].pressed = false;
+                mButtons[i].fingerId = -1;
+                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
+            }
+        } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mButtons[i].pressed && !mLeftStick.active && !mRightStick.active) {
+            // Only capture if not already handled by stick and not already pressed
             mButtons[i].pressed = true;
             mButtons[i].fingerId = fingerId;
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
