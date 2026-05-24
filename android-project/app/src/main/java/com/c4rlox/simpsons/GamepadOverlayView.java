@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -20,6 +21,9 @@ import org.libsdl.app.SDLActivity;
  * Botoes usam bitmaps dos assets; sticks sao desenhados como circulos.
  */
 public class GamepadOverlayView extends View {
+
+    // ── Log tag ───────────────────────────────────────────────────────
+    private static final String TAG = "GamepadOverlay";
 
     // ── Cores tema Simpsons ───────────────────────────────────────────
     private static final int STK_BASE_ALPHA = 120;
@@ -100,6 +104,8 @@ public class GamepadOverlayView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
 
         if (w == 0 || h == 0) return;
+
+        Log.i(TAG, String.format("onSizeChanged %dx%d (old=%dx%d)", w, h, oldw, oldh));
 
         // Calcula rects dos botoes usando centro + metade-dimensao (igual ao C++)
         for (Btn b : BTNS) {
@@ -270,11 +276,25 @@ public class GamepadOverlayView extends View {
         return true;
     }
 
+    // ── Debug: string para action human-readable ──────────────────────
+    private static String actionName(int action) {
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:            return "DOWN";
+            case MotionEvent.ACTION_UP:              return "UP";
+            case MotionEvent.ACTION_MOVE:            return "MOVE";
+            case MotionEvent.ACTION_CANCEL:          return "CANCEL";
+            case MotionEvent.ACTION_POINTER_DOWN:    return "PTR_DOWN";
+            case MotionEvent.ACTION_POINTER_UP:      return "PTR_UP";
+            default:                                 return "?" + action;
+        }
+    }
+
     private void handleDown(float x, float y, int pid) {
         // Botoes primeiro (mais precisos)
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == -1 && BTNS[i].rect.contains(x, y)) {
                 mButtonPointerIds[i] = pid;
+                Log.i(TAG, String.format("BTN %s PRESSED pid=%d pos=(%.3f,%.3f)", BTNS[i].label, pid, x / getWidth(), y / getHeight()));
                 return;
             }
         }
@@ -286,6 +306,7 @@ public class GamepadOverlayView extends View {
             if (dx * dx + dy * dy <= s.r * s.r) {
                 mStickPointerIds[i] = pid;
                 clampKnob(i, x, y);
+                Log.i(TAG, String.format("STK[%d] ACTIVATED pid=%d pos=(%.3f,%.3f)", i, pid, x / getWidth(), y / getHeight()));
                 return;
             }
         }
@@ -302,6 +323,7 @@ public class GamepadOverlayView extends View {
         // Atualiza botoes: libera se saiu do rect
         for (int i = 0; i < BTNS.length; i++) {
             if (mButtonPointerIds[i] == pid && !BTNS[i].rect.contains(x, y)) {
+                Log.i(TAG, String.format("BTN %s RELEASED (slide out) pid=%d", BTNS[i].label, pid));
                 mButtonPointerIds[i] = -1;
             }
         }
@@ -309,10 +331,14 @@ public class GamepadOverlayView extends View {
 
     private void handleUp(int pid) {
         for (int i = 0; i < BTNS.length; i++) {
-            if (mButtonPointerIds[i] == pid) mButtonPointerIds[i] = -1;
+            if (mButtonPointerIds[i] == pid) {
+                Log.i(TAG, String.format("BTN %s RELEASED pid=%d", BTNS[i].label, pid));
+                mButtonPointerIds[i] = -1;
+            }
         }
         for (int i = 0; i < STKS.length; i++) {
             if (mStickPointerIds[i] == pid) {
+                Log.i(TAG, String.format("STK[%d] RELEASED pid=%d", i, pid));
                 mStickPointerIds[i] = -1;
                 mStickKnobX[i] = STKS[i].cx;
                 mStickKnobY[i] = STKS[i].cy;
@@ -321,11 +347,19 @@ public class GamepadOverlayView extends View {
     }
 
     private void handleCancel() {
-        for (int i = 0; i < BTNS.length; i++) mButtonPointerIds[i] = -1;
+        int btnCount = 0, stkCount = 0;
+        for (int i = 0; i < BTNS.length; i++) {
+            if (mButtonPointerIds[i] != -1) btnCount++;
+            mButtonPointerIds[i] = -1;
+        }
         for (int i = 0; i < STKS.length; i++) {
+            if (mStickPointerIds[i] != -1) stkCount++;
             mStickPointerIds[i] = -1;
             mStickKnobX[i] = STKS[i].cx;
             mStickKnobY[i] = STKS[i].cy;
+        }
+        if (btnCount > 0 || stkCount > 0) {
+            Log.w(TAG, String.format("ACTION_CANCEL: released %d button(s) + %d stick(s)", btnCount, stkCount));
         }
     }
 
@@ -350,14 +384,17 @@ public class GamepadOverlayView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_DOWN: {
                 final int idx = ev.getActionIndex();
+                Log.d(TAG, String.format("forwardToSDL action=%s idx=%d npointers=%d", actionName(action), idx, pointerCount));
                 sendTouch(ev, idx, touchDevId, action, w, h);
                 break;
             }
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_POINTER_DOWN:
+                Log.d(TAG, String.format("forwardToSDL action=%s idx=%d npointers=%d", actionName(action), ev.getActionIndex(), pointerCount));
                 sendTouch(ev, ev.getActionIndex(), touchDevId, action, w, h);
                 break;
             case MotionEvent.ACTION_CANCEL:
+                Log.w(TAG, String.format("forwardToSDL ACTION_CANCEL: sending UP for %d pointer(s)", pointerCount));
                 // Envia release para todos os pontos ativos para evitar botao preso
                 for (int i = 0; i < pointerCount; i++) {
                     sendTouch(ev, i, touchDevId, MotionEvent.ACTION_UP, w, h);
@@ -379,6 +416,12 @@ public class GamepadOverlayView extends View {
 
         float p = ev.getPressure(i);
         if (p > 1f) p = 1f;
+
+        // Log all non-MOVE events at debug level (MOVE would be too noisy)
+        if (action != MotionEvent.ACTION_MOVE) {
+            Log.d(TAG, String.format("sendTouch action=%s pid=%d devId=%d pos=(%.3f,%.3f) pressure=%.2f",
+                     actionName(action), pointerFingerId, touchDevId, x, y, p));
+        }
 
         SDLActivity.onNativeTouch(touchDevId, pointerFingerId, action, x, y, p);
     }

@@ -6,476 +6,536 @@
 #include <main/game.h>
 #include <math.h>
 
+// ── Cross-platform logging ───────────────────────────────────────────
+#ifdef RAD_ANDROID
+  #include <android/log.h>
+  #define LOG_TAG_HUD "SimpsonsTouchHud"
+  #define HUD_LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG_HUD, __VA_ARGS__)
+  #define HUD_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG_HUD, __VA_ARGS__)
+#else
+  #include <cstdio>
+  #define HUD_LOGI(...) do { std::printf("[TouchHud] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
+  #define HUD_LOGE(...) do { std::printf("[TouchHud:ERR] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
+#endif
+
+// ── Constants ────────────────────────────────────────────────────────
+static const float DEADZONE = 0.18f;
+
+// ── Singleton ────────────────────────────────────────────────────────
+
 TouchGui* TouchGui::spInstance = NULL;
 
-TouchGui* TouchGui::GetInstance() {
-    return spInstance;
-}
+TouchGui* TouchGui::GetInstance()       { return spInstance; }
+void TouchGui::CreateInstance()         { if (!spInstance) spInstance = new TouchGui(); }
+void TouchGui::DestroyInstance()        { delete spInstance; spInstance = NULL; }
 
-void TouchGui::CreateInstance() {
-    if (spInstance == NULL) {
-        spInstance = new TouchGui();
-    }
-}
+// ── Constructor / Destructor ─────────────────────────────────────────
 
-void TouchGui::DestroyInstance() {
-    delete spInstance;
-    spInstance = NULL;
-}
-
-TouchGui::TouchGui() :
-    mVisible(true),
-    mScreenWidth(640.0f),
-    mScreenHeight(480.0f)
+TouchGui::TouchGui()
+    : mVisible(true)
+    , mScreenWidth(640.0f)
+    , mScreenHeight(480.0f)
 {
-    mLeftStick.fingerId = -1;
-    mLeftStick.active = false;
-    mLeftStick.lastEventTime = 0;
+    // Zero-initialise sticks
+    mLeftStick  = {};
+    mRightStick = {};
+    mLeftStick.fingerId  = -1;
     mRightStick.fingerId = -1;
-    mRightStick.active = false;
-    mRightStick.lastEventTime = 0;
 
-    for(int i = 0; i < NUM_BUTTONS; ++i) {
-        mButtons[i].pressed = false;
+    // Zero-initialise buttons
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        mButtons[i] = {};
         mButtons[i].fingerId = -1;
-        mButtons[i].lastEventTime = 0;
     }
+
+    HUD_LOGI("TouchGui constructed");
 }
 
 TouchGui::~TouchGui() {}
 
-void TouchGui::Init() {
-    // Define button positions (normalized 0.0 - 1.0)
-    // Alinhado com GamepadOverlayView.java (botões maiores e mais espaçados)
-    // Alinhado com GamepadOverlayView.java
-    float dpadSize = 0.10f;
-    float dpadX = 0.16f;
-    float dpadY = 0.79f;
+// ── Initialisation helper ───────────────────────────────────────────
 
-    mButtons[BTN_DPAD_UP]    = {dpadX, 0.70f, dpadSize, dpadSize, InputManager::DPadUp,    false, -1, "UP", 0};
-    mButtons[BTN_DPAD_DOWN]  = {dpadX, 0.88f, dpadSize, dpadSize, InputManager::DPadDown,  false, -1, "DN", 0};
-    mButtons[BTN_DPAD_LEFT]  = {0.07f, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF", 0};
-    mButtons[BTN_DPAD_RIGHT] = {0.25f, dpadY, dpadSize, dpadSize, InputManager::DPadRight,false, -1, "RT", 0};
+void TouchGui::InitButton(TouchButton& btn,
+                          float x, float y, float w, float h,
+                          int buttonIndex, const char* label)
+{
+    btn.x             = x;
+    btn.y             = y;
+    btn.w             = w;
+    btn.h             = h;
+    btn.buttonIndex   = buttonIndex;
+    btn.pressed       = false;
+    btn.fingerId      = -1;
+    btn.label         = label;
+    btn.lastEventTime = 0;
+}
 
-    // Right side: Face buttons
-    float faceX = 0.85f;
-    float faceY = 0.76f;
-    float faceSize = 0.10f;
+void TouchGui::Init()
+{
+    HUD_LOGI("Init() - initializing HUD layout");
 
-    mButtons[BTN_A] = {faceX,     faceY + faceSize, faceSize, faceSize, InputManager::A, false, -1, "A", 0};
-    mButtons[BTN_B] = {faceX + faceSize, faceY,    faceSize, faceSize, InputManager::B, false, -1, "B", 0};
-    mButtons[BTN_X] = {faceX - faceSize, faceY,    faceSize, faceSize, InputManager::Square, false, -1, "X", 0};
-    mButtons[BTN_Y] = {faceX,     faceY - faceSize, faceSize, faceSize, InputManager::Triangle, false, -1, "Y", 0};
+    // ── D-Pad ────────────────────────────────────────────────────────
+    const float dpadSize = 0.10f;
+    const float dpadX    = 0.16f;
+    const float dpadY    = 0.79f;
 
-    // Center/Top: Start, Select
-    mButtons[BTN_START]  = {0.55f, 0.04f, 0.12f, 0.06f, InputManager::Start,  false, -1, "START", 0};
-    mButtons[BTN_SELECT] = {0.43f, 0.04f, 0.12f, 0.06f, InputManager::Select, false, -1, "SELECT", 0};
+    InitButton(mButtons[BTN_DPAD_UP],    dpadX, 0.70f, dpadSize, dpadSize, InputManager::DPadUp,    "UP");
+    InitButton(mButtons[BTN_DPAD_DOWN],  dpadX, 0.88f, dpadSize, dpadSize, InputManager::DPadDown,  "DN");
+    InitButton(mButtons[BTN_DPAD_LEFT],  0.07f, dpadY, dpadSize, dpadSize, InputManager::DPadLeft,  "LF");
+    InitButton(mButtons[BTN_DPAD_RIGHT], 0.25f, dpadY, dpadSize, dpadSize, InputManager::DPadRight, "RT");
 
-    // Shoulder buttons
-    mButtons[BTN_L1] = {0.14f, 0.04f, 0.14f, 0.08f, InputManager::AnalogL1, false, -1, "L1", 0};
-    mButtons[BTN_R1] = {0.86f, 0.04f, 0.14f, 0.08f, InputManager::AnalogR1, false, -1, "R1", 0};
+    // ── Face buttons (A / B / X / Y) ─────────────────────────────────
+    const float faceX    = 0.85f;
+    const float faceY    = 0.76f;
+    const float faceSize = 0.10f;
 
-    // Joysticks (mais abaixo para evitar overlap com D-Pad / face buttons)
+    InitButton(mButtons[BTN_A], faceX,             faceY + faceSize, faceSize, faceSize, InputManager::A,        "A");
+    InitButton(mButtons[BTN_B], faceX + faceSize,  faceY,            faceSize, faceSize, InputManager::B,        "B");
+    InitButton(mButtons[BTN_X], faceX - faceSize,  faceY,            faceSize, faceSize, InputManager::Square,   "X");
+    InitButton(mButtons[BTN_Y], faceX,             faceY - faceSize, faceSize, faceSize, InputManager::Triangle, "Y");
+
+    // ── Start / Select ───────────────────────────────────────────────
+    InitButton(mButtons[BTN_START],  0.55f, 0.04f, 0.12f, 0.06f, InputManager::Start,  "START");
+    InitButton(mButtons[BTN_SELECT], 0.43f, 0.04f, 0.12f, 0.06f, InputManager::Select, "SELECT");
+
+    // ── Shoulders ────────────────────────────────────────────────────
+    InitButton(mButtons[BTN_L1], 0.14f, 0.04f, 0.14f, 0.08f, InputManager::AnalogL1, "L1");
+    InitButton(mButtons[BTN_R1], 0.86f, 0.04f, 0.14f, 0.08f, InputManager::AnalogR1, "R1");
+
+    // ── Left stick ───────────────────────────────────────────────────
+    mLeftStick = {};
     mLeftStick.centerX = 0.16f;
     mLeftStick.centerY = 0.52f;
-    mLeftStick.radius = 0.12f;
-    mLeftStick.currX = 0.0f;
-    mLeftStick.currY = 0.0f;
-    mLeftStick.axisX = InputManager::LeftStickX;
-    mLeftStick.axisY = InputManager::LeftStickY;
+    mLeftStick.radius  = 0.12f;
+    mLeftStick.axisX   = InputManager::LeftStickX;
+    mLeftStick.axisY   = InputManager::LeftStickY;
     mLeftStick.fingerId = -1;
-    mLeftStick.active = false;
 
+    // ── Right stick ──────────────────────────────────────────────────
+    mRightStick = {};
     mRightStick.centerX = 0.84f;
     mRightStick.centerY = 0.52f;
-    mRightStick.radius = 0.12f;
-    mRightStick.currX = 0.0f;
-    mRightStick.currY = 0.0f;
-    mRightStick.axisX = InputManager::RightStickX;
-    mRightStick.axisY = InputManager::RightStickY;
+    mRightStick.radius  = 0.12f;
+    mRightStick.axisX   = InputManager::RightStickX;
+    mRightStick.axisY   = InputManager::RightStickY;
     mRightStick.fingerId = -1;
-    mRightStick.active = false;
+
+    HUD_LOGI("Init() - LStick(%.2f,%.2f r=%.2f) RStick(%.2f,%.2f r=%.2f) %d buttons",
+             mLeftStick.centerX, mLeftStick.centerY, mLeftStick.radius,
+             mRightStick.centerX, mRightStick.centerY, mRightStick.radius, NUM_BUTTONS);
 }
 
-void TouchGui::SetVisible(bool visible) {
+// ── Visibility ───────────────────────────────────────────────────────
+
+void TouchGui::SetVisible(bool visible)
+{
     if (mVisible == visible) return;
+    HUD_LOGI("SetVisible %s -> %s", mVisible ? "ON" : "OFF", visible ? "ON" : "OFF");
     mVisible = visible;
+
     if (!visible) {
-        // Reset all inputs when hiding
-        UserController* controller = GetInputManager()->GetController(0);
-        if (controller) {
-            for(int i = 0; i < NUM_BUTTONS; ++i) {
-                if (mButtons[i].pressed) {
-                    mButtons[i].pressed = false;
-                    mButtons[i].fingerId = -1;
-                    mButtons[i].lastEventTime = 0;
-                    controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
-                }
-            }
-            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
-            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
-            controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
-            controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
-        }
-        mLeftStick.active = false;
-        mLeftStick.fingerId = -1;
-        mRightStick.active = false;
-        mRightStick.fingerId = -1;
+        ReleaseAllInputs();
     }
 }
 
-void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down, SDL_FingerID fingerId) {
-    UserController* controller = GetInputManager()->GetController(0);
-    if (!controller) return;
+// ── Deadzone helper ──────────────────────────────────────────────────
 
-    if (down) {
-        float dx = x - stick.centerX;
-        float dy = y - stick.centerY;
-        float dist = sqrtf(dx*dx + dy*dy);
-
-        if (stick.fingerId == fingerId || (stick.fingerId == -1 && dist < stick.radius)) {
-            stick.fingerId = fingerId;
-            stick.active = true;
-            stick.lastEventTime = radTimeGetMicroseconds64();
-
-            if (dist > stick.radius) {
-                dx = (dx / dist) * stick.radius;
-                dy = (dy / dist) * stick.radius;
-            }
-
-            stick.currX = dx / stick.radius;
-            stick.currY = dy / stick.radius;
-
-            // The game expects analog stick values in [-1, 1] with 0.0 as center.
-            // Apply a generous deadzone so tiny movements near center register as 0.
-            const float deadzone = 0.18f;
-            float valX = stick.currX;
-            float valY = -stick.currY; // Invert Y for game coordinates
-
-            if (fabsf(valX) < deadzone) valX = 0.0f;
-            else valX = (valX - (valX > 0.0f ? deadzone : -deadzone)) / (1.0f - deadzone);
-
-            if (fabsf(valY) < deadzone) valY = 0.0f;
-            else valY = (valY - (valY > 0.0f ? deadzone : -deadzone)) / (1.0f - deadzone);
-
-            controller->GetInputButton(stick.axisX)->SetValue(valX);
-            controller->GetInputButton(stick.axisY)->SetValue(valY);
-        }
-    } else if (stick.fingerId == fingerId || stick.active) {
-        stick.active = false;
-        stick.fingerId = -1;
-        stick.currX = 0.0f;
-        stick.currY = 0.0f;
-        controller->GetInputButton(stick.axisX)->SetValue(0.0f);
-        controller->GetInputButton(stick.axisY)->SetValue(0.0f);
-    }
+float TouchGui::ApplyDeadzone(float value, float deadzone)
+{
+    if (fabsf(value) < deadzone) return 0.0f;
+    return (value - (value > 0.0f ? deadzone : -deadzone)) / (1.0f - deadzone);
 }
 
-void TouchGui::HandleTouchEvent(SDL_Event* event) {
+// ── Stick helpers ────────────────────────────────────────────────────
+
+bool TouchGui::ProcessStickDown(TouchJoystick& stick, float x, float y,
+                                SDL_FingerID fingerId, radTime64 timestamp,
+                                UserController* controller)
+{
+    // Already owned by a different finger → reject.
+    if (stick.fingerId != -1 && stick.fingerId != fingerId) return false;
+
+    float dx = x - stick.centerX;
+    float dy = y - stick.centerY;
+    float dist = sqrtf(dx * dx + dy * dy);
+
+    // Only claim if finger starts inside the stick radius.
+    if (stick.fingerId == -1 && dist >= stick.radius) return false;
+
+    const bool justActivated = !stick.active;
+    stick.fingerId     = fingerId;
+    stick.active       = true;
+    stick.lastEventTime = timestamp;
+
+    if (justActivated) {
+        const char* name = (&stick == &mLeftStick) ? "LStick" : "RStick";
+        HUD_LOGI("%s ACTIVATED fingerId=%lld pos=(%.3f,%.3f) dist=%.3f",
+                 name, (long long)fingerId, x, y, dist);
+    }
+
+    UpdateStickMotion(stick, x, y, timestamp, controller);
+    return true;
+}
+
+void TouchGui::UpdateStickMotion(TouchJoystick& stick, float x, float y,
+                                 radTime64 timestamp, UserController* controller)
+{
+    float dx = x - stick.centerX;
+    float dy = y - stick.centerY;
+    float dist = sqrtf(dx * dx + dy * dy);
+
+    if (dist > stick.radius) {
+        dx *= stick.radius / dist;
+        dy *= stick.radius / dist;
+    }
+
+    stick.currX = dx / stick.radius;
+    stick.currY = dy / stick.radius;
+    stick.lastEventTime = timestamp;
+
+    // Game expects [-1, 1] with Y inverted.
+    float valX = ApplyDeadzone(stick.currX, DEADZONE);
+    float valY = ApplyDeadzone(-stick.currY, DEADZONE);
+
+    controller->GetInputButton(stick.axisX)->SetValue(valX);
+    controller->GetInputButton(stick.axisY)->SetValue(valY);
+}
+
+void TouchGui::ReleaseStick(TouchJoystick& stick, UserController* controller)
+{
+    const char* name = (&stick == &mLeftStick) ? "LStick" : "RStick";
+    HUD_LOGI("%s RELEASED fingerId=%lld", name, (long long)stick.fingerId);
+
+    stick.active        = false;
+    stick.fingerId      = -1;
+    stick.currX         = 0.0f;
+    stick.currY         = 0.0f;
+    stick.lastEventTime = 0;
+
+    controller->GetInputButton(stick.axisX)->SetValue(0.0f);
+    controller->GetInputButton(stick.axisY)->SetValue(0.0f);
+}
+
+// ── Button helpers ───────────────────────────────────────────────────
+
+void TouchGui::PressButton(int index, SDL_FingerID fingerId,
+                           radTime64 timestamp, UserController* controller)
+{
+    TouchButton& btn = mButtons[index];
+    btn.pressed       = true;
+    btn.fingerId      = fingerId;
+    btn.lastEventTime = timestamp;
+
+    controller->GetInputButton(btn.buttonIndex)->SetValue(1.0f);
+    HUD_LOGI("BTN %s PRESSED fingerId=%lld", btn.label, (long long)fingerId);
+}
+
+void TouchGui::ReleaseButton(int index, UserController* controller)
+{
+    TouchButton& btn = mButtons[index];
+    HUD_LOGI("BTN %s RELEASED fingerId=%lld", btn.label, (long long)btn.fingerId);
+
+    btn.pressed       = false;
+    btn.fingerId      = -1;
+    btn.lastEventTime = 0;
+
+    controller->GetInputButton(btn.buttonIndex)->SetValue(0.0f);
+}
+
+// ── Touch-event dispatcher ───────────────────────────────────────────
+
+void TouchGui::HandleTouchEvent(SDL_Event* event)
+{
     if (!mVisible) return;
 
-    float x = 0, y = 0;
-    bool down = false;
-    SDL_FingerID fingerId = -1;
-
-    if (event->type == SDL_FINGERDOWN || event->type == SDL_FINGERMOTION) {
-        x = event->tfinger.x;
-        y = event->tfinger.y;
-        down = true;
-        fingerId = event->tfinger.fingerId;
-    } else if (event->type == SDL_FINGERUP) {
-        x = event->tfinger.x;
-        y = event->tfinger.y;
-        down = false;
-        fingerId = event->tfinger.fingerId;
-    } else {
-        return;
-    }
-
     UserController* controller = GetInputManager()->GetController(0);
-    if (!controller) return;
-
-    // ========================================================================
-    // FINGERUP must be handled FIRST, before any stick/button logic, to ensure
-    // that both sticks AND buttons held by the lifting finger are properly
-    // released. 
-    //
-    // Additionally, we force-release ANY active stick as a fallback, even if
-    // the FINGERUP fingerId doesn't match the stick's captured fingerId. This
-    // handles two key scenarios reported on actual Android devices:
-    //   1. SDL/fingerId mismatch: on some devices the FINGERUP fingerId may
-    //      differ from the FINGERDOWN fingerId for the same physical touch.
-    //   2. System gesture interception: Android may send ACTION_CANCEL instead
-    //      of ACTION_UP (e.g. notification shade, back gesture), causing SDL
-    //      to NOT generate FINGERUP at all. In that case the staleness guard
-    //      (AutoReleaseIfStale / 500ms threshold) cleans up on the next touch.
-    // ========================================================================
-    if (event->type == SDL_FINGERUP) {
-        // Release STICKS: match by fingerId OR force-release any active stick.
-        // This is the key fix for fingerId mismatches.
-        if (mLeftStick.fingerId == fingerId || mLeftStick.active) {
-            UpdateJoystick(mLeftStick, x, y, false, mLeftStick.fingerId != -1 ? mLeftStick.fingerId : fingerId);
-        }
-        if (mRightStick.fingerId == fingerId || mRightStick.active) {
-            UpdateJoystick(mRightStick, x, y, false, mRightStick.fingerId != -1 ? mRightStick.fingerId : fingerId);
-        }
-
-        // Release any button currently held by this finger.
-        // Also force-release ALL pressed buttons to guard against Android
-        // fingerId mismatch (FINGERDOWN and FINGERUP of the same physical
-        // touch can be assigned different fingerIds by SDL).
-        for (int i = 0; i < NUM_BUTTONS; ++i) {
-            if (mButtons[i].pressed) {
-                mButtons[i].pressed = false;
-                mButtons[i].fingerId = -1;
-                mButtons[i].lastEventTime = 0;
-                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
-            }
-        }
+    if (!controller) {
+        HUD_LOGE("HandleTouchEvent: GetController(0) returned null!");
         return;
     }
 
-    // ========================================================================
-    // Before processing this touch event, release any stick whose owner
-    // finger went stale (lost FINGERUP due to system gesture interception).
-    // This prevents "ghost capture" where a new finger cannot claim a stick
-    // because a stale fingerId is still sitting on it.
-    // ========================================================================
-    {
-        const radInt64 now = radTimeGetMicroseconds64();
-        const radInt64 staleThresholdUs = 500000; // 500ms
+    const radTime64 now = radTimeGetMicroseconds64();
 
-        if (mLeftStick.active && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
-            mLeftStick.active = false;
-            mLeftStick.fingerId = -1;
-            mLeftStick.currX = 0.0f;
-            mLeftStick.currY = 0.0f;
-            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
-            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
-        }
-        if (mRightStick.active && (now - mRightStick.lastEventTime) > staleThresholdUs) {
-            mRightStick.active = false;
-            mRightStick.fingerId = -1;
-            mRightStick.currX = 0.0f;
-            mRightStick.currY = 0.0f;
-            controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
-            controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
+    switch (event->type) {
+    case SDL_FINGERDOWN: {
+        const float x = event->tfinger.x;
+        const float y = event->tfinger.y;
+        HUD_LOGI("EVT DOWN fingerId=%lld pos=(%.3f,%.3f) | LStk(fid=%lld) RStk(fid=%lld)",
+                 (long long)event->tfinger.fingerId, x, y,
+                 (long long)mLeftStick.fingerId, (long long)mRightStick.fingerId);
+        HandleFingerDown(x, y, event->tfinger.fingerId, now, controller);
+        break;
+    }
+    case SDL_FINGERMOTION: {
+        // Don't log MOVE events — too noisy at 60+ Hz.
+        HandleFingerMotion(event->tfinger.x, event->tfinger.y,
+                           event->tfinger.fingerId, now, controller);
+        break;
+    }
+    case SDL_FINGERUP: {
+        HUD_LOGI("EVT UP   fingerId=%lld | LStk(fid=%lld) RStk(fid=%lld)",
+                 (long long)event->tfinger.fingerId,
+                 (long long)mLeftStick.fingerId, (long long)mRightStick.fingerId);
+        HandleFingerUp(event->tfinger.fingerId, controller);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+// ── Event handlers ───────────────────────────────────────────────────
+
+void TouchGui::HandleFingerDown(float x, float y, SDL_FingerID fingerId,
+                                radTime64 timestamp, UserController* controller)
+{
+    // Sticks take priority.
+    if (ProcessStickDown(mLeftStick,  x, y, fingerId, timestamp, controller)) return;
+    if (ProcessStickDown(mRightStick, x, y, fingerId, timestamp, controller)) return;
+
+    // Then buttons — any unclaimed button under the finger.
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        if (!mButtons[i].pressed && mButtons[i].Contains(x, y)) {
+            PressButton(i, fingerId, timestamp, controller);
         }
     }
+}
 
-    // From this point on, event is guaranteed to be FINGERDOWN or FINGERMOTION.
-    // Note: it's possible the stick.fingerId != -1 but the stick is not active
-    // (transitional state). We still allow the matching finger to update it.
+void TouchGui::HandleFingerMotion(float x, float y, SDL_FingerID fingerId,
+                                  radTime64 timestamp, UserController* controller)
+{
+    // If this finger owns a stick, update it.
+    if (mLeftStick.fingerId == fingerId) {
+        UpdateStickMotion(mLeftStick, x, y, timestamp, controller);
+        return;
+    }
+    if (mRightStick.fingerId == fingerId) {
+        UpdateStickMotion(mRightStick, x, y, timestamp, controller);
+        return;
+    }
 
-    // Check sticks first.
-    // A finger already captured by a stick only updates that stick.
-    // A new finger can only claim a stick if it starts inside the stick radius.
-    bool stickClaimed = false;
+    // Otherwise, check buttons: release if slid out, press if slid in.
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        const bool inside = mButtons[i].Contains(x, y);
 
-    float ldx = x - mLeftStick.centerX;
-    float ldy = y - mLeftStick.centerY;
-    float ldist = sqrtf(ldx*ldx + ldy*ldy);
+        if (mButtons[i].fingerId == fingerId && mButtons[i].pressed && !inside) {
+            ReleaseButton(i, controller);
+        } else if (inside && mButtons[i].fingerId == -1 && !mButtons[i].pressed) {
+            // Finger slid into an unclaimed button.
+            PressButton(i, fingerId, timestamp, controller);
+        }
+    }
+}
 
-    float rdx = x - mRightStick.centerX;
-    float rdy = y - mRightStick.centerY;
-    float rdist = sqrtf(rdx*rdx + rdy*rdy);
+void TouchGui::HandleFingerUp(SDL_FingerID fingerId, UserController* controller)
+{
+    // Release by exact fingerId match only.
+    // If Android/SDL gives a mismatched fingerId, the staleness timer in
+    // AutoReleaseStaleInputs will clean up within STALE_TIMEOUT_US (300 ms).
 
     if (mLeftStick.fingerId == fingerId) {
-        UpdateJoystick(mLeftStick, x, y, true, fingerId);
-        stickClaimed = true;
-    } else if (mLeftStick.fingerId == -1 && ldist < mLeftStick.radius) {
-        UpdateJoystick(mLeftStick, x, y, true, fingerId);
-        stickClaimed = true;
+        ReleaseStick(mLeftStick, controller);
+    } else if (mLeftStick.active) {
+        // FingerId mismatch — log for diagnostics but let staleness handle it.
+        HUD_LOGI("UP fingerId mismatch LStick: stick.fingerId=%lld != event.fingerId=%lld (will be caught by staleness guard)",
+                 (long long)mLeftStick.fingerId, (long long)fingerId);
     }
 
     if (mRightStick.fingerId == fingerId) {
-        UpdateJoystick(mRightStick, x, y, true, fingerId);
-        stickClaimed = true;
-    } else if (!stickClaimed && mRightStick.fingerId == -1 && rdist < mRightStick.radius) {
-        UpdateJoystick(mRightStick, x, y, true, fingerId);
-        stickClaimed = true;
+        ReleaseStick(mRightStick, controller);
+    } else if (mRightStick.active) {
+        HUD_LOGI("UP fingerId mismatch RStick: stick.fingerId=%lld != event.fingerId=%lld (will be caught by staleness guard)",
+                 (long long)mRightStick.fingerId, (long long)fingerId);
     }
 
-    if (stickClaimed) {
-        return;
-    }
-
-    // Check buttons (only FINGERDOWN and FINGERMOTION here; FINGERUP is handled above)
     for (int i = 0; i < NUM_BUTTONS; ++i) {
-        bool inBounds = (x >= mButtons[i].x - mButtons[i].w/2 && x <= mButtons[i].x + mButtons[i].w/2 &&
-                         y >= mButtons[i].y - mButtons[i].h/2 && y <= mButtons[i].y + mButtons[i].h/2);
-
-        if (event->type == SDL_FINGERDOWN && inBounds) {
-            if (!mButtons[i].pressed) {
-                mButtons[i].pressed = true;
-                mButtons[i].fingerId = fingerId;
-                mButtons[i].lastEventTime = radTimeGetMicroseconds64();
-                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
-            }
-        } else if (event->type == SDL_FINGERMOTION && mButtons[i].fingerId == fingerId && !inBounds) {
-            if (mButtons[i].pressed) {
-                mButtons[i].pressed = false;
-                mButtons[i].fingerId = -1;
-                mButtons[i].lastEventTime = 0;
-                controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
-            }
-        } else if (event->type == SDL_FINGERMOTION && inBounds && mButtons[i].fingerId == -1 && !mButtons[i].pressed) {
-            // Finger moved into a button while not controlling a stick
-            mButtons[i].pressed = true;
-            mButtons[i].fingerId = fingerId;
-            mButtons[i].lastEventTime = radTimeGetMicroseconds64();
-            controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(1.0f);
+        if (mButtons[i].fingerId == fingerId && mButtons[i].pressed) {
+            ReleaseButton(i, controller);
+        } else if (mButtons[i].pressed) {
+            HUD_LOGI("UP fingerId mismatch BTN[%s]: btn.fingerId=%lld != event.fingerId=%lld (will be caught by staleness guard)",
+                     mButtons[i].label, (long long)mButtons[i].fingerId, (long long)fingerId);
         }
     }
 }
 
-void TouchGui::ReleaseAllInputs() {
+// ── Global release ───────────────────────────────────────────────────
+
+void TouchGui::ReleaseAllInputs()
+{
+    HUD_LOGI("ReleaseAllInputs() called");
+
     UserController* controller = GetInputManager()->GetController(0);
-    if (!controller) return;
+    if (!controller) {
+        HUD_LOGE("ReleaseAllInputs: GetController(0) returned null!");
+        return;
+    }
 
     for (int i = 0; i < NUM_BUTTONS; ++i) {
         if (mButtons[i].pressed) {
-            mButtons[i].pressed = false;
-            mButtons[i].fingerId = -1;
+            mButtons[i].pressed       = false;
+            mButtons[i].fingerId      = -1;
             mButtons[i].lastEventTime = 0;
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
         }
     }
 
-    mLeftStick.active = false;
-    mLeftStick.fingerId = -1;
-    mLeftStick.currX = 0.0f;
-    mLeftStick.currY = 0.0f;
+    mLeftStick.active        = false;
+    mLeftStick.fingerId      = -1;
+    mLeftStick.currX         = 0.0f;
+    mLeftStick.currY         = 0.0f;
+    mLeftStick.lastEventTime = 0;
     controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
     controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
 
-    mRightStick.active = false;
-    mRightStick.fingerId = -1;
-    mRightStick.currX = 0.0f;
-    mRightStick.currY = 0.0f;
+    mRightStick.active        = false;
+    mRightStick.fingerId      = -1;
+    mRightStick.currX         = 0.0f;
+    mRightStick.currY         = 0.0f;
+    mRightStick.lastEventTime = 0;
     controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
     controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
 }
 
-void TouchGui::AutoReleaseIfStale(UserController* controller) {
-    if (!controller) return;
-    const radInt64 now = radTimeGetMicroseconds64();
-    const radInt64 staleThresholdUs = 500000; // 500 ms (reduced from 3s for faster ghost-input cleanup)
+// ── Staleness guard ──────────────────────────────────────────────────
 
-    // Auto-release sticks if no touch event arrived for a while (ghost-finger guard)
-    if (mLeftStick.active && (now - mLeftStick.lastEventTime) > staleThresholdUs) {
-        mLeftStick.active = false;
-        mLeftStick.fingerId = -1;
-        mLeftStick.currX = 0.0f;
-        mLeftStick.currY = 0.0f;
+void TouchGui::AutoReleaseStaleInputs(UserController* controller, radTime64 now)
+{
+    // Check left stick.
+    if (mLeftStick.active && (now - mLeftStick.lastEventTime) > STALE_TIMEOUT_US) {
+        HUD_LOGI("AutoRelease LStick (stale, idle %lldus)", (long long)(now - mLeftStick.lastEventTime));
+        mLeftStick.active        = false;
+        mLeftStick.fingerId      = -1;
+        mLeftStick.currX         = 0.0f;
+        mLeftStick.currY         = 0.0f;
+        mLeftStick.lastEventTime = 0;
         controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
         controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
     }
-    if (mRightStick.active && (now - mRightStick.lastEventTime) > staleThresholdUs) {
-        mRightStick.active = false;
-        mRightStick.fingerId = -1;
-        mRightStick.currX = 0.0f;
-        mRightStick.currY = 0.0f;
+
+    // Check right stick.
+    if (mRightStick.active && (now - mRightStick.lastEventTime) > STALE_TIMEOUT_US) {
+        HUD_LOGI("AutoRelease RStick (stale, idle %lldus)", (long long)(now - mRightStick.lastEventTime));
+        mRightStick.active        = false;
+        mRightStick.fingerId      = -1;
+        mRightStick.currX         = 0.0f;
+        mRightStick.currY         = 0.0f;
+        mRightStick.lastEventTime = 0;
         controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
         controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
     }
 
-    // Auto-release stale buttons (safety net for missed FINGERUP events)
+    // Check all buttons.
     for (int i = 0; i < NUM_BUTTONS; ++i) {
-        if (mButtons[i].pressed && (now - mButtons[i].lastEventTime) > staleThresholdUs) {
-            mButtons[i].pressed = false;
-            mButtons[i].fingerId = -1;
+        if (mButtons[i].pressed && (now - mButtons[i].lastEventTime) > STALE_TIMEOUT_US) {
+            HUD_LOGI("AutoRelease BTN[%s] (stale, idle %lldus)",
+                     mButtons[i].label, (long long)(now - mButtons[i].lastEventTime));
+            mButtons[i].pressed       = false;
+            mButtons[i].fingerId      = -1;
             mButtons[i].lastEventTime = 0;
             controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
         }
     }
-
-
 }
 
-void TouchGui::Update(unsigned int elapsedTime) {
+// ── Per-frame update ─────────────────────────────────────────────────
+
+void TouchGui::Update(unsigned int /*elapsedTime*/)
+{
     UserController* controller = GetInputManager()->GetController(0);
-    AutoReleaseIfStale(controller);
+    if (controller) {
+        AutoReleaseStaleInputs(controller, radTimeGetMicroseconds64());
+    }
 }
 
-void TouchGui::Render() {
+// ═══════════════════════════════════════════════════════════════════════
+//  Rendering — desktop debug builds only (Android uses Java overlay).
+// ═══════════════════════════════════════════════════════════════════════
+
+void TouchGui::Render()
+{
 #ifdef RAD_ANDROID
-    return; // HUD rendered by Java overlay (GamepadOverlayView)
+    return; // HUD rendered by Java GamepadOverlayView
 #endif
     if (!mVisible) return;
 
     pddiRenderContext* pddi = p3d::pddi;
-    mScreenWidth = (float)p3d::display->GetWidth();
-    mScreenHeight = (float)p3d::display->GetHeight();
+    mScreenWidth  = static_cast<float>(p3d::display->GetWidth());
+    mScreenHeight = static_cast<float>(p3d::display->GetHeight());
 
     pddi->PushState(PDDI_STATE_ALL);
     pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
     pddi->SetZWrite(false);
     pddi->SetZCompare(PDDI_COMPARE_ALWAYS);
-    pddiRect fullScreen(0, 0, (int)mScreenWidth, (int)mScreenHeight);
-    pddi->SetScissor(&fullScreen);  // Full-screen scissor in case Scrooby UI set a clipping rect
 
-    // Draw Joysticks
-    pddiColour stickCol = pddiColour(255, 234, 2, 40); // Simpsons Yellow transparent
-    pddiColour knobCol = pddiColour(17, 31, 161, 120); // Simpsons Blue
+    pddiRect fullScreen(0, 0, static_cast<int>(mScreenWidth), static_cast<int>(mScreenHeight));
+    pddi->SetScissor(&fullScreen);
 
-    // Left Stick Base
-    DrawRect(mLeftStick.centerX * mScreenWidth - 60, mLeftStick.centerY * mScreenHeight - 60, 120, 120, stickCol);
-    // Left Stick Knob
-    DrawRect((mLeftStick.centerX + mLeftStick.currX * 0.08f) * mScreenWidth - 30,
-             (mLeftStick.centerY + mLeftStick.currY * 0.08f) * mScreenHeight - 30, 60, 60, knobCol);
+    // Sticks
+    const pddiColour stickCol(255, 234, 2, 40);   // Simpsons Yellow, transparent
+    const pddiColour knobCol (17,  31,  161, 120); // Simpsons Blue
+    RenderStick(mLeftStick,  stickCol, knobCol);
+    RenderStick(mRightStick, stickCol, knobCol);
 
-    // Right Stick Base
-    DrawRect(mRightStick.centerX * mScreenWidth - 60, mRightStick.centerY * mScreenHeight - 60, 120, 120, stickCol);
-    // Right Stick Knob
-    DrawRect((mRightStick.centerX + mRightStick.currX * 0.08f) * mScreenWidth - 30,
-             (mRightStick.centerY + mRightStick.currY * 0.08f) * mScreenHeight - 30, 60, 60, knobCol);
-
-    // Draw Buttons
-    for (int i = 0; i < NUM_BUTTONS; ++i) {
-        // Simpsons Yellow: 255, 234, 2
-        pddiColour col = mButtons[i].pressed ? pddiColour(255, 255, 0, 180) : pddiColour(255, 234, 2, 100);
-        pddiColour borderCol = pddiColour(17, 31, 161, 160); // Simpsons Blue
-
-        float x = mButtons[i].x * mScreenWidth;
-        float y = mButtons[i].y * mScreenHeight;
-        float w = mButtons[i].w * mScreenWidth;
-        float h = mButtons[i].h * mScreenHeight;
-
-        // Draw Border (Simpsons Blue)
-        DrawRect(x - w/2 - 3, y - h/2 - 3, w + 6, h + 6, borderCol);
-        // Draw Main Rect (Simpsons Yellow)
-        DrawRect(x - w/2, y - h/2, w, h, col);
-
-        // Draw Label with shadow
-        // Note: pddiRenderContext::DrawString is sometimes available in some PDDI versions/ports.
-        // If it causes compilation errors, we would need to use tFont or Scrooby.
-        pddi->DrawString(mButtons[i].label, (int)(x - 9), (int)(y - 9), pddiColour(255, 255, 255));
-        pddi->DrawString(mButtons[i].label, (int)(x - 10), (int)(y - 10), pddiColour(17, 31, 161));
-    }
+    // Buttons
+    RenderButtons();
 
     pddi->PopState(PDDI_STATE_ALL);
 }
 
-void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour) {
+void TouchGui::RenderStick(const TouchJoystick& stick, pddiColour base, pddiColour knob)
+{
+    const float bx = stick.centerX * mScreenWidth;
+    const float by = stick.centerY * mScreenHeight;
+    const float kw = 60.0f, kh = 60.0f;
+    const float kw2 = 30.0f, kh2 = 30.0f;
+
+    // Base ring
+    DrawRect(bx - kw, by - kh, kw * 2.0f, kh * 2.0f, base);
+
+    // Knob
+    const float kx = (stick.centerX + stick.currX * 0.08f) * mScreenWidth;
+    const float ky = (stick.centerY + stick.currY * 0.08f) * mScreenHeight;
+    DrawRect(kx - kw2, ky - kh2, kw2 * 2.0f, kh2 * 2.0f, knob);
+}
+
+void TouchGui::RenderButtons()
+{
+    pddiRenderContext* pddi = p3d::pddi;
+
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        const TouchButton& btn = mButtons[i];
+
+        const pddiColour fill  = btn.pressed ? pddiColour(255, 255, 0, 180) : pddiColour(255, 234, 2, 100);
+        const pddiColour border(17, 31, 161, 160); // Simpsons Blue
+
+        const float bx = btn.x * mScreenWidth;
+        const float by = btn.y * mScreenHeight;
+        const float bw = btn.w * mScreenWidth;
+        const float bh = btn.h * mScreenHeight;
+
+        // Border
+        DrawRect(bx - bw * 0.5f - 3.0f, by - bh * 0.5f - 3.0f, bw + 6.0f, bh + 6.0f, border);
+        // Fill
+        DrawRect(bx - bw * 0.5f, by - bh * 0.5f, bw, bh, fill);
+
+        // Label
+        pddi->DrawString(btn.label, static_cast<int>(bx - 9.0f), static_cast<int>(by - 9.0f), pddiColour(255, 255, 255));
+        pddi->DrawString(btn.label, static_cast<int>(bx - 10.0f), static_cast<int>(by - 10.0f), pddiColour(17, 31, 161));
+    }
+}
+
+void TouchGui::DrawRect(float x, float y, float w, float h, pddiColour colour)
+{
     pddiPrimStream* stream = p3d::pddi->BeginPrims(NULL, PDDI_PRIM_TRIANGLES, PDDI_V_C, 6);
-    // Re-apply device projection: BeginPrims activates defaultShader via SetMaterial(),
-    // which does not inherit the projection matrix from SetupHardwareProjection.
     p3d::pddi->SetProjectionMode(PDDI_PROJECTION_DEVICE);
 
-    stream->Colour(colour);
-    stream->Coord(x, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x + w, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x, y + h, 0.0f);
+    stream->Colour(colour); stream->Coord(x,     y,     0.0f);
+    stream->Colour(colour); stream->Coord(x + w, y,     0.0f);
+    stream->Colour(colour); stream->Coord(x,     y + h, 0.0f);
 
-    stream->Colour(colour);
-    stream->Coord(x + w, y, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x + w, y + h, 0.0f);
-    stream->Colour(colour);
-    stream->Coord(x, y + h, 0.0f);
+    stream->Colour(colour); stream->Coord(x + w, y,     0.0f);
+    stream->Colour(colour); stream->Coord(x + w, y + h, 0.0f);
+    stream->Colour(colour); stream->Coord(x,     y + h, 0.0f);
 
     p3d::pddi->EndPrims(stream);
 }
