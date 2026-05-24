@@ -38,7 +38,7 @@ private:
         bool pressed;
         SDL_FingerID fingerId;
         const char* label;
-        radInt64 lastEventTime;
+        radTime64 lastEventTime;
     };
 
     enum {
