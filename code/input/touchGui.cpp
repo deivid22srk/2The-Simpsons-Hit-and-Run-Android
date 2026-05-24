@@ -5,6 +5,8 @@
 #include <pddi/pddi.hpp>
 #include <main/game.h>
 #include <math.h>
+#include <cmath>
+#include <cstring>
 
 TouchGui* TouchGui::spInstance = NULL;
 
@@ -43,21 +45,21 @@ TouchGui::~TouchGui() {}
 
 void TouchGui::Init() {
     // Define button positions (normalized 0.0 - 1.0)
-    // Left side: D-Pad
-    float dpadSize = 0.08f;
-    float dpadX = 0.15f;
-    float dpadY = 0.75f;
+    // Left side: D-Pad (placed above the stick)
+    float dpadSize = 0.05f;
+    float dpadX = 0.12f;
+    float dpadY = 0.50f;
 
-    mButtons[BTN_DPAD_UP] = {dpadX, dpadY - dpadSize, dpadSize, dpadSize, InputManager::DPadUp, false, -1, "UP"};
-    mButtons[BTN_DPAD_DOWN] = {dpadX, dpadY + dpadSize, dpadSize, dpadSize, InputManager::DPadDown, false, -1, "DN"};
-    mButtons[BTN_DPAD_LEFT] = {dpadX - dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "LF"};
-    mButtons[BTN_DPAD_RIGHT] = {dpadX + dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadRight, false, -1, "RT"};
+    mButtons[BTN_DPAD_UP] = {dpadX, dpadY - dpadSize, dpadSize, dpadSize, InputManager::DPadUp, false, -1, "U"};
+    mButtons[BTN_DPAD_DOWN] = {dpadX, dpadY + dpadSize, dpadSize, dpadSize, InputManager::DPadDown, false, -1, "D"};
+    mButtons[BTN_DPAD_LEFT] = {dpadX - dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadLeft, false, -1, "L"};
+    mButtons[BTN_DPAD_RIGHT] = {dpadX + dpadSize, dpadY, dpadSize, dpadSize, InputManager::DPadRight, false, -1, "R"};
 
-    // Right side: Face buttons (Diamond pattern)
-    float faceX = 0.85f;
-    float faceY = 0.75f;
-    float faceSize = 0.07f;
-    float dist = 0.10f;
+    // Right side: Face buttons (Diamond pattern, bottom right)
+    float faceX = 0.88f;
+    float faceY = 0.78f;
+    float faceSize = 0.06f;
+    float dist = 0.08f;
 
     mButtons[BTN_A] = {faceX, faceY + dist, faceSize, faceSize, InputManager::A, false, -1, "A"};
     mButtons[BTN_B] = {faceX + dist, faceY, faceSize, faceSize, InputManager::B, false, -1, "B"};
@@ -65,17 +67,17 @@ void TouchGui::Init() {
     mButtons[BTN_Y] = {faceX, faceY - dist, faceSize, faceSize, InputManager::Triangle, false, -1, "Y"};
 
     // Center/Top: Start, Select
-    mButtons[BTN_START] = {0.55f, 0.05f, 0.10f, 0.05f, InputManager::Start, false, -1, "START"};
-    mButtons[BTN_SELECT] = {0.45f, 0.05f, 0.10f, 0.05f, InputManager::Select, false, -1, "SELECT"};
+    mButtons[BTN_START] = {0.56f, 0.06f, 0.08f, 0.04f, InputManager::Start, false, -1, "START"};
+    mButtons[BTN_SELECT] = {0.44f, 0.06f, 0.08f, 0.04f, InputManager::Select, false, -1, "SELECT"};
 
     // Shoulder buttons
-    mButtons[BTN_L1] = {0.15f, 0.05f, 0.12f, 0.07f, InputManager::L1, false, -1, "L1"};
-    mButtons[BTN_R1] = {0.85f, 0.05f, 0.12f, 0.07f, InputManager::R1, false, -1, "R1"};
+    mButtons[BTN_L1] = {0.12f, 0.06f, 0.10f, 0.06f, InputManager::L1, false, -1, "L1"};
+    mButtons[BTN_R1] = {0.88f, 0.06f, 0.10f, 0.06f, InputManager::R1, false, -1, "R1"};
 
     // Joysticks
-    mLeftStick.centerX = 0.15f;
-    mLeftStick.centerY = 0.75f;
-    mLeftStick.radius = 0.15f;
+    mLeftStick.centerX = 0.12f;
+    mLeftStick.centerY = 0.78f; // Lowered stick
+    mLeftStick.radius = 0.12f;
     mLeftStick.currX = 0.0f;
     mLeftStick.currY = 0.0f;
     mLeftStick.axisX = InputManager::LeftStickX;
@@ -83,9 +85,9 @@ void TouchGui::Init() {
     mLeftStick.fingerId = -1;
     mLeftStick.active = false;
 
-    mRightStick.centerX = 0.85f;
-    mRightStick.centerY = 0.75f;
-    mRightStick.radius = 0.15f;
+    mRightStick.centerX = 0.88f;
+    mRightStick.centerY = 0.50f; // Right stick above face buttons
+    mRightStick.radius = 0.12f;
     mRightStick.currX = 0.0f;
     mRightStick.currY = 0.0f;
     mRightStick.axisX = InputManager::RightStickX;
@@ -108,10 +110,10 @@ void TouchGui::SetVisible(bool visible) {
                     controller->GetInputButton(mButtons[i].buttonIndex)->SetValue(0.0f);
                 }
             }
-            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.5f);
-            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.5f);
-            controller->GetInputButton(mRightStick.axisX)->SetValue(0.5f);
-            controller->GetInputButton(mRightStick.axisY)->SetValue(0.5f);
+            controller->GetInputButton(mLeftStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mLeftStick.axisY)->SetValue(0.0f);
+            controller->GetInputButton(mRightStick.axisX)->SetValue(0.0f);
+            controller->GetInputButton(mRightStick.axisY)->SetValue(0.0f);
         }
         mLeftStick.active = false;
         mLeftStick.fingerId = -1;
@@ -141,20 +143,17 @@ void TouchGui::UpdateJoystick(TouchJoystick& stick, float x, float y, bool down,
             stick.currX = dx / stick.radius;
             stick.currY = dy / stick.radius;
 
-            // Map to 0.0 - 1.0 (centered at 0.5)
-            // Note: Some systems use -1 to 1, but SRR2 Button::SetValue expects normalized for sticks too?
-            // InputManager handles deadzones and calibration.
-            // Let's check sdlcontroller.cpp: newValue += 0.5f; for axis.
-            controller->GetInputButton(stick.axisX)->SetValue(stick.currX * 0.5f + 0.5f);
-            controller->GetInputButton(stick.axisY)->SetValue(-stick.currY * 0.5f + 0.5f); // Invert Y
+            // Map to -1.0 - 1.0 (centered at 0.0)
+            controller->GetInputButton(stick.axisX)->SetValue(stick.currX);
+            controller->GetInputButton(stick.axisY)->SetValue(-stick.currY); // Invert Y
         }
     } else if (stick.fingerId == fingerId) {
         stick.active = false;
         stick.fingerId = -1;
         stick.currX = 0.0f;
         stick.currY = 0.0f;
-        controller->GetInputButton(stick.axisX)->SetValue(0.5f);
-        controller->GetInputButton(stick.axisY)->SetValue(0.5f);
+        controller->GetInputButton(stick.axisX)->SetValue(0.0f);
+        controller->GetInputButton(stick.axisY)->SetValue(0.0f);
     }
 }
 
@@ -232,27 +231,32 @@ void TouchGui::Render() {
 
     // Draw Joysticks
     pddiColour stickBaseCol = simpsonYellow;
-    stickBaseCol.SetAlpha(60);
+    stickBaseCol.SetAlpha(40);
     pddiColour stickKnobCol = simpsonBlue;
-    stickKnobCol.SetAlpha(150);
+    stickKnobCol.SetAlpha(100);
+
+    float stickBaseRadius = 0.10f * mScreenWidth;
+    float stickInnerRadius = 0.08f * mScreenWidth;
+    float knobRadius = 0.04f * mScreenWidth;
+    float knobOffset = 0.06f;
 
     // Left Stick
-    DrawDonut(mLeftStick.centerX * mScreenWidth, mLeftStick.centerY * mScreenHeight, 100, 80, stickBaseCol);
-    DrawCircle((mLeftStick.centerX + mLeftStick.currX * 0.08f) * mScreenWidth,
-               (mLeftStick.centerY + mLeftStick.currY * 0.08f) * mScreenHeight, 40, stickKnobCol);
+    DrawDonut(mLeftStick.centerX * mScreenWidth, mLeftStick.centerY * mScreenHeight, stickBaseRadius, stickInnerRadius, stickBaseCol);
+    DrawCircle((mLeftStick.centerX + mLeftStick.currX * knobOffset) * mScreenWidth,
+               (mLeftStick.centerY + mLeftStick.currY * knobOffset) * mScreenHeight, knobRadius, stickKnobCol);
 
     // Right Stick
-    DrawDonut(mRightStick.centerX * mScreenWidth, mRightStick.centerY * mScreenHeight, 100, 80, stickBaseCol);
-    DrawCircle((mRightStick.centerX + mRightStick.currX * 0.08f) * mScreenWidth,
-               (mRightStick.centerY + mRightStick.currY * 0.08f) * mScreenHeight, 40, stickKnobCol);
+    DrawDonut(mRightStick.centerX * mScreenWidth, mRightStick.centerY * mScreenHeight, stickBaseRadius, stickInnerRadius, stickBaseCol);
+    DrawCircle((mRightStick.centerX + mRightStick.currX * knobOffset) * mScreenWidth,
+               (mRightStick.centerY + mRightStick.currY * knobOffset) * mScreenHeight, knobRadius, stickKnobCol);
 
     // Draw Buttons
     for (int i = 0; i < NUM_BUTTONS; ++i) {
         pddiColour col = simpsonYellow;
-        col.SetAlpha(mButtons[i].pressed ? 200 : 120);
+        col.SetAlpha(mButtons[i].pressed ? 180 : 80);
 
         pddiColour borderCol = simpsonBlue;
-        borderCol.SetAlpha(180);
+        borderCol.SetAlpha(mButtons[i].pressed ? 220 : 120);
 
         float x = mButtons[i].x * mScreenWidth;
         float y = mButtons[i].y * mScreenHeight;
@@ -266,13 +270,15 @@ void TouchGui::Render() {
             DrawRect(x - w/2, y - h/2, w, h, col);
         } else {
             // Use circle style for face buttons and dpad
-            DrawCircle(x, y, radius + 3, borderCol);
+            DrawCircle(x, y, radius + 2, borderCol);
             DrawCircle(x, y, radius, col);
         }
 
-        // Draw Label with shadow
-        pddi->DrawString(mButtons[i].label, (int)(x - 9), (int)(y - 9), pddiColour(255, 255, 255));
-        pddi->DrawString(mButtons[i].label, (int)(x - 10), (int)(y - 10), simpsonBlue);
+        // Draw Label with shadow (centered)
+        int labelLen = strlen(mButtons[i].label);
+        int offsetX = labelLen * 4;
+        pddi->DrawString(mButtons[i].label, (int)(x - offsetX + 1), (int)(y - 7 + 1), pddiColour(0, 0, 0));
+        pddi->DrawString(mButtons[i].label, (int)(x - offsetX), (int)(y - 7), pddiColour(255, 255, 255));
     }
 
     pddi->PopState(PDDI_STATE_ALL);
