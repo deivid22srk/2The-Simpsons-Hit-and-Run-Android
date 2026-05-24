@@ -279,6 +279,12 @@ void FrontEndRenderLayer::Render()
 
     if( fmvPlaying )
     {
+#ifdef RAD_ANDROID
+        // Render touch controls even during FMV (for Start/Select buttons etc.)
+        if (TouchGui::GetInstance() && TouchGui::GetInstance()->IsVisible()) {
+            TouchGui::GetInstance()->Render();
+        }
+#endif
 #ifdef DEBUGWATCH
         mDebugRenderTime = radTimeGetMicroseconds() - mDebugRenderTime;
 #endif
@@ -316,15 +322,15 @@ void FrontEndRenderLayer::Render()
 
         HeapMgr()->PopHeap( GMA_TEMP );
 
+#ifdef RAD_ANDROID
+        // Render C++ TouchGui HUD overlay inside the view scope.
+        if (TouchGui::GetInstance() && TouchGui::GetInstance()->IsVisible()) {
+            TouchGui::GetInstance()->Render();
+        }
+#endif
+
         mpView[ view ]->EndRender();
     }
-
-#ifdef RAD_ANDROID
-    // Render the C++ TouchGui HUD overlay on top of everything.
-    if (TouchGui::GetInstance() && TouchGui::GetInstance()->IsVisible()) {
-        TouchGui::GetInstance()->Render();
-    }
-#endif
 
 #ifdef DEBUGWATCH
     mDebugRenderTime = radTimeGetMicroseconds() - mDebugRenderTime;
