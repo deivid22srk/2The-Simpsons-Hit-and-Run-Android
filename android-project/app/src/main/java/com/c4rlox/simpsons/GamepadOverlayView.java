@@ -150,6 +150,8 @@ public class GamepadOverlayView extends View {
     private RectF mSettingsPanelRect = new RectF();
     private RectF mFpsToggleRect = new RectF();
     private RectF mCameraSwipeToggleRect = new RectF();
+    private RectF mSensDownRect = new RectF();
+    private RectF mSensUpRect = new RectF();
     private RectF mSettingsCloseRect = new RectF();
     private RectF mEditorBtnRect = new RectF();  // "Editor de Controles" button
 
@@ -181,12 +183,15 @@ public class GamepadOverlayView extends View {
     private boolean mShowFPS      = false;
     private boolean mNativeAvailable = false;
     private boolean mSwipeCameraEnabled = false;
+    private float   mSwipeSensitivity = 1.0f;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
     private boolean mSettingsClosePressed = false;
     private boolean mFpsTogglePressed = false;
     private boolean mCameraSwipeTogglePressed = false;
+    private boolean mSensDownPressed = false;
+    private boolean mSensUpPressed = false;
     private boolean mEditorBtnPressed = false;
 
     // ── Swipe camera touch tracking ───────────────────────────────────
@@ -341,6 +346,7 @@ public class GamepadOverlayView extends View {
             editor.putInt("stk_" + i + "_knobAlpha", s.knobAlpha);
         }
         editor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
+        editor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
         editor.apply();
         Log.i(TAG, "Profile saved successfully");
     }
@@ -351,6 +357,7 @@ public class GamepadOverlayView extends View {
         SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
         
         mSwipeCameraEnabled = sp.getBoolean("swipe_camera_enabled", false);
+        mSwipeSensitivity = sp.getFloat("swipe_camera_sensitivity", 1.0f);
 
         // If no saved settings exist, do nothing (use default layout)
         if (!sp.contains("btn_0_nx")) {
@@ -420,37 +427,61 @@ public class GamepadOverlayView extends View {
 
         recalcAllRects(w, h);
 
-        // Settings panel: centered, ~60% width, ~65% height
-        float panelW = w * 0.60f;
-        float panelH = h * 0.65f;
+        // Settings panel: centered, ~65% width, ~72% height
+        float panelW = w * 0.65f;
+        float panelH = h * 0.72f;
         float panelL = (w - panelW) / 2f;
         float panelT = (h - panelH) / 2f;
         mSettingsPanelRect.set(panelL, panelT, panelL + panelW, panelT + panelH);
 
         // Close button (X): top-right of panel
-        float closeSize = Math.min(w, h) * 0.04f;
+        float closeSize = Math.min(w, h) * 0.05f;
         mSettingsCloseRect.set(
-            mSettingsPanelRect.right - closeSize - 10f,
-            mSettingsPanelRect.top + 10f,
-            mSettingsPanelRect.right - 10f,
-            mSettingsPanelRect.top + 10f + closeSize);
+            mSettingsPanelRect.right - closeSize - 15f,
+            mSettingsPanelRect.top + 15f,
+            mSettingsPanelRect.right - 15f,
+            mSettingsPanelRect.top + 15f + closeSize);
 
-        // FPS toggle: upper-middle of panel
-        float toggleW = panelW * 0.5f;
-        float toggleH = panelH * 0.09f;
-        float toggleL = panelL + (panelW - toggleW) / 2f;
-        float toggleT = panelT + panelH * 0.22f;
-        mFpsToggleRect.set(toggleL, toggleT, toggleL + toggleW, toggleT + toggleH);
+        // Cards horizontal bounds
+        float cardW = panelW * 0.88f;
+        float cardL = panelL + (panelW - cardW) / 2f;
+        float cardR = cardL + cardW;
 
-        // Camera Swipe toggle: below FPS toggle
-        float swipeToggleT = toggleT + toggleH + panelH * 0.07f;
-        mCameraSwipeToggleRect.set(toggleL, swipeToggleT, toggleL + toggleW, swipeToggleT + toggleH);
+        // Card vertical bounds
+        float rowH = panelH * 0.12f;
+        float rowSpacing = panelH * 0.03f;
 
-        // Editor button: below Camera Swipe toggle
-        float editorBtnW = panelW * 0.6f;
-        float editorBtnH = panelH * 0.09f;
+        // Row 1 (FPS Toggle Row):
+        float row1T = panelT + panelH * 0.18f;
+        float row1B = row1T + rowH;
+        mFpsToggleRect.set(cardL, row1T, cardR, row1B);
+
+        // Row 2 (Swipe Camera Toggle Row):
+        float row2T = row1B + rowSpacing;
+        float row2B = row2T + rowH;
+        mCameraSwipeToggleRect.set(cardL, row2T, cardR, row2B);
+
+        // Row 3 (Sensitivity Row):
+        float row3T = row2B + rowSpacing;
+        float row3B = row3T + rowH;
+        
+        // Position sensitivity buttons inside Row 3 Card
+        float btnSize = rowH * 0.7f;
+        float btnY = row3T + (rowH - btnSize) / 2f;
+        float upRight = cardR - panelW * 0.04f;
+        float upLeft = upRight - btnSize;
+        mSensUpRect.set(upLeft, btnY, upRight, btnY + btnSize);
+
+        float valW = panelW * 0.12f;
+        float downRight = upLeft - valW;
+        float downLeft = downRight - btnSize;
+        mSensDownRect.set(downLeft, btnY, downRight, btnY + btnSize);
+
+        // Editor button: bottom of panel
+        float editorBtnW = panelW * 0.65f;
+        float editorBtnH = panelH * 0.10f;
         float editorBtnL = panelL + (panelW - editorBtnW) / 2f;
-        float editorBtnT = swipeToggleT + toggleH + panelH * 0.07f;
+        float editorBtnT = panelT + panelH * 0.80f;
         mEditorBtnRect.set(editorBtnL, editorBtnT, editorBtnL + editorBtnW, editorBtnT + editorBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
@@ -734,102 +765,189 @@ public class GamepadOverlayView extends View {
         float w = mSettingsPanelRect.width();
         float h = mSettingsPanelRect.height();
 
-        // Panel background
+        // 1. Panel background (glassmorphic dark slate fill)
         mPanelBgPaint.setStyle(Paint.Style.FILL);
-        mPanelBgPaint.setColor(SETTINGS_BG_COLOR);
-        canvas.drawRoundRect(mSettingsPanelRect, 16f, 16f, mPanelBgPaint);
+        mPanelBgPaint.setColor(Color.argb(240, 15, 15, 28));
+        canvas.drawRoundRect(mSettingsPanelRect, 32f, 32f, mPanelBgPaint);
 
-        // Panel border
+        // Panel border (Simpsons Accent Yellow)
         mPanelBorderPaint.setStyle(Paint.Style.STROKE);
-        mPanelBorderPaint.setStrokeWidth(3f);
+        mPanelBorderPaint.setStrokeWidth(4f);
         mPanelBorderPaint.setColor(SETTINGS_ACCENT);
-        canvas.drawRoundRect(mSettingsPanelRect, 16f, 16f, mPanelBorderPaint);
+        canvas.drawRoundRect(mSettingsPanelRect, 32f, 32f, mPanelBorderPaint);
 
-        // Title
+        // 2. Title Header
         mPanelTitlePaint.setColor(SETTINGS_TEXT_COLOR);
         mPanelTitlePaint.setTextSize(h * 0.07f);
         mPanelTitlePaint.setTextAlign(Paint.Align.CENTER);
         mPanelTitlePaint.setFakeBoldText(true);
-        canvas.drawText("CONFIGURACOES", left + w / 2f, top + h * 0.11f, mPanelTitlePaint);
+        canvas.drawText("CONFIGURACOES", left + w / 2f, top + h * 0.09f, mPanelTitlePaint);
+
+        // Subtitle
+        Paint subTitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        subTitlePaint.setColor(Color.argb(160, 255, 255, 255));
+        subTitlePaint.setTextSize(h * 0.035f);
+        subTitlePaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("Ajustes do Jogo & Controles", left + w / 2f, top + h * 0.135f, subTitlePaint);
 
         // Separator
-        mPanelLinePaint.setColor(Color.argb(100, 255, 255, 255));
-        mPanelLinePaint.setStrokeWidth(1f);
-        float lineY = top + h * 0.15f;
-        canvas.drawLine(left + w * 0.08f, lineY, right - w * 0.08f, lineY, mPanelLinePaint);
+        mPanelLinePaint.setColor(Color.argb(60, 255, 255, 255));
+        mPanelLinePaint.setStrokeWidth(1.5f);
+        float lineY = top + h * 0.155f;
+        canvas.drawLine(left + w * 0.06f, lineY, right - w * 0.06f, lineY, mPanelLinePaint);
 
-        // ── FPS toggle ──────────────────────────────────────────────────
+        // Helper Paint for Card Background
+        Paint cardBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardBgPaint.setStyle(Paint.Style.FILL);
+        Paint cardBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardBorderPaint.setStyle(Paint.Style.STROKE);
+        cardBorderPaint.setStrokeWidth(1.5f);
+
+        // 3. Row 1: FPS Toggle Row
+        // Card background
+        cardBgPaint.setColor(Color.argb(15, 255, 255, 255));
+        canvas.drawRoundRect(mFpsToggleRect, 16f, 16f, cardBgPaint);
+        cardBorderPaint.setColor(Color.argb(25, 255, 255, 255));
+        canvas.drawRoundRect(mFpsToggleRect, 16f, 16f, cardBorderPaint);
+
+        // Label
         mPanelLabelPaint.setColor(SETTINGS_TEXT_COLOR);
-        mPanelLabelPaint.setTextSize(h * 0.05f);
+        mPanelLabelPaint.setTextSize(h * 0.045f);
         mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
         mPanelLabelPaint.setFakeBoldText(false);
-        canvas.drawText("Exibir FPS", left + w * 0.1f,
-                         mFpsToggleRect.top - h * 0.02f, mPanelLabelPaint);
+        canvas.drawText("Exibir FPS", mFpsToggleRect.left + w * 0.05f,
+                         mFpsToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+        // Switch Toggle
+        float swW = w * 0.14f;
+        float swH = mFpsToggleRect.height() * 0.5f;
+        float swR = mFpsToggleRect.right - w * 0.05f;
+        float swL = swR - swW;
+        float swT = mFpsToggleRect.centerY() - swH / 2f;
+        float swB = mFpsToggleRect.centerY() + swH / 2f;
+        RectF switchRect = new RectF(swL, swT, swR, swB);
 
         mToggleBgPaint.setStyle(Paint.Style.FILL);
-        mToggleBgPaint.setColor(mShowFPS ? SETTINGS_TOGGLE_ON : SETTINGS_TOGGLE_OFF);
-        float toggleRound = mFpsToggleRect.height() / 2f;
-        canvas.drawRoundRect(mFpsToggleRect, toggleRound, toggleRound, mToggleBgPaint);
+        mToggleBgPaint.setColor(mShowFPS ? Color.rgb(0, 184, 148) : Color.rgb(45, 52, 54));
+        canvas.drawRoundRect(switchRect, swH / 2f, swH / 2f, mToggleBgPaint);
 
-        float thumbSize = mFpsToggleRect.height() * 0.7f;
-        float thumbX = mShowFPS
-            ? mFpsToggleRect.right - thumbSize - 5f
-            : mFpsToggleRect.left + 5f;
+        float thumbRadius = swH * 0.42f;
+        float thumbX = mShowFPS ? swR - thumbRadius - 4f : swL + thumbRadius + 4f;
         float thumbY = mFpsToggleRect.centerY();
+
+        // Shadow under switch thumb
+        Paint thumbShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        thumbShadow.setStyle(Paint.Style.FILL);
+        thumbShadow.setColor(Color.argb(50, 0, 0, 0));
+        canvas.drawCircle(thumbX, thumbY + 2f, thumbRadius + 1f, thumbShadow);
+
         mToggleThumbPaint.setStyle(Paint.Style.FILL);
         mToggleThumbPaint.setColor(Color.WHITE);
-        canvas.drawCircle(thumbX, thumbY, thumbSize / 2f, mToggleThumbPaint);
+        canvas.drawCircle(thumbX, thumbY, thumbRadius, mToggleThumbPaint);
 
+        // ON/OFF label text inside switch
         mToggleTextPaint.setColor(Color.WHITE);
-        mToggleTextPaint.setTextSize(thumbSize * 0.5f);
+        mToggleTextPaint.setTextSize(swH * 0.4f);
+        mToggleTextPaint.setFakeBoldText(true);
         mToggleTextPaint.setTextAlign(Paint.Align.CENTER);
-        String toggleLabel = mShowFPS ? "ON" : "OFF";
-        float labelOffsetX = mShowFPS ? -thumbSize / 2f - 4f : thumbSize / 2f + 4f;
-        canvas.drawText(toggleLabel,
-            mFpsToggleRect.centerX() + labelOffsetX,
-            mFpsToggleRect.centerY() + thumbSize * 0.22f,
-            mToggleTextPaint);
+        if (mShowFPS) {
+            canvas.drawText("ON", swL + swW * 0.35f, thumbY + swH * 0.15f, mToggleTextPaint);
+        } else {
+            canvas.drawText("OFF", swL + swW * 0.65f, thumbY + swH * 0.15f, mToggleTextPaint);
+        }
 
-        // ── Camera Swipe toggle ──────────────────────────────────────────
-        mPanelLabelPaint.setColor(SETTINGS_TEXT_COLOR);
-        mPanelLabelPaint.setTextSize(h * 0.05f);
-        mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
-        mPanelLabelPaint.setFakeBoldText(false);
-        canvas.drawText("Deslizar Câmera", left + w * 0.1f,
-                         mCameraSwipeToggleRect.top - h * 0.02f, mPanelLabelPaint);
+        // 4. Row 2: Camera Swipe Toggle Row
+        // Card background
+        canvas.drawRoundRect(mCameraSwipeToggleRect, 16f, 16f, cardBgPaint);
+        canvas.drawRoundRect(mCameraSwipeToggleRect, 16f, 16f, cardBorderPaint);
 
-        mToggleBgPaint.setStyle(Paint.Style.FILL);
-        mToggleBgPaint.setColor(mSwipeCameraEnabled ? SETTINGS_TOGGLE_ON : SETTINGS_TOGGLE_OFF);
-        float swipeToggleRound = mCameraSwipeToggleRect.height() / 2f;
-        canvas.drawRoundRect(mCameraSwipeToggleRect, swipeToggleRound, swipeToggleRound, mToggleBgPaint);
+        // Label
+        canvas.drawText("Deslizar Câmera", mCameraSwipeToggleRect.left + w * 0.05f,
+                         mCameraSwipeToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
-        float swipeThumbSize = mCameraSwipeToggleRect.height() * 0.7f;
-        float swipeThumbX = mSwipeCameraEnabled
-            ? mCameraSwipeToggleRect.right - swipeThumbSize - 5f
-            : mCameraSwipeToggleRect.left + 5f;
-        float swipeThumbY = mCameraSwipeToggleRect.centerY();
-        mToggleThumbPaint.setStyle(Paint.Style.FILL);
-        mToggleThumbPaint.setColor(Color.WHITE);
-        canvas.drawCircle(swipeThumbX, swipeThumbY, swipeThumbSize / 2f, mToggleThumbPaint);
+        // Switch Toggle
+        float swT2 = mCameraSwipeToggleRect.centerY() - swH / 2f;
+        float swB2 = mCameraSwipeToggleRect.centerY() + swH / 2f;
+        RectF switchRect2 = new RectF(swL, swT2, swR, swB2);
 
-        mToggleTextPaint.setColor(Color.WHITE);
-        mToggleTextPaint.setTextSize(swipeThumbSize * 0.5f);
-        mToggleTextPaint.setTextAlign(Paint.Align.CENTER);
-        String swipeToggleLabel = mSwipeCameraEnabled ? "ON" : "OFF";
-        float swipeLabelOffsetX = mSwipeCameraEnabled ? -swipeThumbSize / 2f - 4f : swipeThumbSize / 2f + 4f;
-        canvas.drawText(swipeToggleLabel,
-            mCameraSwipeToggleRect.centerX() + swipeLabelOffsetX,
-            mCameraSwipeToggleRect.centerY() + swipeThumbSize * 0.22f,
-            mToggleTextPaint);
+        mToggleBgPaint.setColor(mSwipeCameraEnabled ? Color.rgb(0, 184, 148) : Color.rgb(45, 52, 54));
+        canvas.drawRoundRect(switchRect2, swH / 2f, swH / 2f, mToggleBgPaint);
 
-        // ── Editor de Controles button ──────────────────────────────────
+        float thumbX2 = mSwipeCameraEnabled ? swR - thumbRadius - 4f : swL + thumbRadius + 4f;
+        float thumbY2 = mCameraSwipeToggleRect.centerY();
+
+        canvas.drawCircle(thumbX2, thumbY2 + 2f, thumbRadius + 1f, thumbShadow);
+        canvas.drawCircle(thumbX2, thumbY2, thumbRadius, mToggleThumbPaint);
+
+        if (mSwipeCameraEnabled) {
+            canvas.drawText("ON", swL + swW * 0.35f, thumbY2 + swH * 0.15f, mToggleTextPaint);
+        } else {
+            canvas.drawText("OFF", swL + swW * 0.65f, thumbY2 + swH * 0.15f, mToggleTextPaint);
+        }
+
+        // 5. Row 3: Swipe Camera Sensitivity Control (only visible if enabled)
+        if (mSwipeCameraEnabled) {
+            RectF sensRowRect = new RectF(mCameraSwipeToggleRect.left, mSensDownRect.top - (mCameraSwipeToggleRect.height() - mSensDownRect.height()) / 2f,
+                                          mCameraSwipeToggleRect.right, mSensDownRect.bottom + (mCameraSwipeToggleRect.height() - mSensDownRect.height()) / 2f);
+            
+            // Card background
+            canvas.drawRoundRect(sensRowRect, 16f, 16f, cardBgPaint);
+            canvas.drawRoundRect(sensRowRect, 16f, 16f, cardBorderPaint);
+
+            // Label
+            canvas.drawText("Sensibilidade", sensRowRect.left + w * 0.05f,
+                             sensRowRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+            // Stepper buttons
+            Paint stepBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            stepBgPaint.setStyle(Paint.Style.FILL);
+            
+            Paint stepTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            stepTextPaint.setColor(Color.WHITE);
+            stepTextPaint.setFakeBoldText(true);
+            stepTextPaint.setTextAlign(Paint.Align.CENTER);
+
+            // Decrement [-] button
+            stepBgPaint.setColor(mSensDownPressed ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+            canvas.drawRoundRect(mSensDownRect, 12f, 12f, stepBgPaint);
+            
+            stepTextPaint.setColor(mSensDownPressed ? Color.BLACK : Color.WHITE);
+            stepTextPaint.setTextSize(mSensDownRect.height() * 0.6f);
+            canvas.drawText("-", mSensDownRect.centerX(), mSensDownRect.centerY() + mSensDownRect.height() * 0.2f, stepTextPaint);
+
+            // Increment [+] button
+            stepBgPaint.setColor(mSensUpPressed ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+            canvas.drawRoundRect(mSensUpRect, 12f, 12f, stepBgPaint);
+            
+            stepTextPaint.setColor(mSensUpPressed ? Color.BLACK : Color.WHITE);
+            stepTextPaint.setTextSize(mSensUpRect.height() * 0.6f);
+            canvas.drawText("+", mSensUpRect.centerX(), mSensUpRect.centerY() + mSensUpRect.height() * 0.2f, stepTextPaint);
+
+            // Sensitivity Value Text
+            Paint valPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            valPaint.setColor(SETTINGS_ACCENT);
+            valPaint.setTextSize(mSensDownRect.height() * 0.5f);
+            valPaint.setFakeBoldText(true);
+            valPaint.setTextAlign(Paint.Align.CENTER);
+            float valCenterX = (mSensDownRect.right + mSensUpRect.left) / 2f;
+            canvas.drawText(String.format("%.1fx", mSwipeSensitivity), valCenterX, sensRowRect.centerY() + h * 0.015f, valPaint);
+        }
+
+        // 6. Editor de Controles button
         boolean editorHover = mEditorBtnPressed;
         mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
-        mEditorBtnBgPaint.setColor(editorHover ? SETTINGS_ACCENT : Color.argb(100, 255, 255, 255));
+        mEditorBtnBgPaint.setColor(editorHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
         float btnRound = mEditorBtnRect.height() / 2f;
         canvas.drawRoundRect(mEditorBtnRect, btnRound, btnRound, mEditorBtnBgPaint);
 
-        float btnTextSize = mEditorBtnRect.height() * 0.45f;
+        // Button border
+        Paint editorBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        editorBorderPaint.setStyle(Paint.Style.STROKE);
+        editorBorderPaint.setStrokeWidth(2f);
+        editorBorderPaint.setColor(editorHover ? SETTINGS_ACCENT : Color.argb(60, 255, 255, 255));
+        canvas.drawRoundRect(mEditorBtnRect, btnRound, btnRound, editorBorderPaint);
+
+        float btnTextSize = mEditorBtnRect.height() * 0.40f;
         mEditorBtnTextPaint.setColor(editorHover ? Color.BLACK : SETTINGS_TEXT_COLOR);
         mEditorBtnTextPaint.setTextSize(btnTextSize);
         mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
@@ -840,9 +958,9 @@ public class GamepadOverlayView extends View {
             mEditorBtnTextPaint);
 
         // Icon on the left of the button
-        mEditorBtnTextPaint.setTextSize(btnTextSize * 0.8f);
+        mEditorBtnTextPaint.setTextSize(btnTextSize * 0.9f);
         canvas.drawText("\u2699",
-            mEditorBtnRect.left + btnTextSize,
+            mEditorBtnRect.left + btnTextSize * 1.5f,
             mEditorBtnRect.centerY() + btnTextSize * 0.3f,
             mEditorBtnTextPaint);
 
@@ -857,12 +975,19 @@ public class GamepadOverlayView extends View {
         }
 
         // Close button (X)
-        mCloseBtnPaint.setStyle(Paint.Style.STROKE);
-        mCloseBtnPaint.setStrokeWidth(3f);
-        mCloseBtnPaint.setColor(mSettingsClosePressed ? SETTINGS_ACCENT : Color.argb(180, 255, 255, 255));
         float cx = mSettingsCloseRect.centerX();
         float cy = mSettingsCloseRect.centerY();
-        float half = mSettingsCloseRect.width() / 2f;
+        float closeR = mSettingsCloseRect.width() / 2f;
+        
+        Paint closeBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        closeBgPaint.setStyle(Paint.Style.FILL);
+        closeBgPaint.setColor(mSettingsClosePressed ? Color.rgb(235, 77, 75) : Color.argb(35, 255, 255, 255));
+        canvas.drawCircle(cx, cy, closeR, closeBgPaint);
+
+        mCloseBtnPaint.setStyle(Paint.Style.STROKE);
+        mCloseBtnPaint.setStrokeWidth(4.5f);
+        mCloseBtnPaint.setColor(mSettingsClosePressed ? Color.BLACK : Color.WHITE);
+        float half = closeR * 0.4f;
         canvas.drawLine(cx - half, cy - half, cx + half, cy + half, mCloseBtnPaint);
         canvas.drawLine(cx + half, cy - half, cx - half, cy + half, mCloseBtnPaint);
     }
@@ -1129,6 +1254,18 @@ public class GamepadOverlayView extends View {
                 mCameraSwipeTogglePressed = true;
                 return;
             }
+            if (mSwipeCameraEnabled) {
+                if (mSensDownRect.contains(x, y)) {
+                    mSettingsPointerId = pid;
+                    mSensDownPressed = true;
+                    return;
+                }
+                if (mSensUpRect.contains(x, y)) {
+                    mSettingsPointerId = pid;
+                    mSensUpPressed = true;
+                    return;
+                }
+            }
             if (mEditorBtnRect.contains(x, y)) {
                 mSettingsPointerId = pid;
                 mEditorBtnPressed = true;
@@ -1205,6 +1342,10 @@ public class GamepadOverlayView extends View {
             mFpsTogglePressed = mFpsToggleRect.contains(x, y);
             mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
+            if (mSwipeCameraEnabled) {
+                mSensDownPressed = mSensDownRect.contains(x, y);
+                mSensUpPressed = mSensUpRect.contains(x, y);
+            }
             return;
         }
 
@@ -1216,7 +1357,7 @@ public class GamepadOverlayView extends View {
             mSwipeLastX = x;
             mSwipeLastY = y;
 
-            float sensitivity = 30f / getWidth();
+            float sensitivity = (30f / getWidth()) * mSwipeSensitivity;
             float valX = Math.max(-1.0f, Math.min(1.0f, dx * sensitivity));
             float valY = Math.max(-1.0f, Math.min(1.0f, dy * sensitivity));
 
@@ -1269,6 +1410,12 @@ public class GamepadOverlayView extends View {
             } else if (mCameraSwipeTogglePressed) {
                 mSwipeCameraEnabled = !mSwipeCameraEnabled;
                 saveProfile();
+            } else if (mSwipeCameraEnabled && mSensDownPressed) {
+                mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
+                saveProfile();
+            } else if (mSwipeCameraEnabled && mSensUpPressed) {
+                mSwipeSensitivity = Math.min(3.0f, Math.round((mSwipeSensitivity + 0.1f) * 10f) / 10f);
+                saveProfile();
             } else if (mEditorBtnPressed) {
                 // Enter editor mode
                 mShowSettings = false;
@@ -1281,6 +1428,8 @@ public class GamepadOverlayView extends View {
             mSettingsClosePressed = false;
             mFpsTogglePressed = false;
             mCameraSwipeTogglePressed = false;
+            mSensDownPressed = false;
+            mSensUpPressed = false;
             mEditorBtnPressed = false;
             return;
         }
