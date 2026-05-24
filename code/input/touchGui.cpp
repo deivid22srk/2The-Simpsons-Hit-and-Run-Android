@@ -314,12 +314,19 @@ void TouchGui::HandleFingerMotion(float x, float y, SDL_FingerID fingerId,
         return;
     }
 
-    // Otherwise, check buttons: release if slid out, press if slid in.
+    // Otherwise, check buttons: release if slid out, press if slid in,
+    // refresh staleness timer if still inside.
     for (int i = 0; i < NUM_BUTTONS; ++i) {
         const bool inside = mButtons[i].Contains(x, y);
 
         if (mButtons[i].fingerId == fingerId && mButtons[i].pressed && !inside) {
+            // Finger slid out of its button → release.
             ReleaseButton(i, controller);
+        } else if (mButtons[i].fingerId == fingerId && mButtons[i].pressed && inside) {
+            // Finger is still inside its button → keep lastEventTime fresh
+            // so AutoReleaseStaleInputs doesn't incorrectly release a held
+            // button whose finger is stationary (no new DOWN/MOTION events).
+            mButtons[i].lastEventTime = timestamp;
         } else if (inside && mButtons[i].fingerId == -1 && !mButtons[i].pressed) {
             // Finger slid into an unclaimed button.
             PressButton(i, fingerId, timestamp, controller);
