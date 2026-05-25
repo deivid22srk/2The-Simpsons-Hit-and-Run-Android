@@ -197,6 +197,8 @@ public class GamepadOverlayView extends View {
     private boolean mNativeHudEnabled = false;
     private int mCachedHudContext = 0;
     private boolean mTitleScreenStartPressed = false;
+    private boolean mMenuLeftPressed = false;
+    private boolean mMenuRightPressed = false;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
@@ -1373,6 +1375,56 @@ public class GamepadOverlayView extends View {
                     } else if (action == MotionEvent.ACTION_MOVE) {
                         if (mTitleScreenStartPressed) {
                             return true;
+                        }
+                    }
+                }
+            } catch (UnsatisfiedLinkError e) {
+                // Ignore
+            }
+        }
+
+        // ── Menu touch redirection for left/right arrows ───────────────
+        if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
+            try {
+                if (SimpsonsActivity.nativeIsMenuWithArrows()) {
+                    final int idx = ev.getActionIndex();
+                    final float x = ev.getX(idx);
+                    final float y = ev.getY(idx);
+                    final float nx = x / getWidth();
+                    final float ny = y / getHeight();
+
+                    // Allow opening settings button on menu screens
+                    boolean hitSettings = BTNS[BTN_IDX_SETTINGS].rect.contains(x, y);
+
+                    if (!hitSettings && ny > 0.15f && ny < 0.85f) {
+                        if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+                            if (nx < 0.45f) {
+                                SDLControllerManager.onNativePadDown(9999, KeyEvent.KEYCODE_DPAD_LEFT);
+                                mMenuLeftPressed = true;
+                                invalidate();
+                                return true;
+                            } else if (nx > 0.55f) {
+                                SDLControllerManager.onNativePadDown(9999, KeyEvent.KEYCODE_DPAD_RIGHT);
+                                mMenuRightPressed = true;
+                                invalidate();
+                                return true;
+                            }
+                        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_CANCEL) {
+                            if (mMenuLeftPressed) {
+                                SDLControllerManager.onNativePadUp(9999, KeyEvent.KEYCODE_DPAD_LEFT);
+                                mMenuLeftPressed = false;
+                                invalidate();
+                                return true;
+                            } else if (mMenuRightPressed) {
+                                SDLControllerManager.onNativePadUp(9999, KeyEvent.KEYCODE_DPAD_RIGHT);
+                                mMenuRightPressed = false;
+                                invalidate();
+                                return true;
+                            }
+                        } else if (action == MotionEvent.ACTION_MOVE) {
+                            if (mMenuLeftPressed || mMenuRightPressed) {
+                                return true;
+                            }
                         }
                     }
                 }

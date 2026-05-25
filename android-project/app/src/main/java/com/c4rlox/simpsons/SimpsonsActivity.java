@@ -22,6 +22,7 @@ public class SimpsonsActivity extends SDLActivity {
     public static native float nativeGetFPS();
     public static native int nativeGetHudContext();
     public static native boolean nativeIsTitleScreen();
+    public static native boolean nativeIsMenuWithArrows();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
