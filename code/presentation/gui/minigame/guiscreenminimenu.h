@@ -185,7 +185,7 @@ private:
     Scrooby::Pure3dObject* m_3dCharacters[ NUM_CHARACTERS ];
 #endif
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     int m_currentTrack;
     bool m_bTrackSelected;
 #endif

@@ -21,7 +21,7 @@
 #include <contexts/supersprint/supersprintcontext.h>
 #include <gameflow/gameflow.h>
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 #include <input/inputmanager.h>
 #endif
 
