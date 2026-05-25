@@ -22,7 +22,7 @@
 //===========================================================================
 #include <presentation/gui/guientity.h>
 #include <presentation/gui/guimenu.h>
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 #include <input/FEMouse.h>
 #endif
 
