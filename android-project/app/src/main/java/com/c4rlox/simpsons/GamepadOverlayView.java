@@ -83,16 +83,16 @@ public class GamepadOverlayView extends View {
     private static final int BTN_IDX_SETTINGS = 12;
 
     private static final Btn[] BTNS = {
-        // ── D-Pad (Xbox style: bottom-left, centered at x=0.215, y=0.780) ──────
-        new Btn("D-Pad: UP",    0.215f, 0.725f, 0.075f, 0.075f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.215f, 0.835f, 0.075f, 0.075f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.160f, 0.780f, 0.075f, 0.075f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.270f, 0.780f, 0.075f, 0.075f, 0),  // 3
-        // ── Face Buttons A/B/X/Y (Xbox style: top-right, centered at x=0.875, y=0.610) ──
-        new Btn("Face: A",      0.875f, 0.665f, 0.075f, 0.075f, 0),  // 4
-        new Btn("Face: B",      0.930f, 0.610f, 0.075f, 0.075f, 0),  // 5
-        new Btn("Face: X",      0.820f, 0.610f, 0.075f, 0.075f, 0),  // 6
-        new Btn("Face: Y",      0.875f, 0.555f, 0.075f, 0.075f, 0),  // 7
+        // ── D-Pad (bottom-left, centered at x=0.215, y=0.780) ───────────
+        new Btn("D-Pad: UP",    0.215f, 0.720f, 0.080f, 0.080f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.215f, 0.840f, 0.080f, 0.080f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.155f, 0.780f, 0.080f, 0.080f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.275f, 0.780f, 0.080f, 0.080f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (top-right) ─────────────────────────────
+        new Btn("Face: A",      0.860f, 0.680f, 0.100f, 0.100f, 0),  // 4
+        new Btn("Face: B",      0.925f, 0.610f, 0.100f, 0.100f, 0),  // 5
+        new Btn("Face: X",      0.795f, 0.610f, 0.100f, 0.100f, 0),  // 6
+        new Btn("Face: Y",      0.860f, 0.540f, 0.100f, 0.100f, 0),  // 7
         // ── Top buttons ─────────────────────────────────────────
         new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
         new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
@@ -178,6 +178,10 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpAcelerar;
     private Bitmap mBmpFrear;
     private Bitmap mBmpEntrarCarro;
+    private Bitmap mBmpSoco;
+    private Bitmap mBmpFalarComPersonagens;
+    private Bitmap mBmpMudarCamera;
+    private Bitmap mBmpConfiguracoes;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -191,6 +195,7 @@ public class GamepadOverlayView extends View {
     private boolean mSwipeCameraEnabled = false;
     private float   mSwipeSensitivity = 1.0f;
     private boolean mNativeHudEnabled = false;
+    private int mCachedHudContext = 0;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
@@ -565,32 +570,23 @@ public class GamepadOverlayView extends View {
 
     private boolean isBtnVisible(int idx) {
         if (!mNativeHudEnabled || mEditorMode) {
-            return true; // Always show all buttons in Xbox mode or Editor mode
+            return true;
         }
         if (idx == BTN_IDX_SETTINGS) {
-            return true; // Config gear is always visible
+            return true;
         }
         if (idx >= 0 && idx <= 3) {
-            return true; // D-pad is always visible
+            return true;
         }
         if (idx == 8 || idx == 9 || idx == 10 || idx == 11) {
-            return true; // Start, Select, L1, R1 are always visible
+            return true;
         }
-        
-        // Face buttons (4: A, 5: B, 6: X, 7: Y)
-        int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
-        if (context == 0 || context == 1) {
-            // On Foot or Near Car
-            if (idx == 4) return true; // A (Jump)
-            if (idx == 5) return true; // B (Run/Kick)
-            if (idx == 7) return context == 1; // Y (Enter Car, only when near car)
-            return false; // X is hidden
-        } else if (context == 2) {
-            // Inside Car
-            if (idx == 4) return true; // A (Accelerate)
-            if (idx == 5) return true; // B (Brake)
-            if (idx == 7) return true; // Y (Exit Car)
-            return false; // X is hidden
+
+        if (idx == 7) {
+            return mCachedHudContext == 1 || mCachedHudContext == 2;
+        }
+        if (idx >= 4 && idx <= 6) {
+            return true;
         }
         return true;
     }
@@ -661,6 +657,10 @@ public class GamepadOverlayView extends View {
         if (mBmpAcelerar != null) { mBmpAcelerar.recycle(); mBmpAcelerar = null; }
         if (mBmpFrear != null) { mBmpFrear.recycle(); mBmpFrear = null; }
         if (mBmpEntrarCarro != null) { mBmpEntrarCarro.recycle(); mBmpEntrarCarro = null; }
+        if (mBmpSoco != null) { mBmpSoco.recycle(); mBmpSoco = null; }
+        if (mBmpFalarComPersonagens != null) { mBmpFalarComPersonagens.recycle(); mBmpFalarComPersonagens = null; }
+        if (mBmpMudarCamera != null) { mBmpMudarCamera.recycle(); mBmpMudarCamera = null; }
+        if (mBmpConfiguracoes != null) { mBmpConfiguracoes.recycle(); mBmpConfiguracoes = null; }
 
         Resources res = getResources();
 
@@ -698,6 +698,15 @@ public class GamepadOverlayView extends View {
             mBmpAcelerar = loadResBitmap(res, R.drawable.acelerar, faceW, faceH);
             mBmpFrear = loadResBitmap(res, R.drawable.frear, faceW, faceH);
             mBmpEntrarCarro = loadResBitmap(res, R.drawable.entrar_no_carro, faceW, faceH);
+            mBmpSoco = loadResBitmap(res, R.drawable.soco, faceW, faceH);
+            mBmpFalarComPersonagens = loadResBitmap(res, R.drawable.falar_com_personagens, faceW, faceH);
+            mBmpMudarCamera = loadResBitmap(res, R.drawable.mudar_camera_no_carro, faceW, faceH);
+        }
+
+        float configW = BTNS[BTN_IDX_SETTINGS].rect.width();
+        float configH = BTNS[BTN_IDX_SETTINGS].rect.height();
+        if (configW > 0 && configH > 0) {
+            mBmpConfiguracoes = loadResBitmap(res, R.drawable.configuracoes, configW, configH);
         }
     }
 
@@ -707,6 +716,10 @@ public class GamepadOverlayView extends View {
         super.onDraw(canvas);
 
         // ── Dim background when in editor mode ────────────────────────
+        if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
+            mCachedHudContext = SimpsonsActivity.nativeGetHudContext();
+        }
+
         if (mEditorMode) {
             mEditorOverlayPaint.setStyle(Paint.Style.FILL);
             mEditorOverlayPaint.setColor(Color.argb(60, 0, 0, 0));
@@ -750,7 +763,13 @@ public class GamepadOverlayView extends View {
             Btn b = BTNS[i];
 
             if (i == BTN_IDX_SETTINGS) {
-                drawSettingsGear(canvas, b);
+                if (mBmpConfiguracoes != null) {
+                    int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
+                    mPBmp.setAlpha(pressAlpha);
+                    canvas.drawBitmap(mBmpConfiguracoes, b.rect.left, b.rect.top, mPBmp);
+                } else {
+                    drawSettingsGear(canvas, b);
+                }
                 continue;
             }
 
@@ -758,11 +777,15 @@ public class GamepadOverlayView extends View {
 
             Bitmap bmp = mBtnBmps[i];
             if (mNativeHudEnabled && !mEditorMode) {
-                int context = mNativeAvailable ? SimpsonsActivity.nativeGetHudContext() : 0;
+                int context = mCachedHudContext;
                 if (i == 4) {
                     bmp = (context == 2) ? mBmpAcelerar : mBmpPular;
                 } else if (i == 5) {
                     bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
+                } else if (i == 6) {
+                    if (context == 0) bmp = mBmpSoco;
+                    else if (context == 1) bmp = mBmpFalarComPersonagens;
+                    else bmp = mBmpMudarCamera;
                 } else if (i == 7) {
                     bmp = mBmpEntrarCarro;
                 }
@@ -1402,6 +1425,9 @@ public class GamepadOverlayView extends View {
         }
 
         // ── Normal HUD ────────────────────────────────────────────────
+        if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
+            mCachedHudContext = SimpsonsActivity.nativeGetHudContext();
+        }
         for (int i = 0; i < BTNS.length; i++) {
             if (!isBtnVisible(i)) continue;
             if (mButtonPointerIds[i] == -1 && BTNS[i].rect.contains(x, y)) {
