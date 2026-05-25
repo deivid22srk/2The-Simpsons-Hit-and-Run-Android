@@ -19,6 +19,18 @@ import org.libsdl.app.R;
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLControllerManager;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.widget.Toast;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 /**
  * HUD de controle touch que sobrepoe a SDLSurface usando icones Xbox.
  * Botoes usam bitmaps dos assets; sticks sao desenhados como circulos.
@@ -155,6 +167,8 @@ public class GamepadOverlayView extends View {
     private RectF mSensUpRect = new RectF();
     private RectF mSettingsCloseRect = new RectF();
     private RectF mEditorBtnRect = new RectF();  // "Editor de Controles" button
+    private RectF mExportBtnRect = new RectF();
+    private RectF mImportBtnRect = new RectF();
 
     // ── Editor panel rects ────────────────────────────────────────────
     private RectF mEditorPanelRect = new RectF();
@@ -208,6 +222,10 @@ public class GamepadOverlayView extends View {
     private boolean mSensDownPressed = false;
     private boolean mSensUpPressed = false;
     private boolean mEditorBtnPressed = false;
+    private boolean mExportBtnPressed = false;
+    private boolean mImportBtnPressed = false;
+    public static final int REQUEST_CODE_EXPORT_JSON = 1001;
+    public static final int REQUEST_CODE_IMPORT_JSON = 1002;
 
     // ── Swipe camera touch tracking ───────────────────────────────────
     private int mSwipePointerId = -1;
@@ -235,6 +253,9 @@ public class GamepadOverlayView extends View {
     private boolean mEditorAlphaUpPressed = false;
     private boolean mEditorResetPressed = false;
     private boolean mEditorClosePressed = false;
+    private int mEditorHudContext = 0;
+    private RectF mEditorContextToggleRect = new RectF();
+    private boolean mEditorContextTogglePressed = false;
 
     // ── Saved originals for Reset ─────────────────────────────────────
     private float[][] mBtnOrigins;  // [index][nx, ny, nw, nh, alpha]
@@ -517,12 +538,23 @@ public class GamepadOverlayView extends View {
         float downLeft = downRight - btnSize;
         mSensDownRect.set(downLeft, btnY, downRight, btnY + btnSize);
 
-        // Editor button: bottom of panel
-        float editorBtnW = panelW * 0.65f;
+        // Editor button
+        float editorBtnW = panelW * 0.70f;
         float editorBtnH = panelH * 0.09f;
         float editorBtnL = panelL + (panelW - editorBtnW) / 2f;
-        float editorBtnT = panelT + panelH * 0.82f;
+        float editorBtnT = panelT + panelH * 0.66f;
         mEditorBtnRect.set(editorBtnL, editorBtnT, editorBtnL + editorBtnW, editorBtnT + editorBtnH);
+
+        // Export/Import buttons side-by-side
+        float actionBtnW = panelW * 0.33f;
+        float actionBtnH = panelH * 0.09f;
+        float actionBtnSpacing = panelW * 0.04f;
+        float actionBtnTotalW = actionBtnW * 2f + actionBtnSpacing;
+        float actionBtnL = panelL + (panelW - actionBtnTotalW) / 2f;
+        float actionBtnT = panelT + panelH * 0.78f;
+
+        mExportBtnRect.set(actionBtnL, actionBtnT, actionBtnL + actionBtnW, actionBtnT + actionBtnH);
+        mImportBtnRect.set(actionBtnL + actionBtnW + actionBtnSpacing, actionBtnT, actionBtnL + actionBtnTotalW, actionBtnT + actionBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
         float editorPanelH = h * 0.30f;
@@ -530,6 +562,13 @@ public class GamepadOverlayView extends View {
         float editorPanelL = (w - editorPanelW) / 2f;
         float editorPanelT = h - editorPanelH - 12f;
         mEditorPanelRect.set(editorPanelL, editorPanelT, editorPanelL + editorPanelW, editorPanelT + editorPanelH);
+
+        // Context Toggle Button
+        float toggleW = editorPanelW * 0.28f;
+        float toggleH = editorPanelH * 0.12f;
+        float toggleL = mEditorPanelRect.centerX() - toggleW / 2f;
+        float toggleT = mEditorPanelRect.top + editorPanelH * 0.03f;
+        mEditorContextToggleRect.set(toggleL, toggleT, toggleL + toggleW, toggleT + toggleH);
 
         // Close button for editor panel (top-right)
         float edCloseSize = editorPanelH * 0.20f;
@@ -805,8 +844,8 @@ public class GamepadOverlayView extends View {
             if (!isBtnVisible(i)) continue;
 
             Bitmap bmp = mBtnBmps[i];
-            if (mNativeHudEnabled && !mEditorMode) {
-                int context = mCachedHudContext;
+            if (mNativeHudEnabled) {
+                int context = mEditorMode ? mEditorHudContext : mCachedHudContext;
                 if (i == 4) {
                     bmp = (context == 2) ? mBmpAcelerar : mBmpPular;
                 } else if (i == 5) {
@@ -1136,6 +1175,45 @@ public class GamepadOverlayView extends View {
             mEditorBtnRect.centerY() + btnTextSize * 0.3f,
             mEditorBtnTextPaint);
 
+        // 7. Export/Import HUD buttons
+        boolean exportHover = mExportBtnPressed;
+        mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
+        mEditorBtnBgPaint.setColor(exportHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+        float actRound = mExportBtnRect.height() / 2f;
+        canvas.drawRoundRect(mExportBtnRect, actRound, actRound, mEditorBtnBgPaint);
+
+        Paint exportBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        exportBorderPaint.setStyle(Paint.Style.STROKE);
+        exportBorderPaint.setStrokeWidth(2f);
+        exportBorderPaint.setColor(exportHover ? SETTINGS_ACCENT : Color.argb(60, 255, 255, 255));
+        canvas.drawRoundRect(mExportBtnRect, actRound, actRound, exportBorderPaint);
+
+        float actTextSize = mExportBtnRect.height() * 0.38f;
+        mEditorBtnTextPaint.setColor(exportHover ? Color.BLACK : SETTINGS_TEXT_COLOR);
+        mEditorBtnTextPaint.setTextSize(actTextSize);
+        mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
+        mEditorBtnTextPaint.setFakeBoldText(true);
+        canvas.drawText("EXPORTAR HUD",
+            mExportBtnRect.centerX(),
+            mExportBtnRect.centerY() + actTextSize * 0.35f,
+            mEditorBtnTextPaint);
+
+        boolean importHover = mImportBtnPressed;
+        mEditorBtnBgPaint.setColor(importHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+        canvas.drawRoundRect(mImportBtnRect, actRound, actRound, mEditorBtnBgPaint);
+
+        Paint importBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        importBorderPaint.setStyle(Paint.Style.STROKE);
+        importBorderPaint.setStrokeWidth(2f);
+        importBorderPaint.setColor(importHover ? SETTINGS_ACCENT : Color.argb(60, 255, 255, 255));
+        canvas.drawRoundRect(mImportBtnRect, actRound, actRound, importBorderPaint);
+
+        mEditorBtnTextPaint.setColor(importHover ? Color.BLACK : SETTINGS_TEXT_COLOR);
+        canvas.drawText("IMPORTAR HUD",
+            mImportBtnRect.centerX(),
+            mImportBtnRect.centerY() + actTextSize * 0.35f,
+            mEditorBtnTextPaint);
+
         // FPS value text
         if (mShowFPS && mNativeAvailable) {
             float fps = SimpsonsActivity.nativeGetFPS();
@@ -1143,7 +1221,7 @@ public class GamepadOverlayView extends View {
             mFpsValuePaint.setTextSize(h * 0.04f);
             mFpsValuePaint.setTextAlign(Paint.Align.CENTER);
             canvas.drawText(String.format("FPS atual: %.1f", fps),
-                left + w / 2f, mEditorBtnRect.bottom + h * 0.05f, mFpsValuePaint);
+                left + w / 2f, mImportBtnRect.bottom + h * 0.05f, mFpsValuePaint);
         }
 
         // Close button (X)
@@ -1203,6 +1281,31 @@ public class GamepadOverlayView extends View {
         mEditorLabelPaint.setFakeBoldText(false);
         canvas.drawText(selName, mEditorPanelRect.right - w * 0.05f,
                         mEditorPanelRect.top + h * 0.14f, mEditorLabelPaint);
+
+        // Draw HUD Context Toggle if Native HUD is active
+        if (mNativeHudEnabled) {
+            boolean toggleHover = mEditorContextTogglePressed;
+            mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
+            mEditorBtnBgPaint.setColor(toggleHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+            float btnRound = mEditorContextToggleRect.height() / 2f;
+            canvas.drawRoundRect(mEditorContextToggleRect, btnRound, btnRound, mEditorBtnBgPaint);
+
+            Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setStrokeWidth(1.5f);
+            borderPaint.setColor(toggleHover ? SETTINGS_ACCENT : Color.argb(60, 255, 255, 255));
+            canvas.drawRoundRect(mEditorContextToggleRect, btnRound, btnRound, borderPaint);
+
+            mEditorBtnTextPaint.setColor(toggleHover ? Color.BLACK : Color.WHITE);
+            float textSize = mEditorContextToggleRect.height() * 0.5f;
+            mEditorBtnTextPaint.setTextSize(textSize);
+            mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
+            mEditorBtnTextPaint.setFakeBoldText(true);
+
+            String text = (mEditorHudContext == 2) ? "Modo: No Carro" : "Modo: A Pé";
+            canvas.drawText(text, mEditorContextToggleRect.centerX(),
+                            mEditorContextToggleRect.centerY() + textSize * 0.35f, mEditorBtnTextPaint);
+        }
 
         // Separator
         mEditorBorderPaint.setStrokeWidth(1f);
@@ -1484,6 +1587,16 @@ public class GamepadOverlayView extends View {
                 mEditorBtnPressed = true;
                 return;
             }
+            if (mExportBtnRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mExportBtnPressed = true;
+                return;
+            }
+            if (mImportBtnRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mImportBtnPressed = true;
+                return;
+            }
             if (!mSettingsPanelRect.contains(x, y)) {
                 mShowSettings = false;
                 return;
@@ -1560,6 +1673,8 @@ public class GamepadOverlayView extends View {
             mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
             mNativeHudTogglePressed = mNativeHudToggleRect.contains(x, y);
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
+            mExportBtnPressed = mExportBtnRect.contains(x, y);
+            mImportBtnPressed = mImportBtnRect.contains(x, y);
             if (mSwipeCameraEnabled) {
                 mSensDownPressed = mSensDownRect.contains(x, y);
                 mSensUpPressed = mSensUpRect.contains(x, y);
@@ -1651,6 +1766,10 @@ public class GamepadOverlayView extends View {
                 mEditorSelectedIdx = -1;
                 mEditorSelectedIsStick = false;
                 Log.i(TAG, "Editor de Controles: mode activated");
+            } else if (mExportBtnPressed) {
+                exportLayout();
+            } else if (mImportBtnPressed) {
+                importLayout();
             }
             mSettingsPointerId = -1;
             mSettingsClosePressed = false;
@@ -1660,6 +1779,8 @@ public class GamepadOverlayView extends View {
             mSensDownPressed = false;
             mSensUpPressed = false;
             mEditorBtnPressed = false;
+            mExportBtnPressed = false;
+            mImportBtnPressed = false;
             return;
         }
 
@@ -1705,6 +1826,8 @@ public class GamepadOverlayView extends View {
         mFpsTogglePressed = false;
         mCameraSwipeTogglePressed = false;
         mEditorBtnPressed = false;
+        mExportBtnPressed = false;
+        mImportBtnPressed = false;
 
         if (mEditorMode) {
             mEditorSelectedIdx = -1;
@@ -1716,6 +1839,7 @@ public class GamepadOverlayView extends View {
             mEditorAlphaUpPressed = false;
             mEditorResetPressed = false;
             mEditorClosePressed = false;
+            mEditorContextTogglePressed = false;
         }
     }
 
@@ -1725,6 +1849,11 @@ public class GamepadOverlayView extends View {
         if (mEditorCloseRect.contains(x, y)) {
             mEditorPointerId = pid;
             mEditorClosePressed = true;
+            return;
+        }
+        if (mNativeHudEnabled && mEditorContextToggleRect.contains(x, y)) {
+            mEditorPointerId = pid;
+            mEditorContextTogglePressed = true;
             return;
         }
 
@@ -1852,6 +1981,9 @@ public class GamepadOverlayView extends View {
         mEditorAlphaUpPressed = mEditorAlphaUpRect.contains(x, y);
         mEditorResetPressed = mEditorResetRect.contains(x, y);
         mEditorClosePressed = mEditorCloseRect.contains(x, y);
+        if (mNativeHudEnabled) {
+            mEditorContextTogglePressed = mEditorContextToggleRect.contains(x, y);
+        }
     }
 
     // ── Editor: handleUp ──────────────────────────────────────────────
@@ -1870,6 +2002,9 @@ public class GamepadOverlayView extends View {
             mEditorSelectedIdx = -1;
             Log.i(TAG, "Editor: closed");
             saveProfile();
+        } else if (mEditorContextTogglePressed && mNativeHudEnabled) {
+            mEditorHudContext = (mEditorHudContext == 2) ? 0 : 2;
+            invalidate();
         } else if (mEditorResetPressed && mEditorSelectedIdx != -1) {
             resetToOrigins();
             saveProfile();
@@ -1893,6 +2028,7 @@ public class GamepadOverlayView extends View {
         mEditorAlphaUpPressed = false;
         mEditorResetPressed = false;
         mEditorClosePressed = false;
+        mEditorContextTogglePressed = false;
     }
 
     // ── Editor: adjust size ───────────────────────────────────────────
@@ -2057,5 +2193,267 @@ public class GamepadOverlayView extends View {
         float valY = dy / s.r;
         SDLControllerManager.onNativeJoy(9999, stickIdx * 2, valX);
         SDLControllerManager.onNativeJoy(9999, stickIdx * 2 + 1, valY);
+    }
+
+    private String serializeLayoutToJson() {
+        try {
+            JSONObject root = new JSONObject();
+            root.put("hud_type", mNativeHudEnabled ? "native" : "classic");
+
+            JSONArray buttonsArr = new JSONArray();
+            for (int i = 0; i < BTNS.length; i++) {
+                Btn b = BTNS[i];
+                JSONObject btnObj = new JSONObject();
+                btnObj.put("index", i);
+                btnObj.put("label", b.label);
+                btnObj.put("nx", b.nx);
+                btnObj.put("ny", b.ny);
+                btnObj.put("nw", b.nw);
+                btnObj.put("nh", b.nh);
+                btnObj.put("alpha", b.alpha);
+                buttonsArr.put(btnObj);
+            }
+            root.put("buttons", buttonsArr);
+
+            JSONArray sticksArr = new JSONArray();
+            for (int i = 0; i < STKS.length; i++) {
+                Stk s = STKS[i];
+                JSONObject stkObj = new JSONObject();
+                stkObj.put("index", i);
+                stkObj.put("label", STICK_NAMES[i]);
+                stkObj.put("ncx", s.ncx);
+                stkObj.put("ncy", s.ncy);
+                stkObj.put("nr", s.nr);
+                stkObj.put("baseAlpha", s.baseAlpha);
+                stkObj.put("knobAlpha", s.knobAlpha);
+                sticksArr.put(stkObj);
+            }
+            root.put("sticks", sticksArr);
+
+            return root.toString(4);
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao serializar layout: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean deserializeLayoutFromJson(String jsonString) {
+        try {
+            JSONObject root = new JSONObject(jsonString);
+            
+            if (root.has("hud_type")) {
+                String type = root.getString("hud_type");
+                boolean isNativeJson = "native".equals(type);
+                if (isNativeJson != mNativeHudEnabled) {
+                    Log.w(TAG, "HUD type mismatch in imported layout. Native active: " + mNativeHudEnabled + ", JSON type: " + type);
+                }
+            }
+
+            if (root.has("buttons")) {
+                JSONArray buttonsArr = root.getJSONArray("buttons");
+                for (int i = 0; i < buttonsArr.length(); i++) {
+                    JSONObject btnObj = buttonsArr.getJSONObject(i);
+                    int idx = btnObj.getInt("index");
+                    if (idx >= 0 && idx < BTNS.length) {
+                        Btn b = BTNS[idx];
+                        b.nx = (float) btnObj.getDouble("nx");
+                        b.ny = (float) btnObj.getDouble("ny");
+                        b.nw = (float) btnObj.getDouble("nw");
+                        b.nh = (float) btnObj.getDouble("nh");
+                        if (btnObj.has("alpha")) {
+                            b.alpha = btnObj.getInt("alpha");
+                        }
+                    }
+                }
+            }
+
+            if (root.has("sticks")) {
+                JSONArray sticksArr = root.getJSONArray("sticks");
+                for (int i = 0; i < sticksArr.length(); i++) {
+                    JSONObject stkObj = sticksArr.getJSONObject(i);
+                    int idx = stkObj.getInt("index");
+                    if (idx >= 0 && idx < STKS.length) {
+                        Stk s = STKS[idx];
+                        s.ncx = (float) stkObj.getDouble("ncx");
+                        s.ncy = (float) stkObj.getDouble("ncy");
+                        s.nr = (float) stkObj.getDouble("nr");
+                        if (stkObj.has("baseAlpha")) {
+                            s.baseAlpha = stkObj.getInt("baseAlpha");
+                        }
+                        if (stkObj.has("knobAlpha")) {
+                            s.knobAlpha = stkObj.getInt("knobAlpha");
+                        }
+                    }
+                }
+            }
+
+            final int w = getWidth();
+            final int h = getHeight();
+            if (w > 0 && h > 0) {
+                recalcAllRects(w, h);
+                for (int i = 0; i < STKS.length; i++) {
+                    mStickKnobX[i] = STKS[i].cx;
+                    mStickKnobY[i] = STKS[i].cy;
+                }
+            }
+            loadBitmaps();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao desserializar layout: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private void exportLayout() {
+        Context context = getContext();
+        if (!(context instanceof Activity)) {
+            fallbackExport();
+            return;
+        }
+        Activity activity = (Activity) context;
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.putExtra(Intent.EXTRA_TITLE, mNativeHudEnabled ? "native_hud_layout.json" : "classic_hud_layout.json");
+            activity.startActivityForResult(intent, REQUEST_CODE_EXPORT_JSON);
+            Toast.makeText(context, "Selecione onde deseja salvar o layout", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e(TAG, "SAF nao suportado ou falhou: " + e.getMessage());
+            fallbackExport();
+        }
+    }
+
+    private void importLayout() {
+        Context context = getContext();
+        if (!(context instanceof Activity)) {
+            fallbackImport();
+            return;
+        }
+        Activity activity = (Activity) context;
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            activity.startActivityForResult(intent, REQUEST_CODE_IMPORT_JSON);
+            Toast.makeText(context, "Selecione o arquivo de layout JSON", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e(TAG, "SAF nao suportado ou falhou: " + e.getMessage());
+            fallbackImport();
+        }
+    }
+
+    private void fallbackExport() {
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            File dir = context.getExternalFilesDir(null);
+            if (dir == null) dir = context.getFilesDir();
+            File file = new File(dir, mNativeHudEnabled ? "native_hud_layout.json" : "classic_hud_layout.json");
+            
+            String json = serializeLayoutToJson();
+            if (json == null) {
+                Toast.makeText(context, "Erro ao gerar JSON", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(json.getBytes());
+            fos.close();
+
+            Toast.makeText(context, "Exportado como backup para:\n" + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            Log.i(TAG, "Fallback exportado com sucesso: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            Log.e(TAG, "Erro no fallback de exportacao: " + e.getMessage());
+            Toast.makeText(context, "Falha na exportação: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void fallbackImport() {
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            File dir = context.getExternalFilesDir(null);
+            if (dir == null) dir = context.getFilesDir();
+            File file = new File(dir, mNativeHudEnabled ? "native_hud_layout.json" : "classic_hud_layout.json");
+
+            if (!file.exists()) {
+                Toast.makeText(context, "Arquivo de backup não encontrado em:\n" + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            FileInputStream fis = new FileInputStream(file);
+            byte[] data = new byte[(int) file.length()];
+            int len = fis.read(data);
+            fis.close();
+
+            if (len > 0) {
+                String json = new String(data, 0, len, "UTF-8");
+                if (deserializeLayoutFromJson(json)) {
+                    saveProfile();
+                    invalidate();
+                    Toast.makeText(context, "Layout de backup importado com sucesso!", Toast.LENGTH_SHORT).show();
+                    Log.i(TAG, "Fallback importado com sucesso: " + file.getAbsolutePath());
+                } else {
+                    Toast.makeText(context, "JSON inválido no arquivo de backup", Toast.LENGTH_LONG).show();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erro no fallback de importacao: " + e.getMessage());
+            Toast.makeText(context, "Falha na importação: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    public void handleActivityResult(int requestCode, int resultCode, Intent data) {
+        Context context = getContext();
+        if (context == null || resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        Uri uri = data.getData();
+
+        if (requestCode == REQUEST_CODE_EXPORT_JSON) {
+            try {
+                String json = serializeLayoutToJson();
+                if (json == null) {
+                    Toast.makeText(context, "Erro ao gerar JSON", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                OutputStream os = context.getContentResolver().openOutputStream(uri);
+                if (os != null) {
+                    os.write(json.getBytes());
+                    os.close();
+                    Toast.makeText(context, "Layout exportado com sucesso!", Toast.LENGTH_SHORT).show();
+                    Log.i(TAG, "Layout exportado via SAF com sucesso para Uri: " + uri.toString());
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erro ao escrever JSON via SAF: " + e.getMessage());
+                Toast.makeText(context, "Erro ao salvar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        } else if (requestCode == REQUEST_CODE_IMPORT_JSON) {
+            try {
+                InputStream is = context.getContentResolver().openInputStream(uri);
+                if (is != null) {
+                    byte[] buf = new byte[is.available() > 0 ? is.available() : 1024 * 1024];
+                    int len = is.read(buf);
+                    is.close();
+                    if (len > 0) {
+                        String json = new String(buf, 0, len, "UTF-8");
+                        if (deserializeLayoutFromJson(json)) {
+                            saveProfile();
+                            invalidate();
+                            Toast.makeText(context, "Layout importado com sucesso!", Toast.LENGTH_SHORT).show();
+                            Log.i(TAG, "Layout importado via SAF com sucesso de Uri: " + uri.toString());
+                        } else {
+                            Toast.makeText(context, "JSON inválido no arquivo de layout", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erro ao ler JSON via SAF: " + e.getMessage());
+                Toast.makeText(context, "Erro ao ler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.c4rlox.simpsons;
 
 import android.os.Bundle;
 import android.widget.RelativeLayout;
+import android.content.Intent;
 
 import org.libsdl.app.SDLActivity;
 
@@ -37,5 +38,13 @@ public class SimpsonsActivity extends SDLActivity {
         );
 
         mLayout.addView(mOverlay, lp);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (mOverlay != null) {
+            mOverlay.handleActivityResult(requestCode, resultCode, data);
+        }
     }
 }
