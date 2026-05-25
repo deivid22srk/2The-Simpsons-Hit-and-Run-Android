@@ -72,11 +72,16 @@ public class GamepadOverlayView extends View {
         final RectF rect = new RectF();
         int resId;
         int alpha = 255;
+        float carNx, carNy, carNw, carNh;
 
         Btn(String label, float nx, float ny, float nw, float nh, int resId) {
             this.label = label;
             this.nx = nx; this.ny = ny; this.nw = nw; this.nh = nh;
             this.resId = resId;
+            this.carNx = nx;
+            this.carNy = ny;
+            this.carNw = nw;
+            this.carNh = nh;
         }
     }
 
@@ -299,7 +304,7 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < STKS.length; i++)  mStickPointerIds[i] = -1;
 
         // Init originals arrays
-        mBtnOrigins = new float[BTNS.length][5];
+        mBtnOrigins = new float[BTNS.length][9];
         mStkOrigins = new float[STKS.length][5];
     }
 
@@ -312,6 +317,10 @@ public class GamepadOverlayView extends View {
             mBtnOrigins[i][2] = b.nw;
             mBtnOrigins[i][3] = b.nh;
             mBtnOrigins[i][4] = b.alpha;
+            mBtnOrigins[i][5] = b.carNx;
+            mBtnOrigins[i][6] = b.carNy;
+            mBtnOrigins[i][7] = b.carNw;
+            mBtnOrigins[i][8] = b.carNh;
         }
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
@@ -335,9 +344,12 @@ public class GamepadOverlayView extends View {
             b.nw = mBtnOrigins[i][2];
             b.nh = mBtnOrigins[i][3];
             b.alpha = (int) mBtnOrigins[i][4];
+            b.carNx = mBtnOrigins[i][5];
+            b.carNy = mBtnOrigins[i][6];
+            b.carNw = mBtnOrigins[i][7];
+            b.carNh = mBtnOrigins[i][8];
             recalcBtnRect(i, w, h);
         }
-        loadBitmaps();
 
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
@@ -383,6 +395,12 @@ public class GamepadOverlayView extends View {
             activeEditor.putFloat("btn_" + i + "_nw", b.nw);
             activeEditor.putFloat("btn_" + i + "_nh", b.nh);
             activeEditor.putInt("btn_" + i + "_alpha", b.alpha);
+            if (mNativeHudEnabled && i >= 4 && i <= 7) {
+                activeEditor.putFloat("btn_" + i + "_car_nx", b.carNx);
+                activeEditor.putFloat("btn_" + i + "_car_ny", b.carNy);
+                activeEditor.putFloat("btn_" + i + "_car_nw", b.carNw);
+                activeEditor.putFloat("btn_" + i + "_car_nh", b.carNh);
+            }
         }
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
@@ -427,6 +445,12 @@ public class GamepadOverlayView extends View {
             b.nw = spActive.getFloat("btn_" + i + "_nw", b.nw);
             b.nh = spActive.getFloat("btn_" + i + "_nh", b.nh);
             b.alpha = spActive.getInt("btn_" + i + "_alpha", b.alpha);
+            if (mNativeHudEnabled && i >= 4 && i <= 7) {
+                b.carNx = spActive.getFloat("btn_" + i + "_car_nx", b.carNx);
+                b.carNy = spActive.getFloat("btn_" + i + "_car_ny", b.carNy);
+                b.carNw = spActive.getFloat("btn_" + i + "_car_nw", b.carNw);
+                b.carNh = spActive.getFloat("btn_" + i + "_car_nh", b.carNh);
+            }
         }
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
@@ -453,10 +477,17 @@ public class GamepadOverlayView extends View {
     private void recalcBtnRect(int idx, int w, int h) {
         Btn b = BTNS[idx];
         float minDim = Math.min(w, h);
-        float cx = b.nx * w;
-        float cy = b.ny * h;
-        float halfW = (b.nw * minDim) / 2f;
-        float halfH = (b.nh * minDim) / 2f;
+        boolean isCar = mNativeHudEnabled && (mEditorMode ? (mEditorHudContext == 2) : (mCachedHudContext == 2));
+        
+        float nx = (isCar && (idx >= 4 && idx <= 7)) ? b.carNx : b.nx;
+        float ny = (isCar && (idx >= 4 && idx <= 7)) ? b.carNy : b.ny;
+        float nw = (isCar && (idx >= 4 && idx <= 7)) ? b.carNw : b.nw;
+        float nh = (isCar && (idx >= 4 && idx <= 7)) ? b.carNh : b.nh;
+        
+        float cx = nx * w;
+        float cy = ny * h;
+        float halfW = (nw * minDim) / 2f;
+        float halfH = (nh * minDim) / 2f;
         b.rect.set(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
     }
 
@@ -785,7 +816,11 @@ public class GamepadOverlayView extends View {
 
         // ── Dim background when in editor mode ────────────────────────
         if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
+            int oldContext = mCachedHudContext;
             mCachedHudContext = SimpsonsActivity.nativeGetHudContext();
+            if (mCachedHudContext != oldContext) {
+                recalcAllRects(getWidth(), getHeight());
+            }
         }
 
         if (mEditorMode) {
@@ -834,7 +869,7 @@ public class GamepadOverlayView extends View {
                 if (mBmpConfiguracoes != null) {
                     int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
                     mPBmp.setAlpha(pressAlpha);
-                    canvas.drawBitmap(mBmpConfiguracoes, b.rect.left, b.rect.top, mPBmp);
+                    canvas.drawBitmap(mBmpConfiguracoes, null, b.rect, mPBmp);
                 } else {
                     drawSettingsGear(canvas, b);
                 }
@@ -863,7 +898,7 @@ public class GamepadOverlayView extends View {
             int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
             int finalAlpha = mEditorMode ? (b.alpha * pressAlpha / 255) : pressAlpha;
             mPBmp.setAlpha(finalAlpha);
-            canvas.drawBitmap(bmp, b.rect.left, b.rect.top, mPBmp);
+            canvas.drawBitmap(bmp, null, b.rect, mPBmp);
 
             // Editor: highlight selected button
             if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
@@ -1967,8 +2002,14 @@ public class GamepadOverlayView extends View {
                 mStickKnobY[mEditorSelectedIdx] = s.cy;
             } else {
                 Btn b = BTNS[mEditorSelectedIdx];
-                b.nx = Math.max(0.02f, Math.min(0.98f, newNX));
-                b.ny = Math.max(0.02f, Math.min(0.98f, newNY));
+                boolean isCar = mNativeHudEnabled && (mEditorHudContext == 2) && (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7);
+                if (isCar) {
+                    b.carNx = Math.max(0.02f, Math.min(0.98f, newNX));
+                    b.carNy = Math.max(0.02f, Math.min(0.98f, newNY));
+                } else {
+                    b.nx = Math.max(0.02f, Math.min(0.98f, newNX));
+                    b.ny = Math.max(0.02f, Math.min(0.98f, newNY));
+                }
                 recalcBtnRect(mEditorSelectedIdx, w, h);
             }
             return;
@@ -2004,6 +2045,7 @@ public class GamepadOverlayView extends View {
             saveProfile();
         } else if (mEditorContextTogglePressed && mNativeHudEnabled) {
             mEditorHudContext = (mEditorHudContext == 2) ? 0 : 2;
+            recalcAllRects(w, h);
             invalidate();
         } else if (mEditorResetPressed && mEditorSelectedIdx != -1) {
             resetToOrigins();
@@ -2042,12 +2084,19 @@ public class GamepadOverlayView extends View {
             s.r = s.nr * minDim;
         } else {
             Btn b = BTNS[mEditorSelectedIdx];
-            float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nw + delta));
-            float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nh + delta));
-            b.nw = newNw;
-            b.nh = newNh;
+            boolean isCar = mNativeHudEnabled && (mEditorHudContext == 2) && (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7);
+            if (isCar) {
+                float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNw + delta));
+                float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNh + delta));
+                b.carNw = newNw;
+                b.carNh = newNh;
+            } else {
+                float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nw + delta));
+                float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nh + delta));
+                b.nw = newNw;
+                b.nh = newNh;
+            }
             recalcBtnRect(mEditorSelectedIdx, w, h);
-            loadBitmaps(); // reload with new size
         }
         Log.i(TAG, "Editor: size adjusted by " + delta);
     }
@@ -2211,6 +2260,12 @@ public class GamepadOverlayView extends View {
                 btnObj.put("nw", b.nw);
                 btnObj.put("nh", b.nh);
                 btnObj.put("alpha", b.alpha);
+                if (mNativeHudEnabled && i >= 4 && i <= 7) {
+                    btnObj.put("car_nx", b.carNx);
+                    btnObj.put("car_ny", b.carNy);
+                    btnObj.put("car_nw", b.carNw);
+                    btnObj.put("car_nh", b.carNh);
+                }
                 buttonsArr.put(btnObj);
             }
             root.put("buttons", buttonsArr);
@@ -2262,6 +2317,12 @@ public class GamepadOverlayView extends View {
                         b.nh = (float) btnObj.getDouble("nh");
                         if (btnObj.has("alpha")) {
                             b.alpha = btnObj.getInt("alpha");
+                        }
+                        if (mNativeHudEnabled && idx >= 4 && idx <= 7) {
+                            b.carNx = btnObj.has("car_nx") ? (float) btnObj.getDouble("car_nx") : b.nx;
+                            b.carNy = btnObj.has("car_ny") ? (float) btnObj.getDouble("car_ny") : b.ny;
+                            b.carNw = btnObj.has("car_nw") ? (float) btnObj.getDouble("car_nw") : b.nw;
+                            b.carNh = btnObj.has("car_nh") ? (float) btnObj.getDouble("car_nh") : b.nh;
                         }
                     }
                 }
