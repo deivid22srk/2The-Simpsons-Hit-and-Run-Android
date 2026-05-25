@@ -21,6 +21,7 @@ public class SimpsonsActivity extends SDLActivity {
     // Called by GamepadOverlayView each frame to query smoothed FPS.
     public static native float nativeGetFPS();
     public static native int nativeGetHudContext();
+    public static native boolean nativeIsTitleScreen();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

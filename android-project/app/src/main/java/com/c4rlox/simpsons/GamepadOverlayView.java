@@ -196,6 +196,7 @@ public class GamepadOverlayView extends View {
     private float   mSwipeSensitivity = 1.0f;
     private boolean mNativeHudEnabled = false;
     private int mCachedHudContext = 0;
+    private boolean mTitleScreenStartPressed = false;
 
     // ── Settings touch tracking ───────────────────────────────────────
     private int mSettingsPointerId = -1;
@@ -1346,6 +1347,40 @@ public class GamepadOverlayView extends View {
     public boolean onTouchEvent(MotionEvent ev) {
         final int action = ev.getActionMasked();
 
+        // ── Title screen touch handling to start game ──────────────────
+        if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
+            try {
+                if (SimpsonsActivity.nativeIsTitleScreen()) {
+                    if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+                        final int idx = ev.getActionIndex();
+                        final float x = ev.getX(idx);
+                        final float y = ev.getY(idx);
+                        // Check if it hits config button
+                        boolean hitSettings = BTNS[BTN_IDX_SETTINGS].rect.contains(x, y);
+                        if (!hitSettings) {
+                            SDLControllerManager.onNativePadDown(9999, KeyEvent.KEYCODE_BUTTON_START);
+                            mTitleScreenStartPressed = true;
+                            invalidate();
+                            return true;
+                        }
+                    } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_CANCEL) {
+                        if (mTitleScreenStartPressed) {
+                            SDLControllerManager.onNativePadUp(9999, KeyEvent.KEYCODE_BUTTON_START);
+                            mTitleScreenStartPressed = false;
+                            invalidate();
+                            return true;
+                        }
+                    } else if (action == MotionEvent.ACTION_MOVE) {
+                        if (mTitleScreenStartPressed) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (UnsatisfiedLinkError e) {
+                // Ignore
+            }
+        }
+
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
@@ -1593,6 +1628,11 @@ public class GamepadOverlayView extends View {
             } else if (mNativeHudTogglePressed) {
                 saveProfile();
                 mNativeHudEnabled = !mNativeHudEnabled;
+                Context context = getContext();
+                if (context != null) {
+                    SharedPreferences spDefault = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
+                    spDefault.edit().putBoolean("native_hud_enabled", mNativeHudEnabled).apply();
+                }
                 loadProfile();
                 saveProfile();
             } else if (mSwipeCameraEnabled && mSensDownPressed) {

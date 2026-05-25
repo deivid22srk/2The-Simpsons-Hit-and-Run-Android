@@ -7,6 +7,9 @@
   #include <worldsim/avatarmanager.h>
   #include <worldsim/character/character.h>
   #include <ai/actionbuttonhandler.h>
+  #include <presentation/gui/guisystem.h>
+  #include <presentation/gui/guimanager.h>
+  #include <presentation/gui/guiwindow.h>
 #else
   #include <cstdio>
   #define FPS_LOGI(...) do { std::printf("[FPSCounter] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
@@ -98,6 +101,21 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, j
         }
     }
     return 0; // On Foot (Normal)
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsTitleScreen(JNIEnv* /*env*/, jclass /*clazz*/)
+{
+    CGuiSystem* gs = GetGuiSystem();
+    if (gs) {
+        CGuiManager* gm = gs->GetCurrentManager();
+        if (gm) {
+            if (gm->GetCurrentScreen() == CGuiWindow::GUI_SCREEN_ID_SPLASH) {
+                return JNI_TRUE;
+            }
+        }
+    }
+    return JNI_FALSE;
 }
 
 #endif // RAD_ANDROID
