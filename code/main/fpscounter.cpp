@@ -109,6 +109,12 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, j
                     else if (type == ActionButton::ButtonHandler::INTERIOR) {
                         return 3; // Near Interior (House door)
                     }
+                    else if (dynamic_cast<ActionButton::TalkFood*>(handler) ||
+                             dynamic_cast<ActionButton::TalkCollectible*>(handler) ||
+                             dynamic_cast<ActionButton::TalkDialog*>(handler) ||
+                             dynamic_cast<ActionButton::TalkMission*>(handler)) {
+                        return 5; // Near Talkable Character
+                    }
                 }
             }
         }

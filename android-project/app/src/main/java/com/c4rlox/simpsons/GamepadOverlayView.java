@@ -664,7 +664,7 @@ public class GamepadOverlayView extends View {
         if (mNativeHudEnabled && idx == 6) {
             boolean isCar = mEditorMode ? (mEditorHudContext == 2) : (mCachedHudContext == 2);
             if (isCar) {
-                return KeyEvent.KEYCODE_BUTTON_L2;
+                return KeyEvent.KEYCODE_BUTTON_L1;
             }
         }
         return BTN_KEYCODES[idx];
@@ -702,8 +702,8 @@ public class GamepadOverlayView extends View {
 
         // Action/Interactions
         if (idx == 7) {
-            // Near Car (1), Inside Car (2), Near Interior (3)
-            return mCachedHudContext == 1 || mCachedHudContext == 2 || mCachedHudContext == 3;
+            // Near Car (1), Inside Car (2), Near Interior (3), Near Talk (5)
+            return mCachedHudContext == 1 || mCachedHudContext == 2 || mCachedHudContext == 3 || mCachedHudContext == 5;
         }
 
         // Face buttons A (4), B (5), X (6)
@@ -931,16 +931,16 @@ public class GamepadOverlayView extends View {
                 } else if (i == 5) {
                     bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
                 } else if (i == 6) {
-                    if (context == 1) {
-                        bmp = mBmpFalarComPersonagens;
-                    } else if (context == 2) {
+                    if (context == 2) {
                         bmp = mBmpMudarCamera;
                     } else {
-                        bmp = mBmpSoco; // 0, 3 (Near Interior) or default
+                        bmp = mBmpSoco; // 0, 1, 3, 5 or default
                     }
                 } else if (i == 7) {
                     if (context == 3) {
                         bmp = mBmpEntrarCasa;
+                    } else if (context == 5) {
+                        bmp = mBmpFalarComPersonagens;
                     } else {
                         bmp = mBmpEntrarCarro;
                     }
