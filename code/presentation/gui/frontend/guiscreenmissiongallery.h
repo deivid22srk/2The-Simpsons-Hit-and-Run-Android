@@ -57,7 +57,7 @@ private:
     void SetMenuAlpha( float alpha );
     void OnMenuSelectionMade( int selection );
     void OnStartMission();
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     void SetVisibilityForAllOtherMenuItems( bool bDisable );
 #endif
 
