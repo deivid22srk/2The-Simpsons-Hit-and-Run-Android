@@ -92,7 +92,7 @@ private:
     Scrooby::Layer* m_skinInfo;
     Scrooby::Text* m_skinName;
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     int m_selectedSkin;
 #endif
 };

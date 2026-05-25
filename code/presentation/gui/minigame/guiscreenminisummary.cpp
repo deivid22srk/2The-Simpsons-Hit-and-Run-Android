@@ -387,7 +387,7 @@ void CGuiScreenMiniSummary::InitRunning()
 //===========================================================================
 void CGuiScreenMiniSummary::InitOutro()
 {
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     GetInputManager()->GetFEMouse()->SetInGameMode( false );
 #endif
 }

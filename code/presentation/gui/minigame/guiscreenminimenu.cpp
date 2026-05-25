@@ -704,7 +704,7 @@ void CGuiScreenMiniMenu::HandleMessage(	eGuiMessage message,
                             CGuiUserInputHandler* userInputHandler = GetGuiSystem()->GetUserInputHandler( i );
                             if( userInputHandler != NULL )
                             {
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
                                 if( userInputHandler->IsYAxisOnUp() ||
                                     GetInputManager()->GetFEMouse()->LeftButtonDownOn() == HOTSPOT_ARROWUP )
 #else
@@ -716,7 +716,7 @@ void CGuiScreenMiniMenu::HandleMessage(	eGuiMessage message,
                                     m_trackNumLapsArrowU->SetIndex( 1 );
                                 }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
                                 if( userInputHandler->IsYAxisOnDown() ||
                                     GetInputManager()->GetFEMouse()->LeftButtonDownOn() == HOTSPOT_ARROWDOWN )
 #else
@@ -1032,7 +1032,7 @@ void CGuiScreenMiniMenu::HandleMessage(	eGuiMessage message,
 	CGuiScreen::HandleMessage( message, param1, param2 );
 }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 //===========================================================================
 // CGuiScreenMiniMenu::CheckCursorAgainstHotspots
 //===========================================================================

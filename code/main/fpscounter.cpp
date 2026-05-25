@@ -118,28 +118,6 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsTitleScreen(JNIEnv* /*env*/, j
     return JNI_FALSE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsMenuWithArrows(JNIEnv* /*env*/, jclass /*clazz*/)
-{
-    CGuiSystem* gs = GetGuiSystem();
-    if (gs) {
-        CGuiManager* gm = gs->GetCurrentManager();
-        if (gm) {
-            CGuiWindow::eGuiWindowID currentScreen = gm->GetCurrentScreen();
-            if (currentScreen == CGuiWindow::GUI_SCREEN_ID_OPTIONS ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_SOUND ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_SETTINGS ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_VEHICLE_GALLERY ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_SKIN_GALLERY ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_MISSION_GALLERY ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_CARD_GALLERY ||
-                currentScreen == CGuiWindow::GUI_SCREEN_ID_SCRAP_BOOK_CONTENTS) 
-            {
-                return JNI_TRUE;
-            }
-        }
-    }
-    return JNI_FALSE;
-}
+
 
 #endif // RAD_ANDROID

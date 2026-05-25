@@ -102,7 +102,7 @@ set(SRR2_SOURCES
 	#"input/basedamper.cpp"
 	"input/button.cpp"
 	#"input/constanteffect.cpp"
-	#"input/FEMouse.cpp"
+	"input/FEMouse.cpp"
 	#"input/forceeffect.cpp"
 	#"input/Gamepad.cpp"
 	"input/inputmanager.cpp"

@@ -442,7 +442,7 @@ m_isProScanButtonsPressed( false )
     }
 
     GetGameDataManager()->RegisterGameData( this, 1, "Input Manager" );
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     m_pFEMouse = new FEMouse;
 #endif
 #ifdef RAD_PS2
@@ -461,7 +461,7 @@ InputManager::~InputManager()
     mxIControllerSystem2->UnRegisterConnectionChangeCallback( this );
 #endif
     ::radControllerTerminate();
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     delete m_pFEMouse;
     m_pFEMouse = NULL;
 #endif

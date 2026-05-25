@@ -165,7 +165,7 @@ void CGuiScreenMiniHud::HandleMessage
 //===========================================================================
 void CGuiScreenMiniHud::InitIntro()
 {
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     GetInputManager()->GetFEMouse()->SetInGameMode( true );
 #endif
 }

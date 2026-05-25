@@ -302,7 +302,7 @@ void CGuiScreenMissionSelect::HandleMessage
 	CGuiScreen::HandleMessage( message, param1, param2 );
 }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 //===========================================================================
 // CGuiScreenMissionSelect::CheckCursorAgainstHotspots
 //===========================================================================

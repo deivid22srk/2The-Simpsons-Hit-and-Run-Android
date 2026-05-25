@@ -228,7 +228,7 @@ void CGuiScreenMiniPause::InitIntro()
 
     GetSoundManager()->OnPauseStart();
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     GetInputManager()->GetFEMouse()->SetInGameMode( false );
 #endif
 }
@@ -267,7 +267,7 @@ void CGuiScreenMiniPause::InitOutro()
 {
     GetSoundManager()->OnPauseEnd();
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     GetInputManager()->GetFEMouse()->SetInGameMode( true );
 #endif
 }

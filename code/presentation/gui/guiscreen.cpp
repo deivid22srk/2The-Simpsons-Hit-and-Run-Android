@@ -41,7 +41,7 @@
 
 #include <string.h>
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 #include <input/inputmanager.h>
 #endif
 
@@ -357,7 +357,7 @@ void CGuiScreen::HandleMessage
     }
 
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     if( message == GUI_MSG_WINDOW_ENTER )
     {
         // just entered screen, so re-enable mouse
@@ -943,7 +943,7 @@ CGuiScreen::ApplyWideScreenCorrectionScale( Scrooby::Drawable* drawable )
     drawable->Translate( screenWidthBy2, 0 );
 }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 //===========================================================================
 // CGuiScreen::CheckCursorAgainstHotspots
 //===========================================================================
