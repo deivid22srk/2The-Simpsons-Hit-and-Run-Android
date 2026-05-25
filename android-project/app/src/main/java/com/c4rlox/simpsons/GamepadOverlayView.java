@@ -195,6 +195,7 @@ public class GamepadOverlayView extends View {
     private boolean mSwipeCameraEnabled = false;
     private float   mSwipeSensitivity = 1.0f;
     private boolean mNativeHudEnabled = false;
+    private int mCachedHudContext = 0;
     private boolean mTitleScreenStartPressed = false;
 
 
