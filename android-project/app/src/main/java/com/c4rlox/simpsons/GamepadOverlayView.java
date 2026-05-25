@@ -201,6 +201,8 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpFalarComPersonagens;
     private Bitmap mBmpMudarCamera;
     private Bitmap mBmpConfiguracoes;
+    private Bitmap mBmpPularCutscene;
+    private Bitmap mBmpEntrarCasa;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -658,26 +660,57 @@ public class GamepadOverlayView extends View {
         loadBitmaps();
     }
 
+    private int getButtonKeycode(int idx) {
+        if (mNativeHudEnabled && idx == 6) {
+            boolean isCar = mEditorMode ? (mEditorHudContext == 2) : (mCachedHudContext == 2);
+            if (isCar) {
+                return KeyEvent.KEYCODE_BUTTON_L2;
+            }
+        }
+        return BTN_KEYCODES[idx];
+    }
+
     private boolean isBtnVisible(int idx) {
-        if (!mNativeHudEnabled || mEditorMode) {
+        if (!mNativeHudEnabled) {
             return true;
         }
-        if (idx == BTN_IDX_SETTINGS) {
-            return true;
+        // In Native HUD, Dpad (0..3), LT (10), RT (11) are hidden in gameplay and editor.
+        if ((idx >= 0 && idx <= 3) || idx == 10 || idx == 11) {
+            return false;
         }
-        if (idx >= 0 && idx <= 3) {
-            return true;
-        }
-        if (idx == 8 || idx == 9 || idx == 10 || idx == 11) {
+
+        // Editor mode shows all other buttons for customization.
+        if (mEditorMode) {
             return true;
         }
 
-        if (idx == 7) {
-            return mCachedHudContext == 1 || mCachedHudContext == 2;
+        // Game/Cutscene context logic
+        if (mCachedHudContext == 4) { // Cutscene
+            // Only skip cutscene button (idx == 4) is visible.
+            return idx == 4;
         }
+
+        // Settings button (12) is always visible outside cutscenes
+        if (idx == BTN_IDX_SETTINGS) {
+            return true;
+        }
+
+        // START (8), SELECT (9) are visible outside cutscenes
+        if (idx == 8 || idx == 9) {
+            return true;
+        }
+
+        // Action/Interactions
+        if (idx == 7) {
+            // Near Car (1), Inside Car (2), Near Interior (3)
+            return mCachedHudContext == 1 || mCachedHudContext == 2 || mCachedHudContext == 3;
+        }
+
+        // Face buttons A (4), B (5), X (6)
         if (idx >= 4 && idx <= 6) {
             return true;
         }
+
         return true;
     }
 
@@ -751,6 +784,8 @@ public class GamepadOverlayView extends View {
         if (mBmpFalarComPersonagens != null) { mBmpFalarComPersonagens.recycle(); mBmpFalarComPersonagens = null; }
         if (mBmpMudarCamera != null) { mBmpMudarCamera.recycle(); mBmpMudarCamera = null; }
         if (mBmpConfiguracoes != null) { mBmpConfiguracoes.recycle(); mBmpConfiguracoes = null; }
+        if (mBmpPularCutscene != null) { mBmpPularCutscene.recycle(); mBmpPularCutscene = null; }
+        if (mBmpEntrarCasa != null) { mBmpEntrarCasa.recycle(); mBmpEntrarCasa = null; }
 
         Resources res = getResources();
 
@@ -791,6 +826,8 @@ public class GamepadOverlayView extends View {
             mBmpSoco = loadResBitmap(res, R.drawable.soco, faceW, faceH);
             mBmpFalarComPersonagens = loadResBitmap(res, R.drawable.falar_com_personagens, faceW, faceH);
             mBmpMudarCamera = loadResBitmap(res, R.drawable.mudar_camera_no_carro, faceW, faceH);
+            mBmpPularCutscene = loadResBitmap(res, R.drawable.pular_cutscene, faceW, faceH);
+            mBmpEntrarCasa = loadResBitmap(res, R.drawable.entrar_em_casa, faceW, faceH);
         }
 
         float configW = BTNS[BTN_IDX_SETTINGS].rect.width();
@@ -836,9 +873,9 @@ public class GamepadOverlayView extends View {
             }
             Stk s = STKS[i];
 
-            // In editor mode, apply the custom alpha only to the base circle
-            int baseAlpha = mEditorMode ? s.baseAlpha : STK_BASE_ALPHA_DEF;
-            int knobAlpha = mEditorMode ? s.knobAlpha : STK_KNOB_ALPHA_DEF;
+            // Apply the custom alpha to the stick base and knob
+            int baseAlpha = s.baseAlpha;
+            int knobAlpha = s.knobAlpha;
 
             mPStkBase.setColor(Color.argb(baseAlpha, 255, 255, 255));
             mPStkKnob.setColor(Color.argb(knobAlpha, 255, 255, 255));
@@ -866,9 +903,11 @@ public class GamepadOverlayView extends View {
             Btn b = BTNS[i];
 
             if (i == BTN_IDX_SETTINGS) {
+                if (!isBtnVisible(i)) continue;
+                int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
+                int finalAlpha = b.alpha * pressAlpha / 255;
                 if (mBmpConfiguracoes != null) {
-                    int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
-                    mPBmp.setAlpha(pressAlpha);
+                    mPBmp.setAlpha(finalAlpha);
                     canvas.drawBitmap(mBmpConfiguracoes, null, b.rect, mPBmp);
                 } else {
                     drawSettingsGear(canvas, b);
@@ -882,21 +921,35 @@ public class GamepadOverlayView extends View {
             if (mNativeHudEnabled) {
                 int context = mEditorMode ? mEditorHudContext : mCachedHudContext;
                 if (i == 4) {
-                    bmp = (context == 2) ? mBmpAcelerar : mBmpPular;
+                    if (context == 2) {
+                        bmp = mBmpAcelerar;
+                    } else if (context == 4) {
+                        bmp = mBmpPularCutscene;
+                    } else {
+                        bmp = mBmpPular;
+                    }
                 } else if (i == 5) {
                     bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
                 } else if (i == 6) {
-                    if (context == 0) bmp = mBmpSoco;
-                    else if (context == 1) bmp = mBmpFalarComPersonagens;
-                    else bmp = mBmpMudarCamera;
+                    if (context == 1) {
+                        bmp = mBmpFalarComPersonagens;
+                    } else if (context == 2) {
+                        bmp = mBmpMudarCamera;
+                    } else {
+                        bmp = mBmpSoco; // 0, 3 (Near Interior) or default
+                    }
                 } else if (i == 7) {
-                    bmp = mBmpEntrarCarro;
+                    if (context == 3) {
+                        bmp = mBmpEntrarCasa;
+                    } else {
+                        bmp = mBmpEntrarCarro;
+                    }
                 }
             }
             if (bmp == null) continue;
 
             int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
-            int finalAlpha = mEditorMode ? (b.alpha * pressAlpha / 255) : pressAlpha;
+            int finalAlpha = b.alpha * pressAlpha / 255;
             mPBmp.setAlpha(finalAlpha);
             canvas.drawBitmap(bmp, null, b.rect, mPBmp);
 
@@ -948,10 +1001,11 @@ public class GamepadOverlayView extends View {
 
         boolean pressed = mButtonPointerIds[BTN_IDX_SETTINGS] != -1;
         int gearColor = pressed ? SETTINGS_ACCENT : Color.argb(180, 255, 255, 255);
+        int finalGearColor = Color.argb(b.alpha * Color.alpha(gearColor) / 255, Color.red(gearColor), Color.green(gearColor), Color.blue(gearColor));
 
         mGearStrokePaint.setStyle(Paint.Style.STROKE);
         mGearStrokePaint.setStrokeWidth(r * 0.22f);
-        mGearStrokePaint.setColor(gearColor);
+        mGearStrokePaint.setColor(finalGearColor);
 
         int teeth = 8;
         for (int i = 0; i < teeth; i++) {
@@ -968,7 +1022,7 @@ public class GamepadOverlayView extends View {
         canvas.drawCircle(cx, cy, r, mGearStrokePaint);
 
         mGearDotPaint.setStyle(Paint.Style.FILL);
-        mGearDotPaint.setColor(gearColor);
+        mGearDotPaint.setColor(finalGearColor);
         canvas.drawCircle(cx, cy, r * 0.35f, mGearDotPaint);
     }
 
@@ -1659,7 +1713,7 @@ public class GamepadOverlayView extends View {
                     }
                 } else {
                     // Send PAD_DOWN to native game layer via virtual gamepad (Device ID 9999)
-                    int kc = BTN_KEYCODES[i];
+                    int kc = getButtonKeycode(i);
                     if (kc != 0) {
                         SDLControllerManager.onNativePadDown(9999, kc);
                         Log.v(TAG, String.format("PAD_DOWN 0x%x (%s)", kc, BTNS[i].label));
@@ -1751,7 +1805,7 @@ public class GamepadOverlayView extends View {
                 mButtonPointerIds[i] = -1;
                 // Send PAD_UP when finger slides off a button via virtual gamepad (Device ID 9999)
                 if (i != BTN_IDX_SETTINGS) {
-                    int kc = BTN_KEYCODES[i];
+                    int kc = getButtonKeycode(i);
                     if (kc != 0) {
                         SDLControllerManager.onNativePadUp(9999, kc);
                         Log.v(TAG, String.format("PAD_UP (slide out) 0x%x (%s)", kc, BTNS[i].label));
@@ -1833,7 +1887,7 @@ public class GamepadOverlayView extends View {
                 mButtonPointerIds[i] = -1;
                 // Send PAD_UP to native game layer via virtual gamepad (Device ID 9999)
                 if (i != BTN_IDX_SETTINGS) {
-                    int kc = BTN_KEYCODES[i];
+                    int kc = getButtonKeycode(i);
                     if (kc != 0) {
                         SDLControllerManager.onNativePadUp(9999, kc);
                         Log.v(TAG, String.format("PAD_UP 0x%x (%s)", kc, BTNS[i].label));
@@ -2120,8 +2174,9 @@ public class GamepadOverlayView extends View {
     private void releaseAllGameInputs() {
         // Send PAD_UP for all pressed buttons to prevent stuck keys
         for (int i = 0; i < BTNS.length; i++) {
-            if (mButtonPointerIds[i] != -1 && i != BTN_IDX_SETTINGS && BTN_KEYCODES[i] != 0) {
-                SDLControllerManager.onNativePadUp(9999, BTN_KEYCODES[i]);
+            int kc = getButtonKeycode(i);
+            if (mButtonPointerIds[i] != -1 && i != BTN_IDX_SETTINGS && kc != 0) {
+                SDLControllerManager.onNativePadUp(9999, kc);
             }
             mButtonPointerIds[i] = -1;
         }

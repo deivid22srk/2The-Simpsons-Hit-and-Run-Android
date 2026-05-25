@@ -81,6 +81,16 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetFPS(JNIEnv* /*env*/, jclass /
 extern "C" JNIEXPORT jint JNICALL
 Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, jclass /*clazz*/)
 {
+    CGuiSystem* gs = GetGuiSystem();
+    if (gs) {
+        CGuiManager* gm = gs->GetCurrentManager();
+        if (gm) {
+            if (gm->GetCurrentScreen() == CGuiWindow::GUI_SCREEN_ID_LETTER_BOX) {
+                return 4; // Cutscene
+            }
+        }
+    }
+
     AvatarManager* am = GetAvatarManager();
     if (am) {
         Avatar* avatar = am->GetAvatarForPlayer(0);
@@ -95,6 +105,9 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, j
                     ActionButton::ButtonHandler::Type type = handler->GetType();
                     if (type == ActionButton::ButtonHandler::GET_IN_CAR || type == ActionButton::ButtonHandler::GET_IN_USER_CAR) {
                         return 1; // Near Car
+                    }
+                    else if (type == ActionButton::ButtonHandler::INTERIOR) {
+                        return 3; // Near Interior (House door)
                     }
                 }
             }
