@@ -339,61 +339,79 @@ public class GamepadOverlayView extends View {
     private void saveProfile() {
         Context context = getContext();
         if (context == null) return;
-        SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sp.edit();
+
+        // 1. Save global settings to default profile
+        SharedPreferences spDefault = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
+        SharedPreferences.Editor defEditor = spDefault.edit();
+        defEditor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
+        defEditor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
+        defEditor.putBoolean("native_hud_enabled", mNativeHudEnabled);
+        defEditor.apply();
+
+        // 2. Save layout settings to active profile
+        String profileName = mNativeHudEnabled ? "GamepadOverlayProfile_Native" : "GamepadOverlayProfile";
+        SharedPreferences spActive = context.getSharedPreferences(profileName, Context.MODE_PRIVATE);
+        SharedPreferences.Editor activeEditor = spActive.edit();
 
         for (int i = 0; i < BTNS.length; i++) {
             Btn b = BTNS[i];
-            editor.putFloat("btn_" + i + "_nx", b.nx);
-            editor.putFloat("btn_" + i + "_ny", b.ny);
-            editor.putFloat("btn_" + i + "_nw", b.nw);
-            editor.putFloat("btn_" + i + "_nh", b.nh);
-            editor.putInt("btn_" + i + "_alpha", b.alpha);
+            activeEditor.putFloat("btn_" + i + "_nx", b.nx);
+            activeEditor.putFloat("btn_" + i + "_ny", b.ny);
+            activeEditor.putFloat("btn_" + i + "_nw", b.nw);
+            activeEditor.putFloat("btn_" + i + "_nh", b.nh);
+            activeEditor.putInt("btn_" + i + "_alpha", b.alpha);
         }
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
-            editor.putFloat("stk_" + i + "_ncx", s.ncx);
-            editor.putFloat("stk_" + i + "_ncy", s.ncy);
-            editor.putFloat("stk_" + i + "_nr", s.nr);
-            editor.putInt("stk_" + i + "_baseAlpha", s.baseAlpha);
-            editor.putInt("stk_" + i + "_knobAlpha", s.knobAlpha);
+            activeEditor.putFloat("stk_" + i + "_ncx", s.ncx);
+            activeEditor.putFloat("stk_" + i + "_ncy", s.ncy);
+            activeEditor.putFloat("stk_" + i + "_nr", s.nr);
+            activeEditor.putInt("stk_" + i + "_baseAlpha", s.baseAlpha);
+            activeEditor.putInt("stk_" + i + "_knobAlpha", s.knobAlpha);
         }
-        editor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
-        editor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
-        editor.putBoolean("native_hud_enabled", mNativeHudEnabled);
-        editor.apply();
-        Log.i(TAG, "Profile saved successfully");
+        activeEditor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
+        activeEditor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
+        activeEditor.putBoolean("native_hud_enabled", mNativeHudEnabled);
+        activeEditor.apply();
+        Log.i(TAG, "Profile saved successfully: " + profileName);
     }
 
     private void loadProfile() {
         Context context = getContext();
         if (context == null) return;
-        SharedPreferences sp = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
-        
-        mSwipeCameraEnabled = sp.getBoolean("swipe_camera_enabled", false);
-        mSwipeSensitivity = sp.getFloat("swipe_camera_sensitivity", 1.0f);
-        mNativeHudEnabled = sp.getBoolean("native_hud_enabled", false);
 
-        // If no saved settings exist, do nothing (use default layout)
-        if (!sp.contains("btn_0_nx")) {
+        // 1. Load global settings from default profile
+        SharedPreferences spDefault = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
+        mSwipeCameraEnabled = spDefault.getBoolean("swipe_camera_enabled", false);
+        mSwipeSensitivity = spDefault.getFloat("swipe_camera_sensitivity", 1.0f);
+        mNativeHudEnabled = spDefault.getBoolean("native_hud_enabled", false);
+
+        // 2. Load layout settings from active profile
+        String profileName = mNativeHudEnabled ? "GamepadOverlayProfile_Native" : "GamepadOverlayProfile";
+        SharedPreferences spActive = context.getSharedPreferences(profileName, Context.MODE_PRIVATE);
+
+        // If no saved settings exist for active profile, reset to origins/defaults
+        if (!spActive.contains("btn_0_nx")) {
+            resetToOrigins();
+            Log.i(TAG, "No saved layout for profile " + profileName + ". Loaded defaults.");
             return;
         }
 
         for (int i = 0; i < BTNS.length; i++) {
             Btn b = BTNS[i];
-            b.nx = sp.getFloat("btn_" + i + "_nx", b.nx);
-            b.ny = sp.getFloat("btn_" + i + "_ny", b.ny);
-            b.nw = sp.getFloat("btn_" + i + "_nw", b.nw);
-            b.nh = sp.getFloat("btn_" + i + "_nh", b.nh);
-            b.alpha = sp.getInt("btn_" + i + "_alpha", b.alpha);
+            b.nx = spActive.getFloat("btn_" + i + "_nx", b.nx);
+            b.ny = spActive.getFloat("btn_" + i + "_ny", b.ny);
+            b.nw = spActive.getFloat("btn_" + i + "_nw", b.nw);
+            b.nh = spActive.getFloat("btn_" + i + "_nh", b.nh);
+            b.alpha = spActive.getInt("btn_" + i + "_alpha", b.alpha);
         }
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
-            s.ncx = sp.getFloat("stk_" + i + "_ncx", s.ncx);
-            s.ncy = sp.getFloat("stk_" + i + "_ncy", s.ncy);
-            s.nr = sp.getFloat("stk_" + i + "_nr", s.nr);
-            s.baseAlpha = sp.getInt("stk_" + i + "_baseAlpha", s.baseAlpha);
-            s.knobAlpha = sp.getInt("stk_" + i + "_knobAlpha", s.knobAlpha);
+            s.ncx = spActive.getFloat("stk_" + i + "_ncx", s.ncx);
+            s.ncy = spActive.getFloat("stk_" + i + "_ncy", s.ncy);
+            s.nr = spActive.getFloat("stk_" + i + "_nr", s.nr);
+            s.baseAlpha = spActive.getInt("stk_" + i + "_baseAlpha", s.baseAlpha);
+            s.knobAlpha = spActive.getInt("stk_" + i + "_knobAlpha", s.knobAlpha);
         }
         
         final int w = getWidth();
@@ -405,7 +423,7 @@ public class GamepadOverlayView extends View {
                 mStickKnobY[i] = STKS[i].cy;
             }
         }
-        Log.i(TAG, "Profile loaded successfully");
+        Log.i(TAG, "Profile loaded successfully: " + profileName);
     }
 
     // ── Recalculate a single button's rect ────────────────────────────
@@ -715,6 +733,15 @@ public class GamepadOverlayView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        if (!mNativeAvailable) {
+            try {
+                SimpsonsActivity.nativeGetFPS();
+                mNativeAvailable = true;
+            } catch (UnsatisfiedLinkError e) {
+                // C++ library not loaded yet
+            }
+        }
+
         // ── Dim background when in editor mode ────────────────────────
         if (mNativeHudEnabled && !mEditorMode && mNativeAvailable) {
             mCachedHudContext = SimpsonsActivity.nativeGetHudContext();
@@ -829,6 +856,9 @@ public class GamepadOverlayView extends View {
         // ── FPS display ───────────────────────────────────────────────
         if (mShowFPS) {
             drawFPSDisplay(canvas);
+        }
+
+        if (mShowFPS || (mNativeHudEnabled && !mEditorMode)) {
             postInvalidateDelayed(33);
         }
     }
@@ -1561,7 +1591,9 @@ public class GamepadOverlayView extends View {
                 mSwipeCameraEnabled = !mSwipeCameraEnabled;
                 saveProfile();
             } else if (mNativeHudTogglePressed) {
+                saveProfile();
                 mNativeHudEnabled = !mNativeHudEnabled;
+                loadProfile();
                 saveProfile();
             } else if (mSwipeCameraEnabled && mSensDownPressed) {
                 mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
