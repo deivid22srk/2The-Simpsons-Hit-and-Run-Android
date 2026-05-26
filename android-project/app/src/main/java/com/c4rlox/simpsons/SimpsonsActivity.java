@@ -514,7 +514,7 @@ public class SimpsonsActivity extends SDLActivity {
         headerBar.setPadding(dp(20), dp(16), dp(20), dp(16));
 
         TextView headerIcon = new TextView(this);
-        headerIcon.setText("\u{1F4C2}");
+        headerIcon.setText("\uD83D\uDCC2");
         headerIcon.setTextSize(20);
         headerIcon.setPadding(0, 0, dp(12), 0);
         headerBar.addView(headerIcon);
@@ -551,7 +551,7 @@ public class SimpsonsActivity extends SDLActivity {
         pathBar.setPadding(dp(16), dp(10), dp(16), dp(10));
 
         TextView pathIcon = new TextView(this);
-        pathIcon.setText("\u{1F4CD}");
+        pathIcon.setText("\uD83D\uDCCD");
         pathIcon.setTextSize(13);
         pathIcon.setPadding(0, 0, dp(8), 0);
         pathBar.addView(pathIcon);
