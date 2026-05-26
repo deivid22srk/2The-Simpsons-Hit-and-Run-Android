@@ -760,7 +760,7 @@ public class SimpsonsActivity extends SDLActivity {
                 if (isBack) {
                     iconView.setText("\u2B06\uFE0F");
                 } else {
-                    iconView.setText("\u{1F4C1}");
+                    iconView.setText("\uD83D\uDCD1");
                 }
                 row.addView(iconView);
 
