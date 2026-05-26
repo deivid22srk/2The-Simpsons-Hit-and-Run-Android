@@ -37,6 +37,7 @@
 #endif
 
 #ifdef RAD_ANDROID
+#include <jni.h>
 #include <android/log.h>
 #include <unistd.h>
 #include <errno.h>
