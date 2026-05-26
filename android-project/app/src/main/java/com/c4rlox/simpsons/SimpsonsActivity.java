@@ -263,8 +263,7 @@ public class SimpsonsActivity extends SDLActivity {
                 card.setBackground(createRoundedRect(COLOR_BG_CARD, 20));
                 card.setPadding(dp(32), dp(40), dp(32), dp(40));
                 LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                cardParams.maximumWidth = dp(520);
+                    dp(520), ViewGroup.LayoutParams.WRAP_CONTENT);
                 cardParams.gravity = Gravity.CENTER;
 
                 FrameLayout iconContainer = new FrameLayout(SimpsonsActivity.this);
