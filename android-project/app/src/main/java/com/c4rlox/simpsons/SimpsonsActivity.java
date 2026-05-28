@@ -59,6 +59,8 @@ public class SimpsonsActivity extends SDLActivity {
     private final List<File> mSubDirs = new ArrayList<>();
     private final List<String> mSubDirNames = new ArrayList<>();
     private TextView mPathTextView;
+    private TextView mStatusTextView;
+    private Button mBtnUp;
 
     // ── Native bridge: real-time FPS from C++ game loop ──────────────
     // Called by GamepadOverlayView each frame to query smoothed FPS.
@@ -314,11 +316,52 @@ public class SimpsonsActivity extends SDLActivity {
         titleView.setPadding(0, 0, 0, 24);
         layout.addView(titleView);
 
+        // Barra de navegação do caminho atual
+        LinearLayout navLayout = new LinearLayout(this);
+        navLayout.setOrientation(LinearLayout.HORIZONTAL);
+        navLayout.setGravity(Gravity.CENTER_VERTICAL);
+        navLayout.setPadding(0, 0, 0, 20);
+
+        LinearLayout pathLayout = new LinearLayout(this);
+        pathLayout.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams pathParams = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+        pathLayout.setLayoutParams(pathParams);
+
         mPathTextView = new TextView(this);
         mPathTextView.setTextColor(Color.parseColor("#E0E0E0"));
         mPathTextView.setTextSize(14);
-        mPathTextView.setPadding(0, 0, 0, 16);
-        layout.addView(mPathTextView);
+        mPathTextView.setPadding(0, 0, 16, 4);
+        pathLayout.addView(mPathTextView);
+
+        mStatusTextView = new TextView(this);
+        mStatusTextView.setTextSize(12);
+        mStatusTextView.setTypeface(null, Typeface.BOLD);
+        pathLayout.addView(mStatusTextView);
+
+        navLayout.addView(pathLayout);
+
+        mBtnUp = new Button(this);
+        mBtnUp.setText("Subir ⬆️");
+        mBtnUp.setTextColor(Color.WHITE);
+        mBtnUp.setTextSize(12);
+        mBtnUp.setTypeface(null, Typeface.BOLD);
+        mBtnUp.setBackground(getRoundedButtonDrawable(Color.parseColor("#424250")));
+        LinearLayout.LayoutParams upParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBtnUp.setLayoutParams(upParams);
+        navLayout.addView(mBtnUp);
+
+        layout.addView(navLayout);
+
+        // View de Estado Vazio
+        TextView emptyTextView = new TextView(this);
+        emptyTextView.setText("Nenhuma subpasta encontrada neste diretório.");
+        emptyTextView.setTextColor(Color.parseColor("#8E8E93"));
+        emptyTextView.setTextSize(14);
+        emptyTextView.setGravity(Gravity.CENTER);
+        emptyTextView.setPadding(0, 64, 0, 64);
+        emptyTextView.setVisibility(View.GONE);
 
         ListView listView = new ListView(this);
         listView.setBackgroundColor(Color.parseColor("#2A2A32"));
@@ -326,6 +369,9 @@ public class SimpsonsActivity extends SDLActivity {
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
         listView.setLayoutParams(listParams);
         layout.addView(listView);
+        
+        layout.addView(emptyTextView);
+        listView.setEmptyView(emptyTextView);
 
         LinearLayout buttonsLayout = new LinearLayout(this);
         buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
@@ -359,16 +405,18 @@ public class SimpsonsActivity extends SDLActivity {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                String selectedName = mSubDirNames.get(position);
-                if (selectedName.equals("📁 .. [Ir para pasta anterior]")) {
-                    File parentDir = mCurrentDir.getParentFile();
-                    if (parentDir != null && parentDir.canRead()) {
-                        mCurrentDir = parentDir;
-                        updateDirectoryList(listView);
-                    }
-                } else {
-                    File nextDir = mSubDirs.get(position);
-                    mCurrentDir = nextDir;
+                File nextDir = mSubDirs.get(position);
+                mCurrentDir = nextDir;
+                updateDirectoryList(listView);
+            }
+        });
+
+        mBtnUp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                File parentDir = mCurrentDir.getParentFile();
+                if (parentDir != null && parentDir.canRead()) {
+                    mCurrentDir = parentDir;
                     updateDirectoryList(listView);
                 }
             }
@@ -400,14 +448,29 @@ public class SimpsonsActivity extends SDLActivity {
 
     private void updateDirectoryList(ListView listView) {
         mPathTextView.setText("Caminho atual:\n" + mCurrentDir.getAbsolutePath());
-        mSubDirs.clear();
-        mSubDirNames.clear();
+        
+        // Exibir se a pasta atual contém arquivos válidos
+        boolean isValid = isValidGameDataDirectory(mCurrentDir);
+        if (isValid) {
+            mStatusTextView.setText("✓ Pasta Válida (.rcf detectados)");
+            mStatusTextView.setTextColor(Color.parseColor("#4CAF50"));
+        } else {
+            mStatusTextView.setText("✗ Pasta Inválida (sem arquivos .rcf)");
+            mStatusTextView.setTextColor(Color.parseColor("#FF5252"));
+        }
 
+        // Habilitar/Desabilitar botão de voltar nível
         File parentDir = mCurrentDir.getParentFile();
         if (parentDir != null && parentDir.exists() && parentDir.canRead()) {
-            mSubDirs.add(parentDir);
-            mSubDirNames.add("📁 .. [Ir para pasta anterior]");
+            mBtnUp.setEnabled(true);
+            mBtnUp.setAlpha(1.0f);
+        } else {
+            mBtnUp.setEnabled(false);
+            mBtnUp.setAlpha(0.4f);
         }
+
+        mSubDirs.clear();
+        mSubDirNames.clear();
 
         File[] dirs = mCurrentDir.listFiles(new FileFilter() {
             @Override
@@ -436,6 +499,12 @@ public class SimpsonsActivity extends SDLActivity {
                 view.setTextColor(Color.WHITE);
                 view.setTextSize(16);
                 view.setPadding(24, 24, 24, 24);
+                // Zebra striping layout
+                if (position % 2 == 0) {
+                    view.setBackgroundColor(Color.parseColor("#25252D"));
+                } else {
+                    view.setBackgroundColor(Color.parseColor("#2D2D35"));
+                }
                 return view;
             }
         };
