@@ -105,11 +105,11 @@ public class GamepadOverlayView extends View {
         new Btn("D-Pad: DOWN",  0.215f, 0.840f, 0.080f, 0.080f, 0),  // 1
         new Btn("D-Pad: LEFT",  0.155f, 0.780f, 0.080f, 0.080f, 0),  // 2
         new Btn("D-Pad: RIGHT", 0.275f, 0.780f, 0.080f, 0.080f, 0),  // 3
-        // ── Face Buttons A/B/X/Y (top-right) ─────────────────────────────
-        new Btn("Face: A",      0.860f, 0.680f, 0.100f, 0.100f, 0),  // 4
-        new Btn("Face: B",      0.925f, 0.610f, 0.100f, 0.100f, 0),  // 5
-        new Btn("Face: X",      0.795f, 0.610f, 0.100f, 0.100f, 0),  // 6
-        new Btn("Face: Y",      0.860f, 0.540f, 0.100f, 0.100f, 0),  // 7
+        // ── Face Buttons A/B/X/Y ─────────────────────────────────────────
+        new Btn("Face: A",      0.855f, 0.884f, 0.180f, 0.180f, 0),  // 4
+        new Btn("Face: B",      0.929f, 0.884f, 0.180f, 0.180f, 0),  // 5
+        new Btn("Face: X",      0.924f, 0.725f, 0.180f, 0.180f, 0),  // 6
+        new Btn("Face: Y",      0.919f, 0.564f, 0.180f, 0.180f, 0),  // 7
         // ── Top buttons ─────────────────────────────────────────
         new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
         new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
@@ -118,10 +118,22 @@ public class GamepadOverlayView extends View {
         new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
     };
 
+    static {
+        // Face buttons: set default alpha to 125 (from profile)
+        for (int i = 4; i <= 7; i++) {
+            BTNS[i].alpha = 125;
+        }
+        // In-car positions for face buttons (from layout profile)
+        BTNS[4].carNx = 0.935f; BTNS[4].carNy = 0.882f; BTNS[4].carNw = 0.200f; BTNS[4].carNh = 0.200f;
+        BTNS[5].carNx = 0.842f; BTNS[5].carNy = 0.884f; BTNS[5].carNw = 0.200f; BTNS[5].carNh = 0.200f;
+        BTNS[6].carNx = 0.084f; BTNS[6].carNy = 0.132f; BTNS[6].carNw = 0.170f; BTNS[6].carNh = 0.170f;
+        BTNS[7].carNx = 0.932f; BTNS[7].carNy = 0.675f; BTNS[7].carNw = 0.200f; BTNS[7].carNh = 0.200f;
+    }
+
     // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS = {
-        new Stk(0.125f, 0.610f, 0.090f),  // Left stick (Xbox style: top-left)
-        new Stk(0.785f, 0.780f, 0.090f),  // Right stick (Xbox style: bottom-right)
+        new Stk(0.145f, 0.723f, 0.130f),  // Left stick (lower-left, larger)
+        new Stk(0.734f, 0.466f, 0.090f),  // Right stick (center-right)
     };
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
