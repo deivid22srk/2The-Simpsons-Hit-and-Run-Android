@@ -203,6 +203,8 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpConfiguracoes;
     private Bitmap mBmpPularCutscene;
     private Bitmap mBmpEntrarCasa;
+    private Bitmap mBmpSairCarro;
+    private Bitmap mBmpFreioDeMao;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -661,12 +663,6 @@ public class GamepadOverlayView extends View {
     }
 
     private int getButtonKeycode(int idx) {
-        if (mNativeHudEnabled && idx == 6) {
-            boolean isCar = mEditorMode ? (mEditorHudContext == 2) : (mCachedHudContext == 2);
-            if (isCar) {
-                return KeyEvent.KEYCODE_BUTTON_L1;
-            }
-        }
         return BTN_KEYCODES[idx];
     }
 
@@ -674,14 +670,20 @@ public class GamepadOverlayView extends View {
         if (!mNativeHudEnabled) {
             return true;
         }
-        // In Native HUD, Dpad (0..3), LT (10), RT (11) are hidden in gameplay and editor.
-        if ((idx >= 0 && idx <= 3) || idx == 10 || idx == 11) {
+        // In Native HUD, Dpad (0..3) are hidden (left stick replaces them)
+        if (idx >= 0 && idx <= 3) {
             return false;
         }
 
-        // Editor mode shows all other buttons for customization.
+        // Editor mode shows most buttons for customization.
         if (mEditorMode) {
             return true;
+        }
+
+        // L1/R1 (10, 11) are hidden by default, but shown in car context for camera/look
+        if (idx == 10 || idx == 11) {
+            int context = mCachedHudContext;
+            return context == 2;
         }
 
         // Game/Cutscene context logic
@@ -786,6 +788,8 @@ public class GamepadOverlayView extends View {
         if (mBmpConfiguracoes != null) { mBmpConfiguracoes.recycle(); mBmpConfiguracoes = null; }
         if (mBmpPularCutscene != null) { mBmpPularCutscene.recycle(); mBmpPularCutscene = null; }
         if (mBmpEntrarCasa != null) { mBmpEntrarCasa.recycle(); mBmpEntrarCasa = null; }
+        if (mBmpSairCarro != null) { mBmpSairCarro.recycle(); mBmpSairCarro = null; }
+        if (mBmpFreioDeMao != null) { mBmpFreioDeMao.recycle(); mBmpFreioDeMao = null; }
 
         Resources res = getResources();
 
@@ -828,6 +832,8 @@ public class GamepadOverlayView extends View {
             mBmpMudarCamera = loadResBitmap(res, R.drawable.mudar_camera_no_carro, faceW, faceH);
             mBmpPularCutscene = loadResBitmap(res, R.drawable.pular_cutscene, faceW, faceH);
             mBmpEntrarCasa = loadResBitmap(res, R.drawable.entrar_em_casa, faceW, faceH);
+            mBmpSairCarro = loadResBitmap(res, R.drawable.sair_do_carro, faceW, faceH);
+            mBmpFreioDeMao = loadResBitmap(res, R.drawable.freio_de_mao, faceW, faceH);
         }
 
         float configW = BTNS[BTN_IDX_SETTINGS].rect.width();
@@ -932,18 +938,24 @@ public class GamepadOverlayView extends View {
                     bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
                 } else if (i == 6) {
                     if (context == 2) {
-                        bmp = mBmpMudarCamera;
+                        bmp = mBmpFreioDeMao;
                     } else {
-                        bmp = mBmpSoco; // 0, 1, 3, 5 or default
+                        bmp = mBmpSoco;
                     }
                 } else if (i == 7) {
-                    if (context == 3) {
+                    if (context == 2) {
+                        bmp = mBmpSairCarro;
+                    } else if (context == 3) {
                         bmp = mBmpEntrarCasa;
                     } else if (context == 5) {
                         bmp = mBmpFalarComPersonagens;
-                    } else {
+                    } else if (context == 1) {
                         bmp = mBmpEntrarCarro;
                     }
+                } else if (i == 10 && context == 2) {
+                    bmp = mBmpMudarCamera;
+                } else if (i == 11 && context == 2) {
+                    bmp = mBmpMudarCamera;
                 }
             }
             if (bmp == null) continue;
