@@ -674,41 +674,11 @@ public class GamepadOverlayView extends View {
         if (!mNativeHudEnabled) {
             return true;
         }
-        // In Native HUD, Dpad (0..3), LT (10), RT (11) are hidden in gameplay and editor.
-        if ((idx >= 0 && idx <= 3) || idx == 10 || idx == 11) {
-            return false;
-        }
-
-        // Editor mode shows all other buttons for customization.
-        if (mEditorMode) {
-            return true;
-        }
+        // In Native HUD, all buttons are visible to allow full gameplay and editor customization.
 
         // Game/Cutscene context logic
         if (mCachedHudContext == 4) { // Cutscene
-            // Only skip cutscene button (idx == 4) is visible.
-            return idx == 4;
-        }
-
-        // Settings button (12) is always visible outside cutscenes
-        if (idx == BTN_IDX_SETTINGS) {
-            return true;
-        }
-
-        // START (8), SELECT (9) are visible outside cutscenes
-        if (idx == 8 || idx == 9) {
-            return true;
-        }
-
-        // Action/Interactions
-        if (idx == 7) {
-            // Near Car (1), Inside Car (2), Near Interior (3), Near Talk (5)
-            return mCachedHudContext == 1 || mCachedHudContext == 2 || mCachedHudContext == 3 || mCachedHudContext == 5;
-        }
-
-        // Face buttons A (4), B (5), X (6)
-        if (idx >= 4 && idx <= 6) {
-            return true;
+            return idx == 4 || idx == BTN_IDX_SETTINGS;
         }
 
         return true;
