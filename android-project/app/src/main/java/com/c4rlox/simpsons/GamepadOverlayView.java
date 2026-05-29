@@ -205,6 +205,17 @@ public class GamepadOverlayView extends View {
     private Bitmap mBmpEntrarCasa;
     private Bitmap mBmpSairCarro;
     private Bitmap mBmpFreioDeMao;
+    private Bitmap mBmpMissao;
+    private Bitmap mBmpTelefone;
+    private Bitmap mBmpGag;
+    private Bitmap mBmpComprarCarro;
+    private Bitmap mBmpComprarSkin;
+    private Bitmap mBmpCartaColecao;
+    private Bitmap mBmpCameraAlienigena;
+    private Bitmap mBmpChaveInglesa;
+    private Bitmap mBmpNitro;
+    private Bitmap mBmpTeleporte;
+    private Bitmap mBmpAcao;
 
     // ── Paints ────────────────────────────────────────────────────────
     private Paint mPStkBase;
@@ -702,10 +713,9 @@ public class GamepadOverlayView extends View {
             return true;
         }
 
-        // Action/Interactions
+        // Action/Interactions - shown when there's any interactive object nearby
         if (idx == 7) {
-            // Near Car (1), Inside Car (2), Near Interior (3), Near Talk (5)
-            return mCachedHudContext == 1 || mCachedHudContext == 2 || mCachedHudContext == 3 || mCachedHudContext == 5;
+            return mCachedHudContext != 0 && mCachedHudContext != 4;
         }
 
         // Face buttons A (4), B (5), X (6)
@@ -790,6 +800,17 @@ public class GamepadOverlayView extends View {
         if (mBmpEntrarCasa != null) { mBmpEntrarCasa.recycle(); mBmpEntrarCasa = null; }
         if (mBmpSairCarro != null) { mBmpSairCarro.recycle(); mBmpSairCarro = null; }
         if (mBmpFreioDeMao != null) { mBmpFreioDeMao.recycle(); mBmpFreioDeMao = null; }
+        if (mBmpMissao != null) { mBmpMissao.recycle(); mBmpMissao = null; }
+        if (mBmpTelefone != null) { mBmpTelefone.recycle(); mBmpTelefone = null; }
+        if (mBmpGag != null) { mBmpGag.recycle(); mBmpGag = null; }
+        if (mBmpComprarCarro != null) { mBmpComprarCarro.recycle(); mBmpComprarCarro = null; }
+        if (mBmpComprarSkin != null) { mBmpComprarSkin.recycle(); mBmpComprarSkin = null; }
+        if (mBmpCartaColecao != null) { mBmpCartaColecao.recycle(); mBmpCartaColecao = null; }
+        if (mBmpCameraAlienigena != null) { mBmpCameraAlienigena.recycle(); mBmpCameraAlienigena = null; }
+        if (mBmpChaveInglesa != null) { mBmpChaveInglesa.recycle(); mBmpChaveInglesa = null; }
+        if (mBmpNitro != null) { mBmpNitro.recycle(); mBmpNitro = null; }
+        if (mBmpTeleporte != null) { mBmpTeleporte.recycle(); mBmpTeleporte = null; }
+        if (mBmpAcao != null) { mBmpAcao.recycle(); mBmpAcao = null; }
 
         Resources res = getResources();
 
@@ -834,6 +855,17 @@ public class GamepadOverlayView extends View {
             mBmpEntrarCasa = loadResBitmap(res, R.drawable.entrar_em_casa, faceW, faceH);
             mBmpSairCarro = loadResBitmap(res, R.drawable.sair_do_carro, faceW, faceH);
             mBmpFreioDeMao = loadResBitmap(res, R.drawable.freio_de_mao, faceW, faceH);
+            mBmpMissao = loadResBitmap(res, R.drawable.missao, faceW, faceH);
+            mBmpTelefone = loadResBitmap(res, R.drawable.telefone, faceW, faceH);
+            mBmpGag = loadResBitmap(res, R.drawable.gag, faceW, faceH);
+            mBmpComprarCarro = loadResBitmap(res, R.drawable.comprar_carro, faceW, faceH);
+            mBmpComprarSkin = loadResBitmap(res, R.drawable.comprar_skin, faceW, faceH);
+            mBmpCartaColecao = loadResBitmap(res, R.drawable.carta_colecao, faceW, faceH);
+            mBmpCameraAlienigena = loadResBitmap(res, R.drawable.camera_alienigena, faceW, faceH);
+            mBmpChaveInglesa = loadResBitmap(res, R.drawable.chave_inglesa, faceW, faceH);
+            mBmpNitro = loadResBitmap(res, R.drawable.nitro, faceW, faceH);
+            mBmpTeleporte = loadResBitmap(res, R.drawable.teleporte, faceW, faceH);
+            mBmpAcao = loadResBitmap(res, R.drawable.acao, faceW, faceH);
         }
 
         float configW = BTNS[BTN_IDX_SETTINGS].rect.width();
@@ -943,14 +975,22 @@ public class GamepadOverlayView extends View {
                         bmp = mBmpSoco;
                     }
                 } else if (i == 7) {
-                    if (context == 2) {
-                        bmp = mBmpSairCarro;
-                    } else if (context == 3) {
-                        bmp = mBmpEntrarCasa;
-                    } else if (context == 5) {
-                        bmp = mBmpFalarComPersonagens;
-                    } else if (context == 1) {
-                        bmp = mBmpEntrarCarro;
+                    switch (context) {
+                        case 1:  bmp = mBmpEntrarCarro; break;
+                        case 2:  bmp = mBmpSairCarro; break;
+                        case 3:  bmp = mBmpEntrarCasa; break;
+                        case 5:  bmp = mBmpFalarComPersonagens; break;
+                        case 6:  bmp = mBmpMissao; break;
+                        case 7:  bmp = mBmpTelefone; break;
+                        case 8:  bmp = mBmpGag; break;
+                        case 9:  bmp = mBmpComprarCarro; break;
+                        case 10: bmp = mBmpComprarSkin; break;
+                        case 11: bmp = mBmpCartaColecao; break;
+                        case 12: bmp = mBmpCameraAlienigena; break;
+                        case 13: bmp = mBmpChaveInglesa; break;
+                        case 14: bmp = mBmpNitro; break;
+                        case 15: bmp = mBmpTeleporte; break;
+                        case 16: bmp = mBmpAcao; break;
                     }
                 } else if (i == 10 && context == 2) {
                     bmp = mBmpMudarCamera;

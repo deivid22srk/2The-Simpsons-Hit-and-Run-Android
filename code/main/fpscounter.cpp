@@ -102,19 +102,45 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeGetHudContext(JNIEnv* /*env*/, j
             if (character) {
                 ActionButton::ButtonHandler* handler = character->GetActionButtonHandler();
                 if (handler) {
-                    ActionButton::ButtonHandler::Type type = handler->GetType();
-                    if (type == ActionButton::ButtonHandler::GET_IN_CAR || type == ActionButton::ButtonHandler::GET_IN_USER_CAR) {
-                        return 1; // Near Car
-                    }
-                    else if (type == ActionButton::ButtonHandler::INTERIOR) {
-                        return 3; // Near Interior (House door)
-                    }
-                    else if (dynamic_cast<ActionButton::TalkFood*>(handler) ||
-                             dynamic_cast<ActionButton::TalkCollectible*>(handler) ||
-                             dynamic_cast<ActionButton::TalkDialog*>(handler) ||
-                             dynamic_cast<ActionButton::TalkMission*>(handler)) {
+                    // Check for Talk classes first (they return GAG from GetType())
+                    if (dynamic_cast<ActionButton::TalkFood*>(handler) ||
+                        dynamic_cast<ActionButton::TalkCollectible*>(handler) ||
+                        dynamic_cast<ActionButton::TalkDialog*>(handler) ||
+                        dynamic_cast<ActionButton::TalkMission*>(handler)) {
                         return 5; // Near Talkable Character
                     }
+
+                    ActionButton::ButtonHandler::Type type = handler->GetType();
+                    switch (type) {
+                        case ActionButton::ButtonHandler::GET_IN_CAR:
+                        case ActionButton::ButtonHandler::GET_IN_USER_CAR:
+                            return 1; // Near Car
+                        case ActionButton::ButtonHandler::INTERIOR:
+                            return 3; // Near Interior (House door)
+                        case ActionButton::ButtonHandler::MISSION_OBJECTIVE:
+                            return 6; // Near Mission Objective
+                        case ActionButton::ButtonHandler::SUMMON_PHONE:
+                            return 7; // Near Phone (summon vehicle)
+                        case ActionButton::ButtonHandler::GAG:
+                            return 8; // Near Gag/Prank object
+                        case ActionButton::ButtonHandler::PURCHASE_CAR:
+                            return 9; // Near Car Purchase
+                        case ActionButton::ButtonHandler::PURCHASE_SKIN:
+                            return 10; // Near Skin Purchase
+                        case ActionButton::ButtonHandler::COLLECTOR_CARD:
+                            return 11; // Near Collector Card
+                        case ActionButton::ButtonHandler::WRENCH_ICON:
+                            return 13; // Near Wrench (repair)
+                        case ActionButton::ButtonHandler::NITRO_ICON:
+                            return 14; // Near Nitro pickup
+                        case ActionButton::ButtonHandler::TELEPORT:
+                            return 15; // Near Teleport
+                        default:
+                            return 16; // Other Action (UseVendingMachine, Doorbell, etc.)
+                    }
+                }
+                else {
+                    return 0; // On Foot (No action available)
                 }
             }
         }
