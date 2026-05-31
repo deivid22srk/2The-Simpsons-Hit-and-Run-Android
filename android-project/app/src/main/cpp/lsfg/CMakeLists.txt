@@ -4,12 +4,24 @@ project(lsfg-integration)
 # Find Vulkan
 find_package(Vulkan REQUIRED)
 
+# Volk Vulkan loader
+set(VOLK_SOURCES
+    volk.c
+)
+
 # Core framegen library sources
-set(FRAMEGEN_SOURCES
-    framegen/v3.1_src/context.cpp
-    framegen/v3.1_src/lsfg.cpp
-    framegen/v3.1p_src/context.cpp
-    framegen/v3.1p_src/lsfg.cpp
+file(GLOB_RECURSE FRAMEGEN_CORE_SOURCES
+    "framegen/src/*.cpp"
+)
+
+# v3.1 sources
+file(GLOB_RECURSE FRAMEGEN_V3_1_SOURCES
+    "framegen/v3.1_src/*.cpp"
+)
+
+# v3.1p sources
+file(GLOB_RECURSE FRAMEGEN_V3_1P_SOURCES
+    "framegen/v3.1p_src/*.cpp"
 )
 
 # Integration sources
@@ -19,12 +31,19 @@ set(LSFG_SOURCES
 )
 
 add_library(lsfg-integration SHARED
-    ${FRAMEGEN_SOURCES}
+    ${VOLK_SOURCES}
+    ${FRAMEGEN_CORE_SOURCES}
+    ${FRAMEGEN_V3_1_SOURCES}
+    ${FRAMEGEN_V3_1P_SOURCES}
     ${LSFG_SOURCES}
 )
 
 target_include_directories(lsfg-integration PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
     framegen/include
+    framegen/public
+    framegen/v3.1_include
+    framegen/v3.1p_include
     ${Vulkan_INCLUDE_DIRS}
 )
 
