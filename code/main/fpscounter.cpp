@@ -10,6 +10,7 @@
   #include <presentation/gui/guisystem.h>
   #include <presentation/gui/guimanager.h>
   #include <presentation/gui/guiwindow.h>
+  #include <input/inputmanager.h>
 #else
   #include <cstdio>
   #define FPS_LOGI(...) do { std::printf("[FPSCounter] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
@@ -163,6 +164,23 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsTitleScreen(JNIEnv* /*env*/, j
     return JNI_FALSE;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeSetRumbleEnabled(JNIEnv* /*env*/, jclass /*clazz*/, jboolean enabled)
+{
+    InputManager* im = GetInputManager();
+    if (im) {
+        im->SetRumbleEnabled(enabled == JNI_TRUE);
+    }
+}
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsRumbleEnabled(JNIEnv* /*env*/, jclass /*clazz*/)
+{
+    InputManager* im = GetInputManager();
+    if (im) {
+        return im->IsRumbleEnabled() ? JNI_TRUE : JNI_FALSE;
+    }
+    return JNI_TRUE;
+}
 
 #endif // RAD_ANDROID

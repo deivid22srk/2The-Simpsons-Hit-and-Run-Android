@@ -180,6 +180,7 @@ public class GamepadOverlayView extends View {
     private RectF mFpsToggleRect = new RectF();
     private RectF mCameraSwipeToggleRect = new RectF();
     private RectF mNativeHudToggleRect = new RectF();
+    private RectF mVibrationToggleRect = new RectF();
     private RectF mSensDownRect = new RectF();
     private RectF mSensUpRect = new RectF();
     private RectF mSettingsCloseRect = new RectF();
@@ -239,6 +240,7 @@ public class GamepadOverlayView extends View {
     private boolean mShowFPS      = false;
     private boolean mNativeAvailable = false;
     private boolean mSwipeCameraEnabled = false;
+    private boolean mVibrationEnabled = true;
     private float   mSwipeSensitivity = 1.0f;
     private boolean mNativeHudEnabled = false;
     private int mCachedHudContext = 0;
@@ -251,6 +253,7 @@ public class GamepadOverlayView extends View {
     private boolean mFpsTogglePressed = false;
     private boolean mCameraSwipeTogglePressed = false;
     private boolean mNativeHudTogglePressed = false;
+    private boolean mVibrationTogglePressed = false;
     private boolean mSensDownPressed = false;
     private boolean mSensUpPressed = false;
     private boolean mEditorBtnPressed = false;
@@ -407,6 +410,7 @@ public class GamepadOverlayView extends View {
         SharedPreferences.Editor defEditor = spDefault.edit();
         defEditor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
         defEditor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
+        defEditor.putBoolean("vibration_enabled", mVibrationEnabled);
         defEditor.putBoolean("native_hud_enabled", mNativeHudEnabled);
         defEditor.apply();
 
@@ -439,6 +443,7 @@ public class GamepadOverlayView extends View {
         }
         activeEditor.putBoolean("swipe_camera_enabled", mSwipeCameraEnabled);
         activeEditor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
+        activeEditor.putBoolean("vibration_enabled", mVibrationEnabled);
         activeEditor.putBoolean("native_hud_enabled", mNativeHudEnabled);
         activeEditor.apply();
         Log.i(TAG, "Profile saved successfully: " + profileName);
@@ -452,6 +457,7 @@ public class GamepadOverlayView extends View {
         SharedPreferences spDefault = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
         mSwipeCameraEnabled = spDefault.getBoolean("swipe_camera_enabled", false);
         mSwipeSensitivity = spDefault.getFloat("swipe_camera_sensitivity", 1.0f);
+        mVibrationEnabled = spDefault.getBoolean("vibration_enabled", true);
         mNativeHudEnabled = spDefault.getBoolean("native_hud_enabled", false);
 
         // 2. Load layout settings from active profile
@@ -562,8 +568,8 @@ public class GamepadOverlayView extends View {
         float cardR = cardL + cardW;
 
         // Card vertical bounds
-        float rowH = panelH * 0.11f;
-        float rowSpacing = panelH * 0.02f;
+        float rowH = panelH * 0.10f;
+        float rowSpacing = panelH * 0.015f;
 
         // Row 1 (FPS Toggle Row):
         float row1T = panelT + panelH * 0.18f;
@@ -580,13 +586,18 @@ public class GamepadOverlayView extends View {
         float row3B = row3T + rowH;
         mNativeHudToggleRect.set(cardL, row3T, cardR, row3B);
 
-        // Row 4 (Sensitivity Row):
+        // Row 4 (Vibration Toggle Row):
         float row4T = row3B + rowSpacing;
         float row4B = row4T + rowH;
+        mVibrationToggleRect.set(cardL, row4T, cardR, row4B);
+
+        // Row 5 (Sensitivity Row):
+        float row5T = row4B + rowSpacing;
+        float row5B = row5T + rowH;
         
-        // Position sensitivity buttons inside Row 4 Card
+        // Position sensitivity buttons inside Row 5 Card
         float btnSize = rowH * 0.7f;
-        float btnY = row4T + (rowH - btnSize) / 2f;
+        float btnY = row5T + (rowH - btnSize) / 2f;
         float upRight = cardR - panelW * 0.04f;
         float upLeft = upRight - btnSize;
         mSensUpRect.set(upLeft, btnY, upRight, btnY + btnSize);
@@ -896,6 +907,7 @@ public class GamepadOverlayView extends View {
             try {
                 SimpsonsActivity.nativeGetFPS();
                 mNativeAvailable = true;
+                SimpsonsActivity.nativeSetRumbleEnabled(mVibrationEnabled);
             } catch (UnsatisfiedLinkError e) {
                 // C++ library not loaded yet
             }
@@ -1247,7 +1259,33 @@ public class GamepadOverlayView extends View {
             canvas.drawText("OFF", swL + swW * 0.65f, thumbY3 + swH * 0.15f, mToggleTextPaint);
         }
 
-        // 5. Row 4: Swipe Camera Sensitivity Control (only visible if enabled)
+        // 5. Row 4: Vibration Toggle Row
+        canvas.drawRoundRect(mVibrationToggleRect, 16f, 16f, cardBgPaint);
+        canvas.drawRoundRect(mVibrationToggleRect, 16f, 16f, cardBorderPaint);
+
+        canvas.drawText("Vibração", mVibrationToggleRect.left + w * 0.05f,
+                         mVibrationToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+        float swT4 = mVibrationToggleRect.centerY() - swH / 2f;
+        float swB4 = mVibrationToggleRect.centerY() + swH / 2f;
+        RectF switchRect4 = new RectF(swL, swT4, swR, swB4);
+
+        mToggleBgPaint.setColor(mVibrationEnabled ? Color.rgb(0, 184, 148) : Color.rgb(45, 52, 54));
+        canvas.drawRoundRect(switchRect4, swH / 2f, swH / 2f, mToggleBgPaint);
+
+        float thumbX4 = mVibrationEnabled ? swR - thumbRadius - 4f : swL + thumbRadius + 4f;
+        float thumbY4 = mVibrationToggleRect.centerY();
+
+        canvas.drawCircle(thumbX4, thumbY4 + 2f, thumbRadius + 1f, thumbShadow);
+        canvas.drawCircle(thumbX4, thumbY4, thumbRadius, mToggleThumbPaint);
+
+        if (mVibrationEnabled) {
+            canvas.drawText("ON", swL + swW * 0.35f, thumbY4 + swH * 0.15f, mToggleTextPaint);
+        } else {
+            canvas.drawText("OFF", swL + swW * 0.65f, thumbY4 + swH * 0.15f, mToggleTextPaint);
+        }
+
+        // 6. Row 5: Swipe Camera Sensitivity Control (only visible if enabled)
         if (mSwipeCameraEnabled) {
             float cardH = mCameraSwipeToggleRect.height();
             float sensRowT = mSensDownRect.centerY() - cardH / 2f;
@@ -1297,7 +1335,7 @@ public class GamepadOverlayView extends View {
             canvas.drawText(String.format("%.1fx", mSwipeSensitivity), valCenterX, sensRowRect.centerY() + h * 0.015f, valPaint);
         }
 
-        // 6. Editor de Controles button
+        // 7. Editor de Controles button
         boolean editorHover = mEditorBtnPressed;
         mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
         mEditorBtnBgPaint.setColor(editorHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
@@ -1328,7 +1366,7 @@ public class GamepadOverlayView extends View {
             mEditorBtnRect.centerY() + btnTextSize * 0.3f,
             mEditorBtnTextPaint);
 
-        // 7. Export/Import HUD buttons
+        // 8. Export/Import HUD buttons
         boolean exportHover = mExportBtnPressed;
         mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
         mEditorBtnBgPaint.setColor(exportHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
@@ -1723,6 +1761,11 @@ public class GamepadOverlayView extends View {
                 mNativeHudTogglePressed = true;
                 return;
             }
+            if (mVibrationToggleRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mVibrationTogglePressed = true;
+                return;
+            }
             if (mSwipeCameraEnabled) {
                 if (mSensDownRect.contains(x, y)) {
                     mSettingsPointerId = pid;
@@ -1825,6 +1868,7 @@ public class GamepadOverlayView extends View {
             mFpsTogglePressed = mFpsToggleRect.contains(x, y);
             mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
             mNativeHudTogglePressed = mNativeHudToggleRect.contains(x, y);
+            mVibrationTogglePressed = mVibrationToggleRect.contains(x, y);
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
             mExportBtnPressed = mExportBtnRect.contains(x, y);
             mImportBtnPressed = mImportBtnRect.contains(x, y);
@@ -1896,6 +1940,12 @@ public class GamepadOverlayView extends View {
             } else if (mCameraSwipeTogglePressed) {
                 mSwipeCameraEnabled = !mSwipeCameraEnabled;
                 saveProfile();
+            } else if (mVibrationTogglePressed) {
+                mVibrationEnabled = !mVibrationEnabled;
+                if (mNativeAvailable) {
+                    SimpsonsActivity.nativeSetRumbleEnabled(mVibrationEnabled);
+                }
+                saveProfile();
             } else if (mNativeHudTogglePressed) {
                 saveProfile();
                 mNativeHudEnabled = !mNativeHudEnabled;
@@ -1929,6 +1979,7 @@ public class GamepadOverlayView extends View {
             mFpsTogglePressed = false;
             mCameraSwipeTogglePressed = false;
             mNativeHudTogglePressed = false;
+            mVibrationTogglePressed = false;
             mSensDownPressed = false;
             mSensUpPressed = false;
             mEditorBtnPressed = false;
@@ -1978,6 +2029,7 @@ public class GamepadOverlayView extends View {
         mSettingsClosePressed = false;
         mFpsTogglePressed = false;
         mCameraSwipeTogglePressed = false;
+        mVibrationTogglePressed = false;
         mEditorBtnPressed = false;
         mExportBtnPressed = false;
         mImportBtnPressed = false;
