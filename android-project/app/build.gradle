@@ -33,15 +33,29 @@ android {
             dimension "region"
             externalNativeBuild {
                 cmake {
-                    arguments "-DSRR2_REGION=PAL"
+                    arguments "-DANDROID_PLATFORM=android-29",
+                            "-DSRR2_REGION=PAL"
                 }
+            }
+        }
+
+        ntsc {
+            dimension "region"
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_PLATFORM=android-29",
+                            "-DSRR2_REGION=NTSC"
+                }
+            }
+        }
             }
         }
         ntsc {
             dimension "region"
             externalNativeBuild {
                 cmake {
-                    arguments "-DSRR2_REGION=NTSC"
+                    arguments "-DANDROID_PLATFORM=android-29",
+                            "-DSRR2_REGION=NTSC"
                 }
             }
         }
