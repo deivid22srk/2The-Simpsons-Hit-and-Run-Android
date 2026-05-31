@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 #include <android/hardware_buffer.h>
 #include <android/native_window.h>
 #include <jni.h>

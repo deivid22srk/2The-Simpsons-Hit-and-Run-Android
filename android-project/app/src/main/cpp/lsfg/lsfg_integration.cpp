@@ -7,7 +7,7 @@
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
 
-#include <vulkan/vulkan.h>
+
 
 #include <atomic>
 #include <mutex>
@@ -161,6 +161,12 @@ int initLsfg(const LsfgConfig& config) {
     }
     
     g.cacheDir = config.shaderCacheDir;
+    
+    // 0. Initialize volk (Vulkan loader)
+    if (volkInitialize() != VK_SUCCESS) {
+        LOGE("volkInitialize failed");
+        return kErrNoVulkan;
+    }
     
     // 1. Create Vulkan instance
     g.instance = vk::createInstance();
@@ -439,6 +445,7 @@ VkInstance createInstance() {
         LOGE("vkCreateInstance failed: %d", res);
         return VK_NULL_HANDLE;
     }
+    volkLoadInstance(instance);
     return instance;
 }
 
@@ -560,6 +567,7 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physDev,
         LOGE("vkCreateDevice failed: %d", res);
         return VK_NULL_HANDLE;
     }
+    volkLoadDevice(device);
     
     vkGetDeviceQueue(device, *outQueueFamily, 0, outQueue);
     return device;
