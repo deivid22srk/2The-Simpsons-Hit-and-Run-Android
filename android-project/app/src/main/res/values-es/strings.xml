@@ -44,4 +44,24 @@
     <string name="opacity_label">Opacidad</string>
     <string name="reset_btn">REINICIAR</string>
     <string name="drag_hint">Arrastra para mover | Panel debajo para ajustar</string>
+
+    <!-- Save Manager -->
+    <string name="save_manager_btn">ADMINISTRAR PARTIDAS</string>
+    <string name="save_manager_title">Administrar Partidas</string>
+    <string name="slot_prefix">Slot</string>
+    <string name="save_occupied">Ocupado</string>
+    <string name="save_empty">Vacío</string>
+    <string name="save_size">Tamaño: %s</string>
+    <string name="save_date">Modificado: %s</string>
+    <string name="export_save">Exportar</string>
+    <string name="import_save">Importar</string>
+    <string name="delete_save">Eliminar</string>
+    <string name="delete_confirm_title">Eliminar Partida</string>
+    <string name="delete_confirm_message">¿Estás seguro de que deseas eliminar esta partida?</string>
+    <string name="save_exported">¡Partida exportada!</string>
+    <string name="save_imported">¡Partida importada!</string>
+    <string name="save_deleted">¡Partida eliminada!</string>
+    <string name="no_saves_found">No se encontraron partidas guardadas</string>
+    <string name="invalid_save_file">Archivo de partida inválido</string>
+    <string name="import_save_title">Importar Partida</string>
 </resources>

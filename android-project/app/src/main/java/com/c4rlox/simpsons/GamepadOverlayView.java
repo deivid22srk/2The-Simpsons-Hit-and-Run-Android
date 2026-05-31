@@ -187,6 +187,7 @@ public class GamepadOverlayView extends View {
     private RectF mEditorBtnRect = new RectF();  // "Editor de Controles" button
     private RectF mExportBtnRect = new RectF();
     private RectF mImportBtnRect = new RectF();
+    private RectF mSaveMgrBtnRect = new RectF();
 
     // ── Editor panel rects ────────────────────────────────────────────
     private RectF mEditorPanelRect = new RectF();
@@ -259,6 +260,7 @@ public class GamepadOverlayView extends View {
     private boolean mEditorBtnPressed = false;
     private boolean mExportBtnPressed = false;
     private boolean mImportBtnPressed = false;
+    private boolean mSaveMgrBtnPressed = false;
     public static final int REQUEST_CODE_EXPORT_JSON = 1001;
     public static final int REQUEST_CODE_IMPORT_JSON = 1002;
 
@@ -624,6 +626,13 @@ public class GamepadOverlayView extends View {
 
         mExportBtnRect.set(actionBtnL, actionBtnT, actionBtnL + actionBtnW, actionBtnT + actionBtnH);
         mImportBtnRect.set(actionBtnL + actionBtnW + actionBtnSpacing, actionBtnT, actionBtnL + actionBtnTotalW, actionBtnT + actionBtnH);
+
+        // Save Manager button
+        float saveBtnW = panelW * 0.70f;
+        float saveBtnH = panelH * 0.09f;
+        float saveBtnL = panelL + (panelW - saveBtnW) / 2f;
+        float saveBtnT = panelT + panelH * 0.90f;
+        mSaveMgrBtnRect.set(saveBtnL, saveBtnT, saveBtnL + saveBtnW, saveBtnT + saveBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
         float editorPanelH = h * 0.30f;
@@ -1405,6 +1414,36 @@ public class GamepadOverlayView extends View {
             mImportBtnRect.centerY() + actTextSize * 0.35f,
             mEditorBtnTextPaint);
 
+        // 9. Save Manager button
+        boolean saveHover = mSaveMgrBtnPressed;
+        mEditorBtnBgPaint.setStyle(Paint.Style.FILL);
+        mEditorBtnBgPaint.setColor(saveHover ? SETTINGS_ACCENT : Color.argb(45, 255, 255, 255));
+        float saveRound = mSaveMgrBtnRect.height() / 2f;
+        canvas.drawRoundRect(mSaveMgrBtnRect, saveRound, saveRound, mEditorBtnBgPaint);
+
+        Paint saveBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        saveBorderPaint.setStyle(Paint.Style.STROKE);
+        saveBorderPaint.setStrokeWidth(2f);
+        saveBorderPaint.setColor(saveHover ? SETTINGS_ACCENT : Color.argb(60, 255, 255, 255));
+        canvas.drawRoundRect(mSaveMgrBtnRect, saveRound, saveRound, saveBorderPaint);
+
+        float saveTextSize = mSaveMgrBtnRect.height() * 0.40f;
+        mEditorBtnTextPaint.setColor(saveHover ? Color.BLACK : SETTINGS_TEXT_COLOR);
+        mEditorBtnTextPaint.setTextSize(saveTextSize);
+        mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
+        mEditorBtnTextPaint.setFakeBoldText(true);
+        canvas.drawText(s(R.string.save_manager_btn),
+            mSaveMgrBtnRect.centerX(),
+            mSaveMgrBtnRect.centerY() + saveTextSize * 0.35f,
+            mEditorBtnTextPaint);
+
+        // Icon on the left of the button
+        mEditorBtnTextPaint.setTextSize(saveTextSize * 0.9f);
+        canvas.drawText("\uD83D\uDCBE",
+            mSaveMgrBtnRect.left + saveTextSize * 1.5f,
+            mSaveMgrBtnRect.centerY() + saveTextSize * 0.3f,
+            mEditorBtnTextPaint);
+
         // FPS value text
         if (mShowFPS && mNativeAvailable) {
             float fps = SimpsonsActivity.nativeGetFPS();
@@ -1798,6 +1837,11 @@ public class GamepadOverlayView extends View {
                 mImportBtnPressed = true;
                 return;
             }
+            if (mSaveMgrBtnRect.contains(x, y)) {
+                mSettingsPointerId = pid;
+                mSaveMgrBtnPressed = true;
+                return;
+            }
             if (!mSettingsPanelRect.contains(x, y)) {
                 mShowSettings = false;
                 return;
@@ -1877,6 +1921,7 @@ public class GamepadOverlayView extends View {
             mEditorBtnPressed = mEditorBtnRect.contains(x, y);
             mExportBtnPressed = mExportBtnRect.contains(x, y);
             mImportBtnPressed = mImportBtnRect.contains(x, y);
+            mSaveMgrBtnPressed = mSaveMgrBtnRect.contains(x, y);
             if (mSwipeCameraEnabled) {
                 mSensDownPressed = mSensDownRect.contains(x, y);
                 mSensUpPressed = mSensUpRect.contains(x, y);
@@ -1978,6 +2023,11 @@ public class GamepadOverlayView extends View {
                 exportLayout();
             } else if (mImportBtnPressed) {
                 importLayout();
+            } else if (mSaveMgrBtnPressed) {
+                Context ctx = getContext();
+                if (ctx instanceof SimpsonsActivity) {
+                    ((SimpsonsActivity) ctx).showSaveManager();
+                }
             }
             mSettingsPointerId = -1;
             mSettingsClosePressed = false;
@@ -1990,6 +2040,7 @@ public class GamepadOverlayView extends View {
             mEditorBtnPressed = false;
             mExportBtnPressed = false;
             mImportBtnPressed = false;
+            mSaveMgrBtnPressed = false;
             return;
         }
 
@@ -2038,6 +2089,7 @@ public class GamepadOverlayView extends View {
         mEditorBtnPressed = false;
         mExportBtnPressed = false;
         mImportBtnPressed = false;
+        mSaveMgrBtnPressed = false;
 
         if (mEditorMode) {
             mEditorSelectedIdx = -1;
