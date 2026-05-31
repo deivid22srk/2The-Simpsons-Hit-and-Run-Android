@@ -291,12 +291,16 @@ public class GamepadOverlayView extends View {
     private boolean mFrameGenDllBtnPressed = false;
     public static final int REQUEST_CODE_EXPORT_JSON = 1001;
     public static final int REQUEST_CODE_IMPORT_JSON = 1002;
+    public static final int REQUEST_CODE_SELECT_DLL = 1003;
 
     // ── LSFG Frame Generation state ───────────────────────────────────
     private boolean mFrameGenEnabled = false;
     private boolean mFrameGenInitialized = false;
     private String mFrameGenDllPath = "";
     private long mFrameGenCount = 0;
+    private long mLastFrameGenCount = 0;
+    private long mLastFrameGenTime = 0;
+    private float mFrameGenFps = 0f;
 
     // ── Swipe camera touch tracking ───────────────────────────────────
     private int mSwipePointerId = -1;
@@ -1140,7 +1144,23 @@ public class GamepadOverlayView extends View {
             drawFPSDisplay(canvas);
         }
 
-        if (mShowFPS || (mNativeHudEnabled && !mEditorMode)) {
+        // Update frame generation counters
+        if (mFrameGenEnabled && mFrameGenInitialized) {
+            try {
+                mFrameGenCount = LsfgBridge.nativeGetGeneratedFrameCount();
+                long now = System.nanoTime();
+                if (mLastFrameGenTime != 0) {
+                    long dt = now - mLastFrameGenTime;
+                    if (dt > 0) {
+                        mFrameGenFps = (float)(mFrameGenCount - mLastFrameGenCount) / (dt / 1e9f);
+                    }
+                }
+                mLastFrameGenCount = mFrameGenCount;
+                mLastFrameGenTime = now;
+            } catch (Throwable ignored) {}
+        }
+
+        if (mShowFPS || (mNativeHudEnabled && !mEditorMode) || (mFrameGenEnabled && mFrameGenInitialized)) {
             postInvalidateDelayed(33);
         }
     }
@@ -1737,7 +1757,8 @@ public class GamepadOverlayView extends View {
         mFpsBgPaint.setColor(Color.argb(140, 0, 0, 0));
 
         float textSize = getHeight() * 0.035f;
-        float boxW = textSize * 5f;
+        boolean frameGenActive = mFrameGenEnabled && mFrameGenInitialized;
+        float boxW = frameGenActive ? textSize * 8f : textSize * 5f;
         float boxH = textSize * 1.6f;
         float margin = 10f;
 
@@ -1748,7 +1769,14 @@ public class GamepadOverlayView extends View {
         mFpsTextPaint.setTextAlign(Paint.Align.LEFT);
         mFpsTextPaint.setFakeBoldText(true);
 
-        canvas.drawText(String.format("FPS: %.1f", fps),
+        String fpsText;
+        if (frameGenActive) {
+            fpsText = String.format("FPS: %.1f / %.0f", fps, mFrameGenFps);
+        } else {
+            fpsText = String.format("FPS: %.1f", fps);
+        }
+
+        canvas.drawText(fpsText,
             margin + textSize * 0.3f,
             margin + textSize * 1.1f,
             mFpsTextPaint);
@@ -1902,57 +1930,63 @@ public class GamepadOverlayView extends View {
                     mSettingsClosePressed = true;
                     return;
                 }
-                if (mFpsToggleRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mFpsTogglePressed = true;
-                    return;
-                }
-                if (mCameraSwipeToggleRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mCameraSwipeTogglePressed = true;
-                    return;
-                }
-                if (mNativeHudToggleRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mNativeHudTogglePressed = true;
-                    return;
-                }
-                if (mVibrationToggleRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mVibrationTogglePressed = true;
-                    return;
-                }
-                if (mSwipeCameraEnabled) {
-                    if (mSensDownRect.contains(x, y)) {
+                if (mSettingsPage == SETTINGS_PAGE_DISPLAY) {
+                    if (mFpsToggleRect.contains(x, y)) {
                         mSettingsPointerId = pid;
-                        mSensDownPressed = true;
+                        mFpsTogglePressed = true;
                         return;
                     }
-                    if (mSensUpRect.contains(x, y)) {
+                    if (mNativeHudToggleRect.contains(x, y)) {
                         mSettingsPointerId = pid;
-                        mSensUpPressed = true;
+                        mNativeHudTogglePressed = true;
                         return;
                     }
                 }
-                if (mEditorBtnRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mEditorBtnPressed = true;
-                    return;
+                if (mSettingsPage == SETTINGS_PAGE_CONTROLS) {
+                    if (mCameraSwipeToggleRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mCameraSwipeTogglePressed = true;
+                        return;
+                    }
+                    if (mVibrationToggleRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mVibrationTogglePressed = true;
+                        return;
+                    }
+                    if (mSwipeCameraEnabled) {
+                        if (mSensDownRect.contains(x, y)) {
+                            mSettingsPointerId = pid;
+                            mSensDownPressed = true;
+                            return;
+                        }
+                        if (mSensUpRect.contains(x, y)) {
+                            mSettingsPointerId = pid;
+                            mSensUpPressed = true;
+                            return;
+                        }
+                    }
                 }
-                if (mExportBtnRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mExportBtnPressed = true;
-                    return;
-                }
-                if (mImportBtnRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mImportBtnPressed = true;
-                    return;
-                }
-                if (mSaveMgrBtnRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mSaveMgrBtnPressed = true;
-                    return;
+                if (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) {
+                    if (mEditorBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mEditorBtnPressed = true;
+                        return;
+                    }
+                    if (mExportBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mExportBtnPressed = true;
+                        return;
+                    }
+                    if (mImportBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mImportBtnPressed = true;
+                        return;
+                    }
+                    if (mSaveMgrBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mSaveMgrBtnPressed = true;
+                        return;
+                    }
                 }
                 if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
                     if (mFrameGenToggleRect.contains(x, y)) {
@@ -2050,15 +2084,15 @@ public class GamepadOverlayView extends View {
             } else {
                 mSettingsBackPressed = mSettingsBackRect.contains(x, y);
                 mSettingsClosePressed = mSettingsCloseRect.contains(x, y);
-                mFpsTogglePressed = mFpsToggleRect.contains(x, y);
-                mCameraSwipeTogglePressed = mCameraSwipeToggleRect.contains(x, y);
-                mNativeHudTogglePressed = mNativeHudToggleRect.contains(x, y);
-                mVibrationTogglePressed = mVibrationToggleRect.contains(x, y);
-                mEditorBtnPressed = mEditorBtnRect.contains(x, y);
-                mExportBtnPressed = mExportBtnRect.contains(x, y);
-                mImportBtnPressed = mImportBtnRect.contains(x, y);
-                mSaveMgrBtnPressed = mSaveMgrBtnRect.contains(x, y);
-                if (mSwipeCameraEnabled) {
+                mFpsTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mFpsToggleRect.contains(x, y);
+                mCameraSwipeTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mCameraSwipeToggleRect.contains(x, y);
+                mNativeHudTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mNativeHudToggleRect.contains(x, y);
+                mVibrationTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mVibrationToggleRect.contains(x, y);
+                mEditorBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mEditorBtnRect.contains(x, y);
+                mExportBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mExportBtnRect.contains(x, y);
+                mImportBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mImportBtnRect.contains(x, y);
+                mSaveMgrBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mSaveMgrBtnRect.contains(x, y);
+                if (mSettingsPage == SETTINGS_PAGE_CONTROLS && mSwipeCameraEnabled) {
                     mSensDownPressed = mSensDownRect.contains(x, y);
                     mSensUpPressed = mSensUpRect.contains(x, y);
                 }
@@ -2203,12 +2237,17 @@ public class GamepadOverlayView extends View {
                     } else {
                         try { LsfgBridge.nativeSetFrameGenEnabled(false); } catch (Throwable t) {}
                     }
+                    // Reset FPS tracking when toggling
+                    mLastFrameGenCount = 0;
+                    mLastFrameGenTime = 0;
+                    mFrameGenFps = 0f;
                 } else if (mFrameGenDllBtnPressed) {
-                    // Open file picker for DLL selection
                     Context ctx = getContext();
-                    if (ctx instanceof SimpsonsActivity) {
-                        // For now, show a toast explaining what to do
-                        Toast.makeText(ctx, "Place Lossless.dll in game folder or use file manager to select it", Toast.LENGTH_LONG).show();
+                    if (ctx instanceof Activity) {
+                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.setType("*/*");
+                        ((Activity) ctx).startActivityForResult(intent, REQUEST_CODE_SELECT_DLL);
                     }
                 }
             }
@@ -2947,6 +2986,31 @@ public class GamepadOverlayView extends View {
             } catch (Exception e) {
                 Log.e(TAG, "Erro ao ler JSON via SAF: " + e.getMessage());
                 Toast.makeText(context, "Erro ao ler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        } else if (requestCode == REQUEST_CODE_SELECT_DLL) {
+            try {
+                // Copy selected DLL to internal storage
+                File dllDir = new File(context.getCacheDir(), "lsfg_dll");
+                dllDir.mkdirs();
+                File localDll = new File(dllDir, "Lossless.dll");
+                InputStream is = context.getContentResolver().openInputStream(uri);
+                if (is != null) {
+                    FileOutputStream os = new FileOutputStream(localDll);
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) > 0) {
+                        os.write(buf, 0, len);
+                    }
+                    os.close();
+                    is.close();
+                }
+                mFrameGenDllPath = localDll.getAbsolutePath();
+                invalidate();
+                Toast.makeText(context, "Lossless.dll selected", Toast.LENGTH_SHORT).show();
+                Log.i(TAG, "DLL copied to: " + mFrameGenDllPath);
+            } catch (Exception e) {
+                Log.e(TAG, "Erro ao copiar DLL: " + e.getMessage());
+                Toast.makeText(context, "Erro ao selecionar DLL: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
     }
