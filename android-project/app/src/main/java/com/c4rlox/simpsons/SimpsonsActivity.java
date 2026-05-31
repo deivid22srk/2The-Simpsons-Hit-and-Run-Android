@@ -39,26 +39,27 @@ public class SimpsonsActivity extends SDLActivity {
 
     private GamepadOverlayView mOverlay;
     private RelativeLayout mSetupOverlay;
+    private RelativeLayout mPickerOverlay;
 
     private static final int REQUEST_CODE_MANAGE_STORAGE = 9999;
     private static final String PREFS_NAME = "SimpsonsPrefs";
     private static final String KEY_GAME_DIR = "game_data_directory";
 
     private File mCurrentDir;
-    private AlertDialog mPickDialog;
     private ArrayAdapter<String> mAdapter;
     private final List<File> mSubDirs = new ArrayList<>();
     private final List<String> mSubDirNames = new ArrayList<>();
-    private TextView mPathTextView;
-    private TextView mErrorTextView;
+    private TextView mPathText;
+    private TextView mErrorText;
+    private ListView mDirList;
 
-    private int mDynamicPrimary = 0xFFD90F;
-    private int mDynamicOnPrimary = 0xFF121216;
-    private int mDynamicSurface = 0xFF1A1A24;
-    private int mDynamicSurfaceVariant = 0xFF252533;
-    private int mDynamicOnSurface = 0xFFE8E8F0;
-    private int mDynamicOnSurfaceDim = 0xFF9090A0;
-    private int mDynamicError = 0xFFE57373;
+    private static final int SIMPSONS_YELLOW = 0xFFFFD90F;
+    private static final int SURFACE_DARK = 0xFF121216;
+    private static final int SURFACE_CARD = 0xFF1E1E28;
+    private static final int SURFACE_ELEVATED = 0xFF2A2A36;
+    private static final int TEXT_PRIMARY = 0xFFF0F0F5;
+    private static final int TEXT_SECONDARY = 0xFF9090A5;
+    private static final int TEXT_ERROR = 0xFFFF6B6B;
 
     public static native float nativeGetFPS();
     public static native int nativeGetHudContext();
@@ -69,28 +70,12 @@ public class SimpsonsActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        extractDynamicColors();
-
         mOverlay = new GamepadOverlayView(this);
-
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT,
             RelativeLayout.LayoutParams.MATCH_PARENT
         );
-
         mLayout.addView(mOverlay, lp);
-    }
-
-    private void extractDynamicColors() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                TypedValue tv = new TypedValue();
-                if (getTheme().resolveAttribute(android.R.attr.colorPrimary, tv, true)) {
-                    mDynamicPrimary = tv.data;
-                }
-            } catch (Exception ignored) {}
-        }
     }
 
     @Override
@@ -101,7 +86,7 @@ public class SimpsonsActivity extends SDLActivity {
         }
         if (requestCode == REQUEST_CODE_MANAGE_STORAGE) {
             if (hasStoragePermission()) {
-                showDirectoryPickerDialog();
+                showPickerScreen();
             } else {
                 Toast.makeText(this, "Permissão de armazenamento não concedida.", Toast.LENGTH_LONG).show();
             }
@@ -113,7 +98,7 @@ public class SimpsonsActivity extends SDLActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_MANAGE_STORAGE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                showDirectoryPickerDialog();
+                showPickerScreen();
             } else {
                 Toast.makeText(this, "Permissão de armazenamento não concedida.", Toast.LENGTH_LONG).show();
             }
@@ -123,14 +108,11 @@ public class SimpsonsActivity extends SDLActivity {
     @Override
     protected void resumeNativeThread() {
         if (hasValidGameDataDirectory()) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    if (mSetupOverlay != null) {
-                        mLayout.removeView(mSetupOverlay);
-                        mSetupOverlay = null;
-                    }
-                }
+            runOnUiThread(() -> {
+                removeOverlay(mSetupOverlay);
+                removeOverlay(mPickerOverlay);
+                mSetupOverlay = null;
+                mPickerOverlay = null;
             });
             super.resumeNativeThread();
         } else {
@@ -147,12 +129,10 @@ public class SimpsonsActivity extends SDLActivity {
                 return path.endsWith("/") ? path : path + "/";
             }
         }
-
         File defaultDir = getExternalFilesDir(null);
         if (defaultDir != null && isValidGameDataDirectory(defaultDir)) {
             return defaultDir.getAbsolutePath() + "/";
         }
-
         return "";
     }
 
@@ -161,474 +141,407 @@ public class SimpsonsActivity extends SDLActivity {
     }
 
     private boolean isValidGameDataDirectory(File dir) {
-        if (dir == null || !dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
-
+        if (dir == null || !dir.exists() || !dir.isDirectory()) return false;
         File scripts = new File(dir, "scripts.rcf");
         File art = new File(dir, "art.rcf");
-        if (scripts.exists() || art.exists()) {
-            return true;
-        }
-
+        if (scripts.exists() || art.exists()) return true;
         File[] files = dir.listFiles();
         if (files != null) {
             for (File f : files) {
-                if (f.isFile() && f.getName().toLowerCase().endsWith(".rcf")) {
-                    return true;
-                }
+                if (f.isFile() && f.getName().toLowerCase().endsWith(".rcf")) return true;
             }
         }
         return false;
     }
 
     private void saveGameDataDirectory(String path) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        prefs.edit().putString(KEY_GAME_DIR, path).apply();
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit().putString(KEY_GAME_DIR, path).apply();
+    }
+
+    private void removeOverlay(RelativeLayout overlay) {
+        if (overlay != null && overlay.getParent() != null) {
+            mLayout.removeView(overlay);
+        }
+    }
+
+    private int dp(int dp) {
+        return (int) TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
+    }
+
+    private GradientDrawable roundedBg(int color, float radius) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(radius);
+        return g;
     }
 
     private void showSetupScreen() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mSetupOverlay != null) {
-                    mLayout.removeView(mSetupOverlay);
-                }
+        runOnUiThread(() -> {
+            removeOverlay(mSetupOverlay);
+            mSetupOverlay = new RelativeLayout(this);
+            mSetupOverlay.setBackgroundColor(SURFACE_DARK);
 
-                mSetupOverlay = new RelativeLayout(SimpsonsActivity.this);
-                mSetupOverlay.setBackgroundColor(mDynamicSurface);
+            LinearLayout center = new LinearLayout(this);
+            center.setOrientation(LinearLayout.VERTICAL);
+            center.setGravity(Gravity.CENTER);
+            center.setPadding(dp(32), dp(16), dp(32), dp(16));
 
-                RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-                    RelativeLayout.LayoutParams.MATCH_PARENT,
-                    RelativeLayout.LayoutParams.MATCH_PARENT
-                );
+            TextView title = new TextView(this);
+            title.setText("The Simpsons Hit & Run");
+            title.setTextColor(SIMPSONS_YELLOW);
+            title.setTextSize(26);
+            title.setTypeface(null, Typeface.BOLD);
+            title.setGravity(Gravity.CENTER);
+            title.setPadding(0, 0, 0, dp(2));
+            center.addView(title);
 
-                LinearLayout centerLayout = new LinearLayout(SimpsonsActivity.this);
-                centerLayout.setOrientation(LinearLayout.VERTICAL);
-                centerLayout.setGravity(Gravity.CENTER);
-                centerLayout.setPadding(
-                    dpToPx(32), dpToPx(16),
-                    dpToPx(32), dpToPx(16)
-                );
+            TextView sub = new TextView(this);
+            sub.setText("Android Port");
+            sub.setTextColor(TEXT_SECONDARY);
+            sub.setTextSize(14);
+            sub.setGravity(Gravity.CENTER);
+            sub.setPadding(0, 0, 0, dp(36));
+            center.addView(sub);
 
-                TextView title = new TextView(SimpsonsActivity.this);
-                title.setText("The Simpsons Hit & Run");
-                title.setTextColor(mDynamicPrimary);
-                title.setTextSize(26);
-                title.setTypeface(null, Typeface.BOLD);
-                title.setGravity(Gravity.CENTER);
-                title.setPadding(0, 0, 0, dpToPx(4));
-                centerLayout.addView(title);
+            GradientDrawable cardBg = roundedBg(SURFACE_CARD, dp(20));
+            cardBg.setStroke(dp(1), Color.argb(18, 255, 255, 255));
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    title.setShadowLayer(12f, 0f, 2f, Color.argb(60, 0, 0, 0));
-                }
-
-                TextView subtitle = new TextView(SimpsonsActivity.this);
-                subtitle.setText("Android Port");
-                subtitle.setTextColor(mDynamicOnSurfaceDim);
-                subtitle.setTextSize(14);
-                subtitle.setTypeface(null, Typeface.NORMAL);
-                subtitle.setGravity(Gravity.CENTER);
-                subtitle.setPadding(0, 0, 0, dpToPx(32));
-                centerLayout.addView(subtitle);
-
-                GradientDrawable cardBg = new GradientDrawable();
-                cardBg.setColor(mDynamicSurfaceVariant);
-                cardBg.setCornerRadius(dpToPx(16));
-                cardBg.setStroke(dpToPx(1), Color.argb(20, 255, 255, 255));
-
-                LinearLayout card = new LinearLayout(SimpsonsActivity.this);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setBackground(cardBg);
-                card.setPadding(dpToPx(24), dpToPx(24), dpToPx(24), dpToPx(24));
-                card.setElevation(dpToPx(4));
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    card.setElevation(dpToPx(4));
-                }
-
-                RelativeLayout.LayoutParams cardParams = new RelativeLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                cardParams.addRule(RelativeLayout.CENTER_IN_PARENT);
-                cardParams.setMargins(dpToPx(16), 0, dpToPx(16), 0);
-
-                TextView cardTitle = new TextView(SimpsonsActivity.this);
-                cardTitle.setText("Bem-vindo!");
-                cardTitle.setTextColor(mDynamicOnSurface);
-                cardTitle.setTextSize(18);
-                cardTitle.setTypeface(null, Typeface.BOLD);
-                cardTitle.setPadding(0, 0, 0, dpToPx(8));
-                card.addView(cardTitle);
-
-                TextView cardDesc = new TextView(SimpsonsActivity.this);
-                cardDesc.setText("Selecione a pasta onde estão os arquivos do jogo (.rcf) para começar a jogar.");
-                cardDesc.setTextColor(mDynamicOnSurfaceDim);
-                cardDesc.setTextSize(14);
-                cardDesc.setLineSpacing(dpToPx(4), 1f);
-                cardDesc.setPadding(0, 0, 0, dpToPx(24));
-                card.addView(cardDesc);
-
-                Button btnSelect = createMaterialButton(
-                    "Selecionar Pasta do Jogo",
-                    mDynamicPrimary,
-                    mDynamicOnPrimary
-                );
-                btnSelect.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        requestStoragePermissionAndPickDirectory();
-                    }
-                });
-                card.addView(btnSelect);
-
-                centerLayout.addView(card);
-
-                mSetupOverlay.addView(centerLayout, lp);
-                mLayout.addView(mSetupOverlay, lp);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackground(cardBg);
+            card.setPadding(dp(28), dp(28), dp(28), dp(28));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                card.setElevation(dp(6));
             }
+
+            TextView cardTitle = new TextView(this);
+            cardTitle.setText("Bem-vindo!");
+            cardTitle.setTextColor(TEXT_PRIMARY);
+            cardTitle.setTextSize(20);
+            cardTitle.setTypeface(null, Typeface.BOLD);
+            cardTitle.setPadding(0, 0, 0, dp(10));
+            card.addView(cardTitle);
+
+            TextView cardDesc = new TextView(this);
+            cardDesc.setText("Selecione a pasta onde estão os arquivos do jogo (.rcf) para iniciar.");
+            cardDesc.setTextColor(TEXT_SECONDARY);
+            cardDesc.setTextSize(14);
+            cardDesc.setLineSpacing(dp(6), 1f);
+            cardDesc.setPadding(0, 0, 0, dp(28));
+            card.addView(cardDesc);
+
+            Button btn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+            btn.setText("Selecionar Pasta do Jogo");
+            btn.setTextColor(SURFACE_DARK);
+            btn.setTypeface(null, Typeface.BOLD);
+            btn.setTextSize(15);
+            btn.setPadding(dp(28), dp(16), dp(28), dp(16));
+
+            GradientDrawable btnBg = roundedBg(SIMPSONS_YELLOW, dp(30));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                android.graphics.drawable.RippleDrawable ripple =
+                    new android.graphics.drawable.RippleDrawable(
+                        ColorStateList.valueOf(Color.argb(60, 0, 0, 0)), btnBg, null);
+                btn.setBackground(ripple);
+            } else {
+                btn.setBackground(btnBg);
+            }
+
+            btn.setOnClickListener(v -> requestStoragePermissionAndPickDirectory());
+            card.addView(btn);
+
+            center.addView(card);
+
+            mSetupOverlay.addView(center, new RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            mLayout.addView(mSetupOverlay);
         });
-    }
-
-    private Button createMaterialButton(String text, int bgColor, int textColor) {
-        Button btn = new Button(this, null, android.R.attr.borderlessButtonStyle);
-        btn.setText(text);
-        btn.setTextColor(textColor);
-        btn.setTypeface(null, Typeface.BOLD);
-        btn.setTextSize(15);
-        btn.setPadding(dpToPx(24), dpToPx(14), dpToPx(24), dpToPx(14));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(bgColor);
-        bg.setCornerRadius(dpToPx(28));
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            android.graphics.drawable.RippleDrawable ripple = new android.graphics.drawable.RippleDrawable(
-                ColorStateList.valueOf(Color.argb(50, 255, 255, 255)),
-                bg,
-                null
-            );
-            btn.setBackground(ripple);
-        } else {
-            btn.setBackground(bg);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            btn.setElevation(dpToPx(2));
-        }
-
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        btn.setLayoutParams(params);
-
-        return btn;
-    }
-
-    private Button createOutlineButton(String text) {
-        Button btn = new Button(this, null, android.R.attr.borderlessButtonStyle);
-        btn.setText(text);
-        btn.setTextColor(mDynamicOnSurface);
-        btn.setTypeface(null, Typeface.NORMAL);
-        btn.setTextSize(14);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.TRANSPARENT);
-        bg.setCornerRadius(dpToPx(28));
-        bg.setStroke(dpToPx(1), Color.argb(40, 255, 255, 255));
-        btn.setBackground(bg);
-        btn.setPadding(dpToPx(20), dpToPx(12), dpToPx(20), dpToPx(12));
-
-        return btn;
     }
 
     private boolean hasStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return Environment.isExternalStorageManager();
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-            }
-            return true;
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
+        return true;
     }
 
     private void requestStoragePermissionAndPickDirectory() {
         if (hasStoragePermission()) {
-            showDirectoryPickerDialog();
+            showPickerScreen();
         } else {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("Acesso ao Armazenamento")
-                   .setMessage("Para selecionar qualquer pasta do aparelho, o jogo precisa de acesso para gerenciar os arquivos no Android.\n\nVocê será redirecionado para as configurações. Por favor, ative a opção.")
-                   .setPositiveButton("Configurar", new DialogInterface.OnClickListener() {
-                       @Override
-                       public void onClick(DialogInterface dialog, int which) {
-                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                               try {
-                                   Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                                   intent.setData(Uri.parse("package:" + getPackageName()));
-                                   startActivityForResult(intent, REQUEST_CODE_MANAGE_STORAGE);
-                               } catch (Exception e) {
-                                   Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                                   startActivityForResult(intent, REQUEST_CODE_MANAGE_STORAGE);
-                               }
-                           } else {
-                               if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                   requestPermissions(new String[]{
-                                       Manifest.permission.READ_EXTERNAL_STORAGE,
-                                       Manifest.permission.WRITE_EXTERNAL_STORAGE
-                                   }, REQUEST_CODE_MANAGE_STORAGE);
-                               }
-                           }
-                       }
-                   })
-                   .setNegativeButton("Cancelar", null)
-                   .show();
+            new AlertDialog.Builder(this)
+                .setTitle("Acesso ao Armazenamento")
+                .setMessage("Para selecionar qualquer pasta do aparelho, o jogo precisa de acesso para gerenciar os arquivos no Android.\n\nVocê será redirecionado para as configurações. Por favor, ative a opção.")
+                .setPositiveButton("Configurar", (dialog, which) -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivityForResult(intent, REQUEST_CODE_MANAGE_STORAGE);
+                        } catch (Exception e) {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                            startActivityForResult(intent, REQUEST_CODE_MANAGE_STORAGE);
+                        }
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        requestPermissions(new String[]{
+                            Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        }, REQUEST_CODE_MANAGE_STORAGE);
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
         }
     }
 
-    private void showDirectoryPickerDialog() {
+    private void showPickerScreen() {
         mCurrentDir = new File("/storage/emulated/0");
         if (!mCurrentDir.exists() || !mCurrentDir.canRead()) {
             mCurrentDir = Environment.getExternalStorageDirectory();
         }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        removeOverlay(mPickerOverlay);
+        mPickerOverlay = new RelativeLayout(this);
+        mPickerOverlay.setBackgroundColor(SURFACE_DARK);
+        mPickerOverlay.setPadding(dp(16), dp(8), dp(16), dp(16));
 
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setBackgroundColor(mDynamicSurface);
-        layout.setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8));
+        // ── Header ─────────────────────────────────────────────────
+        RelativeLayout header = new RelativeLayout(this);
+        header.setPadding(dp(8), dp(12), dp(8), dp(12));
 
-        GradientDrawable dialogBg = new GradientDrawable();
-        dialogBg.setColor(mDynamicSurface);
-        dialogBg.setCornerRadius(dpToPx(28));
+        Button backBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        backBtn.setText("\u2190");
+        backBtn.setTextColor(TEXT_PRIMARY);
+        backBtn.setTextSize(22);
+        backBtn.setTypeface(null, Typeface.NORMAL);
+        backBtn.setBackground(roundedBg(Color.TRANSPARENT, 0));
+        backBtn.setPadding(dp(4), dp(4), dp(4), dp(4));
+        backBtn.setId(View.generateViewId());
+        backBtn.setOnClickListener(v -> {
+            removeOverlay(mPickerOverlay);
+            mPickerOverlay = null;
+        });
+        header.addView(backBtn);
 
-        RelativeLayout headerLayout = new RelativeLayout(this);
-        headerLayout.setPadding(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(12));
+        TextView title = new TextView(this);
+        title.setText("Selecionar Pasta");
+        title.setTextColor(TEXT_PRIMARY);
+        title.setTextSize(20);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setId(View.generateViewId());
 
-        TextView titleView = new TextView(this);
-        titleView.setText("Selecionar Pasta do Jogo");
-        titleView.setTextColor(mDynamicOnSurface);
-        titleView.setTextSize(20);
-        titleView.setTypeface(null, Typeface.BOLD);
-        titleView.setId(View.generateViewId());
-        headerLayout.addView(titleView);
+        RelativeLayout.LayoutParams titleLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleLp.addRule(RelativeLayout.CENTER_IN_PARENT);
+        title.setLayoutParams(titleLp);
+        header.addView(title);
 
         // Path breadcrumb
-        mPathTextView = new TextView(this);
-        mPathTextView.setTextColor(mDynamicPrimary);
-        mPathTextView.setTextSize(12);
-        mPathTextView.setTypeface(null, Typeface.NORMAL);
-        mPathTextView.setPadding(0, dpToPx(4), 0, dpToPx(12));
-        mPathTextView.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
-        mPathTextView.setSingleLine(true);
-        mPathTextView.setSelected(true);
-        headerLayout.addView(mPathTextView);
+        mPathText = new TextView(this);
+        mPathText.setTextColor(SIMPSONS_YELLOW);
+        mPathText.setTextSize(12);
+        mPathText.setSingleLine(true);
+        mPathText.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
+        mPathText.setSelected(true);
+        mPathText.setPadding(dp(8), dp(6), dp(8), dp(12));
 
-        RelativeLayout.LayoutParams titleParams = (RelativeLayout.LayoutParams) mPathTextView.getLayoutParams();
-        if (titleParams != null) {
-            titleParams.addRule(RelativeLayout.BELOW, titleView.getId());
+        RelativeLayout.LayoutParams pathLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        pathLp.addRule(RelativeLayout.BELOW, title.getId());
+        pathLp.setMargins(dp(4), 0, dp(4), 0);
+        mPathText.setLayoutParams(pathLp);
+        header.addView(mPathText);
+
+        mPickerOverlay.addView(header);
+
+        // ── Error text ──────────────────────────────────────────────
+        mErrorText = new TextView(this);
+        mErrorText.setTextColor(TEXT_ERROR);
+        mErrorText.setTextSize(13);
+        mErrorText.setPadding(dp(12), dp(4), dp(12), dp(8));
+        mErrorText.setVisibility(View.GONE);
+
+        RelativeLayout.LayoutParams errLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        errLp.addRule(RelativeLayout.BELOW, header.getId());
+        mErrorText.setLayoutParams(errLp);
+        mPickerOverlay.addView(mErrorText);
+
+        // ── List container ──────────────────────────────────────────
+        GradientDrawable listBg = roundedBg(SURFACE_CARD, dp(14));
+
+        LinearLayout listWrap = new LinearLayout(this);
+        listWrap.setBackground(listBg);
+        listWrap.setPadding(dp(4), dp(4), dp(4), dp(4));
+
+        mDirList = new ListView(this);
+        mDirList.setDivider(null);
+        mDirList.setDividerHeight(0);
+        mDirList.setBackgroundColor(Color.TRANSPARENT);
+        mDirList.setClipToPadding(false);
+        mDirList.setPadding(dp(4), dp(4), dp(4), dp(4));
+
+        final int barId = View.generateViewId();
+
+        RelativeLayout.LayoutParams listLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        listLp.addRule(RelativeLayout.BELOW, mErrorText.getId());
+        listLp.addRule(RelativeLayout.ABOVE, barId);
+        listWrap.addView(mDirList);
+
+        mPickerOverlay.addView(listWrap, listLp);
+
+        // ── Bottom bar ──────────────────────────────────────────────
+        LinearLayout bottomBar = new LinearLayout(this);
+        bottomBar.setOrientation(LinearLayout.HORIZONTAL);
+        bottomBar.setGravity(Gravity.END);
+        bottomBar.setPadding(dp(4), dp(16), dp(4), dp(8));
+        bottomBar.setId(barId);
+
+        Button cancelBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        cancelBtn.setText("Cancelar");
+        cancelBtn.setTextColor(TEXT_PRIMARY);
+        cancelBtn.setTextSize(14);
+        cancelBtn.setTypeface(null, Typeface.NORMAL);
+        GradientDrawable cancelBg = roundedBg(Color.TRANSPARENT, dp(24));
+        cancelBg.setStroke(dp(1), Color.argb(35, 255, 255, 255));
+        cancelBtn.setBackground(cancelBg);
+        cancelBtn.setPadding(dp(20), dp(12), dp(20), dp(12));
+        cancelBtn.setOnClickListener(v -> {
+            removeOverlay(mPickerOverlay);
+            mPickerOverlay = null;
+        });
+
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cancelLp.setMarginEnd(dp(12));
+        cancelBtn.setLayoutParams(cancelLp);
+        bottomBar.addView(cancelBtn);
+
+        Button selectBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        selectBtn.setText("Selecionar Esta Pasta");
+        selectBtn.setTextColor(SURFACE_DARK);
+        selectBtn.setTypeface(null, Typeface.BOLD);
+        selectBtn.setTextSize(14);
+        selectBtn.setPadding(dp(24), dp(12), dp(24), dp(12));
+
+        GradientDrawable selectBg = roundedBg(SIMPSONS_YELLOW, dp(24));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            selectBtn.setBackground(new android.graphics.drawable.RippleDrawable(
+                ColorStateList.valueOf(Color.argb(60, 0, 0, 0)), selectBg, null));
         } else {
-            titleParams = new RelativeLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-            titleParams.addRule(RelativeLayout.BELOW, titleView.getId());
-            mPathTextView.setLayoutParams(titleParams);
+            selectBtn.setBackground(selectBg);
         }
 
-        layout.addView(headerLayout);
-
-        // Error text
-        mErrorTextView = new TextView(this);
-        mErrorTextView.setTextColor(mDynamicError);
-        mErrorTextView.setTextSize(12);
-        mErrorTextView.setPadding(dpToPx(20), 0, dpToPx(20), dpToPx(8));
-        mErrorTextView.setVisibility(View.GONE);
-        layout.addView(mErrorTextView);
-
-        GradientDrawable listBg = new GradientDrawable();
-        listBg.setColor(mDynamicSurfaceVariant);
-        listBg.setCornerRadius(dpToPx(12));
-
-        LinearLayout listContainer = new LinearLayout(this);
-        listContainer.setBackground(listBg);
-        listContainer.setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
-
-        ListView listView = new ListView(this);
-        listView.setDivider(null);
-        listView.setDividerHeight(0);
-        listView.setBackgroundColor(Color.TRANSPARENT);
-        listView.setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
-        listView.setClipToPadding(false);
-
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
-        listView.setLayoutParams(listParams);
-        listContainer.addView(listView);
-
-        layout.addView(listContainer);
-
-        // Buttons
-        LinearLayout buttonsLayout = new LinearLayout(this);
-        buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
-        buttonsLayout.setGravity(Gravity.END);
-        buttonsLayout.setPadding(dpToPx(12), dpToPx(16), dpToPx(12), dpToPx(12));
-
-        Button btnCancel = createOutlineButton("Cancelar");
-        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        cancelParams.setMargins(0, 0, dpToPx(8), 0);
-        btnCancel.setLayoutParams(cancelParams);
-        buttonsLayout.addView(btnCancel);
-
-        Button btnSelect = createMaterialButton(
-            "Selecionar Esta Pasta",
-            mDynamicPrimary,
-            mDynamicOnPrimary
-        );
-        LinearLayout.LayoutParams selectParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        btnSelect.setLayoutParams(selectParams);
-        buttonsLayout.addView(btnSelect);
-
-        layout.addView(buttonsLayout);
-
-        builder.setView(layout);
-        mPickDialog = builder.create();
-
-        if (mPickDialog.getWindow() != null) {
-            mPickDialog.getWindow().setBackgroundDrawable(dialogBg);
-        }
-
-        updateDirectoryList(listView);
-
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                mErrorTextView.setVisibility(View.GONE);
-                String selectedName = mSubDirNames.get(position);
-                if (selectedName.endsWith("..")) {
-                    File parentDir = mCurrentDir.getParentFile();
-                    if (parentDir != null && parentDir.canRead()) {
-                        mCurrentDir = parentDir;
-                        updateDirectoryList(listView);
-                    }
-                } else {
-                    File nextDir = mSubDirs.get(position);
-                    mCurrentDir = nextDir;
-                    updateDirectoryList(listView);
-                }
+        selectBtn.setOnClickListener(v -> {
+            if (isValidGameDataDirectory(mCurrentDir)) {
+                saveGameDataDirectory(mCurrentDir.getAbsolutePath());
+                removeOverlay(mPickerOverlay);
+                mPickerOverlay = null;
+                Toast.makeText(SimpsonsActivity.this, "Pasta configurada com sucesso!", Toast.LENGTH_SHORT).show();
+                resumeNativeThread();
+            } else {
+                mErrorText.setText("Esta pasta não contém arquivos .rcf do jogo.");
+                mErrorText.setVisibility(View.VISIBLE);
             }
         });
 
-        btnCancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mPickDialog.dismiss();
-            }
-        });
+        bottomBar.addView(selectBtn);
 
-        btnSelect.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isValidGameDataDirectory(mCurrentDir)) {
-                    saveGameDataDirectory(mCurrentDir.getAbsolutePath());
-                    mPickDialog.dismiss();
-                    Toast.makeText(SimpsonsActivity.this, "Pasta configurada com sucesso!", Toast.LENGTH_SHORT).show();
-                    resumeNativeThread();
-                } else {
-                    mErrorTextView.setText("Está pasta não contém arquivos .rcf do jogo.");
-                    mErrorTextView.setVisibility(View.VISIBLE);
-                }
-            }
-        });
+        RelativeLayout.LayoutParams barLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        barLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        bottomBar.setLayoutParams(barLp);
+        mPickerOverlay.addView(bottomBar);
 
-        mPickDialog.show();
+        mLayout.addView(mPickerOverlay);
+
+        refreshDirList();
     }
 
-    private void updateDirectoryList(ListView listView) {
-        mPathTextView.setText(mCurrentDir.getAbsolutePath());
+    private void refreshDirList() {
+        mPathText.setText(mCurrentDir.getAbsolutePath());
         mSubDirs.clear();
         mSubDirNames.clear();
 
-        File parentDir = mCurrentDir.getParentFile();
-        if (parentDir != null && parentDir.exists() && parentDir.canRead()) {
-            mSubDirs.add(parentDir);
+        File parent = mCurrentDir.getParentFile();
+        if (parent != null && parent.exists() && parent.canRead()) {
+            mSubDirs.add(parent);
             mSubDirNames.add("  \uD83D\uDCC1  ..");
         }
 
-        List<File> dirList = new ArrayList<>();
+        List<File> dirs = new ArrayList<>();
         File[] files = mCurrentDir.listFiles();
         if (files != null) {
             for (File f : files) {
                 if (f.isDirectory() && !f.isHidden() && f.canRead()) {
-                    dirList.add(f);
+                    dirs.add(f);
                 }
             }
         }
-        Collections.sort(dirList, (f1, f2) -> f1.getName().compareToIgnoreCase(f2.getName()));
+        Collections.sort(dirs, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
-        for (File d : dirList) {
+        for (File d : dirs) {
             mSubDirs.add(d);
-            String icon = "  \uD83D\uDCC2  ";
-            mSubDirNames.add(icon + d.getName());
+            mSubDirNames.add("  \uD83D\uDCC2  " + d.getName());
         }
 
         mAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mSubDirNames) {
             @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                TextView view;
+            public View getView(int pos, View convertView, ViewGroup parent) {
+                TextView v;
                 if (convertView == null) {
-                    view = new TextView(SimpsonsActivity.this);
-                    view.setPadding(dpToPx(16), dpToPx(14), dpToPx(16), dpToPx(14));
-                    view.setTextSize(15);
-                    view.setTypeface(null, Typeface.NORMAL);
-
-                    GradientDrawable itemBg = new GradientDrawable();
-                    itemBg.setColor(Color.TRANSPARENT);
-                    itemBg.setCornerRadius(dpToPx(10));
-                    view.setBackground(itemBg);
-                    view.setTag(itemBg);
+                    v = new TextView(SimpsonsActivity.this);
+                    v.setPadding(dp(16), dp(14), dp(16), dp(14));
+                    v.setTextSize(15);
+                    v.setBackground(roundedBg(Color.TRANSPARENT, dp(10)));
                 } else {
-                    view = (TextView) convertView;
+                    v = (TextView) convertView;
                 }
 
-                view.setText(getItem(position));
-                view.setTextColor(mDynamicOnSurface);
-                view.setElevation(0f);
+                v.setText(getItem(pos));
+                v.setTextColor(TEXT_PRIMARY);
+                v.setTypeface(null, Typeface.NORMAL);
 
-                if (getItem(position).endsWith("..")) {
-                    view.setTypeface(null, Typeface.ITALIC);
-                    view.setTextColor(mDynamicOnSurfaceDim);
-                } else {
-                    view.setTypeface(null, Typeface.NORMAL);
-                    if (position > 0 && position < mSubDirs.size() && isValidGameDataDirectory(mSubDirs.get(position))) {
-                        view.setTextColor(mDynamicPrimary);
-                    }
+                if (getItem(pos).endsWith("..")) {
+                    v.setTextColor(TEXT_SECONDARY);
+                    v.setTypeface(null, Typeface.ITALIC);
+                } else if (pos > 0 && pos < mSubDirs.size() &&
+                           isValidGameDataDirectory(mSubDirs.get(pos))) {
+                    v.setTextColor(SIMPSONS_YELLOW);
                 }
 
-                return view;
+                return v;
             }
         };
-        listView.setAdapter(mAdapter);
+        mDirList.setAdapter(mAdapter);
+
+        mDirList.setOnItemClickListener((parent, view, pos, id) -> {
+            mErrorText.setVisibility(View.GONE);
+            String name = mSubDirNames.get(pos);
+            if (name.endsWith("..")) {
+                File p = mCurrentDir.getParentFile();
+                if (p != null && p.canRead()) {
+                    mCurrentDir = p;
+                    refreshDirList();
+                }
+            } else {
+                mCurrentDir = mSubDirs.get(pos);
+                refreshDirList();
+            }
+        });
     }
 
+    // Required by AlertDialog showInvalidDirectoryAlert compatibility
     private GradientDrawable getRoundedButtonDrawable(int color) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
-        drawable.setCornerRadius(dpToPx(16));
-        return drawable;
+        return roundedBg(color, dp(16));
     }
 
     private int dpToPx(int dp) {
-        return (int) TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, dp,
-            getResources().getDisplayMetrics()
-        );
+        return dp(dp);
     }
 }
