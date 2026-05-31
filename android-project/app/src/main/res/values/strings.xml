@@ -47,6 +47,12 @@
 
     <!-- Save Manager -->
     <string name="save_manager_btn">SAVE MANAGER</string>
+
+    <!-- Settings Categories -->
+    <string name="settings_category_display">Display</string>
+    <string name="settings_category_controls">Controls</string>
+    <string name="settings_category_hud">HUD Management</string>
+    <string name="back_btn">← Back</string>
     <string name="save_manager_title">Save Manager</string>
     <string name="slot_prefix">Slot</string>
     <string name="save_occupied">Occupied</string>

@@ -47,6 +47,12 @@
 
     <!-- Save Manager -->
     <string name="save_manager_btn">ADMINISTRAR PARTIDAS</string>
+
+    <!-- Settings Categories -->
+    <string name="settings_category_display">Pantalla</string>
+    <string name="settings_category_controls">Controles</string>
+    <string name="settings_category_hud">Gestión HUD</string>
+    <string name="back_btn">← Volver</string>
     <string name="save_manager_title">Administrar Partidas</string>
     <string name="slot_prefix">Slot</string>
     <string name="save_occupied">Ocupado</string>

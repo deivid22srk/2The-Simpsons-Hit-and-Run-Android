@@ -47,6 +47,12 @@
 
     <!-- Save Manager -->
     <string name="save_manager_btn">GERENCIAR SAVES</string>
+
+    <!-- Settings Categories -->
+    <string name="settings_category_display">Exibição</string>
+    <string name="settings_category_controls">Controles</string>
+    <string name="settings_category_hud">Gerenciamento HUD</string>
+    <string name="back_btn">← Voltar</string>
     <string name="save_manager_title">Gerenciar Saves</string>
     <string name="slot_prefix">Slot</string>
     <string name="save_occupied">Ocupado</string>
