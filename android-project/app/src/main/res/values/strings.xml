@@ -1,3 +1,47 @@
 <resources>
     <string name="app_name">Simpsons</string>
+
+    <!-- Setup Screen -->
+    <string name="setup_title">The Simpsons Hit &amp; Run</string>
+    <string name="setup_subtitle">Android Port</string>
+    <string name="welcome_title">Welcome!</string>
+    <string name="setup_description">Select the folder where the game files (.rcf) are located to start.</string>
+    <string name="select_game_folder">Select Game Folder</string>
+
+    <!-- Folder Picker -->
+    <string name="select_folder">Select Folder</string>
+    <string name="cancel">Cancel</string>
+    <string name="select_this_folder">Select This Folder</string>
+    <string name="folder_configured">Folder configured successfully!</string>
+    <string name="no_rcf_files">This folder does not contain .rcf game files.</string>
+
+    <!-- Storage Permission -->
+    <string name="storage_access_title">Storage Access</string>
+    <string name="storage_access_message">To select any folder on the device, the game needs access to manage files on Android.\n\nYou will be redirected to settings. Please enable the option.</string>
+    <string name="settings_btn">Settings</string>
+    <string name="permission_not_granted">Storage permission not granted.</string>
+
+    <!-- Settings Panel -->
+    <string name="settings_title">SETTINGS</string>
+    <string name="settings_subtitle">Game &amp; Controls Settings</string>
+    <string name="show_fps">Show FPS</string>
+    <string name="swipe_camera">Swipe Camera</string>
+    <string name="native_hud">Native HUD</string>
+    <string name="vibration">Vibration</string>
+    <string name="sensitivity">Sensitivity</string>
+    <string name="control_editor">CONTROL EDITOR</string>
+    <string name="export_hud">EXPORT HUD</string>
+    <string name="import_hud">IMPORT HUD</string>
+    <string name="current_fps">Current FPS: %.1f</string>
+
+    <!-- Editor Panel -->
+    <string name="editor_title">EDITOR</string>
+    <string name="none">None</string>
+    <string name="mode_car">Mode: In Car</string>
+    <string name="mode_on_foot">Mode: On Foot</string>
+    <string name="tap_to_edit">Tap a control on the screen to edit</string>
+    <string name="size_label">Size</string>
+    <string name="opacity_label">Opacity</string>
+    <string name="reset_btn">RESET</string>
+    <string name="drag_hint">Drag to move | Panel below to adjust</string>
 </resources>

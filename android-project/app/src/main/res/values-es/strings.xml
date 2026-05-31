@@ -1,0 +1,47 @@
+<resources>
+    <string name="app_name">Simpsons</string>
+
+    <!-- Setup Screen -->
+    <string name="setup_title">The Simpsons Hit &amp; Run</string>
+    <string name="setup_subtitle">Android Port</string>
+    <string name="welcome_title">¡Bienvenido!</string>
+    <string name="setup_description">Selecciona la carpeta donde están los archivos del juego (.rcf) para iniciar.</string>
+    <string name="select_game_folder">Seleccionar Carpeta del Juego</string>
+
+    <!-- Folder Picker -->
+    <string name="select_folder">Seleccionar Carpeta</string>
+    <string name="cancel">Cancelar</string>
+    <string name="select_this_folder">Seleccionar Esta Carpeta</string>
+    <string name="folder_configured">¡Carpeta configurada con éxito!</string>
+    <string name="no_rcf_files">Esta carpeta no contiene archivos .rcf del juego.</string>
+
+    <!-- Storage Permission -->
+    <string name="storage_access_title">Acceso al Almacenamiento</string>
+    <string name="storage_access_message">Para seleccionar cualquier carpeta del dispositivo, el juego necesita acceso para gestionar los archivos en Android.\n\nSerás redirigido a la configuración. Por favor, activa la opción.</string>
+    <string name="settings_btn">Configurar</string>
+    <string name="permission_not_granted">Permiso de almacenamiento no concedido.</string>
+
+    <!-- Settings Panel -->
+    <string name="settings_title">CONFIGURACIÓN</string>
+    <string name="settings_subtitle">Ajustes del Juego &amp; Controles</string>
+    <string name="show_fps">Mostrar FPS</string>
+    <string name="swipe_camera">Deslizar Cámara</string>
+    <string name="native_hud">HUD Nativo</string>
+    <string name="vibration">Vibración</string>
+    <string name="sensitivity">Sensibilidad</string>
+    <string name="control_editor">EDITOR DE CONTROLES</string>
+    <string name="export_hud">EXPORTAR HUD</string>
+    <string name="import_hud">IMPORTAR HUD</string>
+    <string name="current_fps">FPS actual: %.1f</string>
+
+    <!-- Editor Panel -->
+    <string name="editor_title">EDITOR</string>
+    <string name="none">Ninguno</string>
+    <string name="mode_car">Modo: En Coche</string>
+    <string name="mode_on_foot">Modo: A Pie</string>
+    <string name="tap_to_edit">Toca un control en la pantalla para editar</string>
+    <string name="size_label">Tamaño</string>
+    <string name="opacity_label">Opacidad</string>
+    <string name="reset_btn">REINICIAR</string>
+    <string name="drag_hint">Arrastra para mover | Panel debajo para ajustar</string>
+</resources>

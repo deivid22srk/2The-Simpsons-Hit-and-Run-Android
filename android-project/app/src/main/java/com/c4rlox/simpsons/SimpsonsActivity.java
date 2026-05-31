@@ -28,6 +28,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.libsdl.app.R;
 import org.libsdl.app.SDLActivity;
 
 import java.io.File;
@@ -88,7 +89,7 @@ public class SimpsonsActivity extends SDLActivity {
             if (hasStoragePermission()) {
                 showPickerScreen();
             } else {
-                Toast.makeText(this, "Permissão de armazenamento não concedida.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -100,7 +101,7 @@ public class SimpsonsActivity extends SDLActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 showPickerScreen();
             } else {
-                Toast.makeText(this, "Permissão de armazenamento não concedida.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -189,7 +190,7 @@ public class SimpsonsActivity extends SDLActivity {
             center.setPadding(dp(32), dp(16), dp(32), dp(16));
 
             TextView title = new TextView(this);
-            title.setText("The Simpsons Hit & Run");
+            title.setText(getString(R.string.setup_title));
             title.setTextColor(SIMPSONS_YELLOW);
             title.setTextSize(26);
             title.setTypeface(null, Typeface.BOLD);
@@ -198,7 +199,7 @@ public class SimpsonsActivity extends SDLActivity {
             center.addView(title);
 
             TextView sub = new TextView(this);
-            sub.setText("Android Port");
+            sub.setText(getString(R.string.setup_subtitle));
             sub.setTextColor(TEXT_SECONDARY);
             sub.setTextSize(14);
             sub.setGravity(Gravity.CENTER);
@@ -217,7 +218,7 @@ public class SimpsonsActivity extends SDLActivity {
             }
 
             TextView cardTitle = new TextView(this);
-            cardTitle.setText("Bem-vindo!");
+            cardTitle.setText(getString(R.string.welcome_title));
             cardTitle.setTextColor(TEXT_PRIMARY);
             cardTitle.setTextSize(20);
             cardTitle.setTypeface(null, Typeface.BOLD);
@@ -225,7 +226,7 @@ public class SimpsonsActivity extends SDLActivity {
             card.addView(cardTitle);
 
             TextView cardDesc = new TextView(this);
-            cardDesc.setText("Selecione a pasta onde estão os arquivos do jogo (.rcf) para iniciar.");
+            cardDesc.setText(getString(R.string.setup_description));
             cardDesc.setTextColor(TEXT_SECONDARY);
             cardDesc.setTextSize(14);
             cardDesc.setLineSpacing(dp(6), 1f);
@@ -233,7 +234,7 @@ public class SimpsonsActivity extends SDLActivity {
             card.addView(cardDesc);
 
             Button btn = new Button(this, null, android.R.attr.borderlessButtonStyle);
-            btn.setText("Selecionar Pasta do Jogo");
+            btn.setText(getString(R.string.select_game_folder));
             btn.setTextColor(SURFACE_DARK);
             btn.setTypeface(null, Typeface.BOLD);
             btn.setTextSize(15);
@@ -274,9 +275,9 @@ public class SimpsonsActivity extends SDLActivity {
             showPickerScreen();
         } else {
             new AlertDialog.Builder(this)
-                .setTitle("Acesso ao Armazenamento")
-                .setMessage("Para selecionar qualquer pasta do aparelho, o jogo precisa de acesso para gerenciar os arquivos no Android.\n\nVocê será redirecionado para as configurações. Por favor, ative a opção.")
-                .setPositiveButton("Configurar", (dialog, which) -> {
+                .setTitle(getString(R.string.storage_access_title))
+                .setMessage(getString(R.string.storage_access_message))
+                .setPositiveButton(getString(R.string.settings_btn), (dialog, which) -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         try {
                             Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -293,7 +294,7 @@ public class SimpsonsActivity extends SDLActivity {
                         }, REQUEST_CODE_MANAGE_STORAGE);
                     }
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.cancel), null)
                 .show();
         }
     }
@@ -328,7 +329,7 @@ public class SimpsonsActivity extends SDLActivity {
         header.addView(backBtn);
 
         TextView title = new TextView(this);
-        title.setText("Selecionar Pasta");
+        title.setText(getString(R.string.select_folder));
         title.setTextColor(TEXT_PRIMARY);
         title.setTextSize(20);
         title.setTypeface(null, Typeface.BOLD);
@@ -403,7 +404,7 @@ public class SimpsonsActivity extends SDLActivity {
         bottomBar.setId(barId);
 
         Button cancelBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
-        cancelBtn.setText("Cancelar");
+        cancelBtn.setText(getString(R.string.cancel));
         cancelBtn.setTextColor(TEXT_PRIMARY);
         cancelBtn.setTextSize(14);
         cancelBtn.setTypeface(null, Typeface.NORMAL);
@@ -423,7 +424,7 @@ public class SimpsonsActivity extends SDLActivity {
         bottomBar.addView(cancelBtn);
 
         Button selectBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
-        selectBtn.setText("Selecionar Esta Pasta");
+        selectBtn.setText(getString(R.string.select_this_folder));
         selectBtn.setTextColor(SURFACE_DARK);
         selectBtn.setTypeface(null, Typeface.BOLD);
         selectBtn.setTextSize(14);
@@ -442,10 +443,10 @@ public class SimpsonsActivity extends SDLActivity {
                 saveGameDataDirectory(mCurrentDir.getAbsolutePath());
                 removeOverlay(mPickerOverlay);
                 mPickerOverlay = null;
-                Toast.makeText(SimpsonsActivity.this, "Pasta configurada com sucesso!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(SimpsonsActivity.this, getString(R.string.folder_configured), Toast.LENGTH_SHORT).show();
                 resumeNativeThread();
             } else {
-                mErrorText.setText("Esta pasta não contém arquivos .rcf do jogo.");
+                mErrorText.setText(getString(R.string.no_rcf_files));
                 mErrorText.setVisibility(View.VISIBLE);
             }
         });

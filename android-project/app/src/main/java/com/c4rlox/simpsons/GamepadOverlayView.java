@@ -1040,7 +1040,7 @@ public class GamepadOverlayView extends View {
 
         // ── Editor mode: drag hint for selected element ───────────────
         if (mEditorMode && mEditorSelectedIdx != -1) {
-            String hint = "Arraste para mover | Painel abaixo para ajustar";
+            String hint = s(R.string.drag_hint);
             mEditorDragHintPaint.setColor(Color.argb(180, 255, 255, 255));
             mEditorDragHintPaint.setTextSize(getHeight() * 0.025f);
             mEditorDragHintPaint.setTextAlign(Paint.Align.CENTER);
@@ -1126,14 +1126,14 @@ public class GamepadOverlayView extends View {
         mPanelTitlePaint.setTextSize(h * 0.07f);
         mPanelTitlePaint.setTextAlign(Paint.Align.CENTER);
         mPanelTitlePaint.setFakeBoldText(true);
-        canvas.drawText("CONFIGURACOES", left + w / 2f, top + h * 0.09f, mPanelTitlePaint);
+        canvas.drawText(s(R.string.settings_title), left + w / 2f, top + h * 0.09f, mPanelTitlePaint);
 
         // Subtitle
         Paint subTitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         subTitlePaint.setColor(Color.argb(160, 255, 255, 255));
         subTitlePaint.setTextSize(h * 0.035f);
         subTitlePaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("Ajustes do Jogo & Controles", left + w / 2f, top + h * 0.135f, subTitlePaint);
+        canvas.drawText(s(R.string.settings_subtitle), left + w / 2f, top + h * 0.135f, subTitlePaint);
 
         // Separator
         mPanelLinePaint.setColor(Color.argb(60, 255, 255, 255));
@@ -1160,7 +1160,7 @@ public class GamepadOverlayView extends View {
         mPanelLabelPaint.setTextSize(h * 0.045f);
         mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
         mPanelLabelPaint.setFakeBoldText(false);
-        canvas.drawText("Exibir FPS", mFpsToggleRect.left + w * 0.05f,
+        canvas.drawText(s(R.string.show_fps), mFpsToggleRect.left + w * 0.05f,
                          mFpsToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
         // Switch Toggle
@@ -1207,7 +1207,7 @@ public class GamepadOverlayView extends View {
         canvas.drawRoundRect(mCameraSwipeToggleRect, 16f, 16f, cardBorderPaint);
 
         // Label
-        canvas.drawText("Deslizar Câmera", mCameraSwipeToggleRect.left + w * 0.05f,
+        canvas.drawText(s(R.string.swipe_camera), mCameraSwipeToggleRect.left + w * 0.05f,
                          mCameraSwipeToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
         // Switch Toggle
@@ -1236,7 +1236,7 @@ public class GamepadOverlayView extends View {
         canvas.drawRoundRect(mNativeHudToggleRect, 16f, 16f, cardBorderPaint);
 
         // Label
-        canvas.drawText("HUD Nativo", mNativeHudToggleRect.left + w * 0.05f,
+        canvas.drawText(s(R.string.native_hud), mNativeHudToggleRect.left + w * 0.05f,
                          mNativeHudToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
         // Switch Toggle
@@ -1263,7 +1263,7 @@ public class GamepadOverlayView extends View {
         canvas.drawRoundRect(mVibrationToggleRect, 16f, 16f, cardBgPaint);
         canvas.drawRoundRect(mVibrationToggleRect, 16f, 16f, cardBorderPaint);
 
-        canvas.drawText("Vibração", mVibrationToggleRect.left + w * 0.05f,
+        canvas.drawText(s(R.string.vibration), mVibrationToggleRect.left + w * 0.05f,
                          mVibrationToggleRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
         float swT4 = mVibrationToggleRect.centerY() - swH / 2f;
@@ -1297,7 +1297,7 @@ public class GamepadOverlayView extends View {
             canvas.drawRoundRect(sensRowRect, 16f, 16f, cardBorderPaint);
 
             // Label
-            canvas.drawText("Sensibilidade", sensRowRect.left + w * 0.05f,
+            canvas.drawText(s(R.string.sensitivity), sensRowRect.left + w * 0.05f,
                              sensRowRect.centerY() + h * 0.015f, mPanelLabelPaint);
 
             // Stepper buttons
@@ -1354,7 +1354,7 @@ public class GamepadOverlayView extends View {
         mEditorBtnTextPaint.setTextSize(btnTextSize);
         mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
         mEditorBtnTextPaint.setFakeBoldText(true);
-        canvas.drawText("EDITOR DE CONTROLES",
+        canvas.drawText(s(R.string.control_editor),
             mEditorBtnRect.centerX(),
             mEditorBtnRect.centerY() + btnTextSize * 0.35f,
             mEditorBtnTextPaint);
@@ -1384,7 +1384,7 @@ public class GamepadOverlayView extends View {
         mEditorBtnTextPaint.setTextSize(actTextSize);
         mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
         mEditorBtnTextPaint.setFakeBoldText(true);
-        canvas.drawText("EXPORTAR HUD",
+        canvas.drawText(s(R.string.export_hud),
             mExportBtnRect.centerX(),
             mExportBtnRect.centerY() + actTextSize * 0.35f,
             mEditorBtnTextPaint);
@@ -1400,7 +1400,7 @@ public class GamepadOverlayView extends View {
         canvas.drawRoundRect(mImportBtnRect, actRound, actRound, importBorderPaint);
 
         mEditorBtnTextPaint.setColor(importHover ? Color.BLACK : SETTINGS_TEXT_COLOR);
-        canvas.drawText("IMPORTAR HUD",
+        canvas.drawText(s(R.string.import_hud),
             mImportBtnRect.centerX(),
             mImportBtnRect.centerY() + actTextSize * 0.35f,
             mEditorBtnTextPaint);
@@ -1411,7 +1411,7 @@ public class GamepadOverlayView extends View {
             mFpsValuePaint.setColor(SETTINGS_ACCENT);
             mFpsValuePaint.setTextSize(h * 0.04f);
             mFpsValuePaint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText(String.format("FPS atual: %.1f", fps),
+            canvas.drawText(String.format(s(R.string.current_fps), fps),
                 left + w / 2f, mImportBtnRect.bottom + h * 0.05f, mFpsValuePaint);
         }
 
@@ -1454,11 +1454,11 @@ public class GamepadOverlayView extends View {
         mEditorLabelPaint.setTextSize(h * 0.12f);
         mEditorLabelPaint.setTextAlign(Paint.Align.LEFT);
         mEditorLabelPaint.setFakeBoldText(true);
-        canvas.drawText("EDITOR", mEditorPanelRect.left + w * 0.05f,
+        canvas.drawText(s(R.string.editor_title), mEditorPanelRect.left + w * 0.05f,
                         mEditorPanelRect.top + h * 0.14f, mEditorLabelPaint);
 
         // Selected element name
-        String selName = "Nenhum";
+        String selName = s(R.string.none);
         if (mEditorSelectedIdx != -1) {
             if (mEditorSelectedIsStick) {
                 selName = STICK_NAMES[mEditorSelectedIdx];
@@ -1493,7 +1493,7 @@ public class GamepadOverlayView extends View {
             mEditorBtnTextPaint.setTextAlign(Paint.Align.CENTER);
             mEditorBtnTextPaint.setFakeBoldText(true);
 
-            String text = (mEditorHudContext == 2) ? "Modo: No Carro" : "Modo: A Pé";
+            String text = (mEditorHudContext == 2) ? s(R.string.mode_car) : s(R.string.mode_on_foot);
             canvas.drawText(text, mEditorContextToggleRect.centerX(),
                             mEditorContextToggleRect.centerY() + textSize * 0.35f, mEditorBtnTextPaint);
         }
@@ -1510,7 +1510,7 @@ public class GamepadOverlayView extends View {
             mEditorLabelPaint.setColor(Color.argb(150, 255, 255, 255));
             mEditorLabelPaint.setTextSize(h * 0.09f);
             mEditorLabelPaint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText("Toque em um controle na tela para editar",
+            canvas.drawText(s(R.string.tap_to_edit),
                 mEditorPanelRect.centerX(), mEditorPanelRect.top + h * 0.55f, mEditorLabelPaint);
         } else {
             float currentSize, currentAlpha;
@@ -1534,7 +1534,7 @@ public class GamepadOverlayView extends View {
             mEditorLabelPaint.setTextSize(labelSize);
             mEditorLabelPaint.setTextAlign(Paint.Align.LEFT);
             mEditorLabelPaint.setFakeBoldText(false);
-            canvas.drawText("Tamanho", mEditorPanelRect.left + w * 0.08f, row1Y + labelSize * 0.3f, mEditorLabelPaint);
+            canvas.drawText(s(R.string.size_label), mEditorPanelRect.left + w * 0.08f, row1Y + labelSize * 0.3f, mEditorLabelPaint);
 
             // [-] button
             drawEditorStepperBtn(canvas, mEditorSizeDownRect, "\u25C0", mEditorSizeDownPressed);
@@ -1553,7 +1553,7 @@ public class GamepadOverlayView extends View {
             mEditorLabelPaint.setColor(Color.WHITE);
             mEditorLabelPaint.setTextSize(labelSize);
             mEditorLabelPaint.setTextAlign(Paint.Align.LEFT);
-            canvas.drawText("Opacidade", mEditorPanelRect.left + w * 0.08f, row2Y + labelSize * 0.3f, mEditorLabelPaint);
+            canvas.drawText(s(R.string.opacity_label), mEditorPanelRect.left + w * 0.08f, row2Y + labelSize * 0.3f, mEditorLabelPaint);
 
             // [-] button
             drawEditorStepperBtn(canvas, mEditorAlphaDownRect, "\u25C0", mEditorAlphaDownPressed);
@@ -1568,7 +1568,7 @@ public class GamepadOverlayView extends View {
             drawEditorStepperBtn(canvas, mEditorAlphaUpRect, "\u25B6", mEditorAlphaUpPressed);
 
             // ── Reset button ─────────────────────────────────────────────
-            drawEditorActionBtn(canvas, mEditorResetRect, "RESETAR", mEditorResetPressed, false);
+            drawEditorActionBtn(canvas, mEditorResetRect, s(R.string.reset_btn), mEditorResetPressed, false);
 
             // ── Close button ─────────────────────────────────────────────
             drawEditorActionBtn(canvas, mEditorCloseRect, "X", mEditorClosePressed, true);
@@ -1716,6 +1716,11 @@ public class GamepadOverlayView extends View {
 
         invalidate();
         return true;
+    }
+
+    private String s(int resId) {
+        Context ctx = getContext();
+        return ctx != null ? ctx.getString(resId) : "";
     }
 
     // ── Debug ─────────────────────────────────────────────────────────

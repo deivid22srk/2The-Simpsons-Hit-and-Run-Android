@@ -1,0 +1,47 @@
+<resources>
+    <string name="app_name">Simpsons</string>
+
+    <!-- Setup Screen -->
+    <string name="setup_title">The Simpsons Hit &amp; Run</string>
+    <string name="setup_subtitle">Android Port</string>
+    <string name="welcome_title">Bem-vindo!</string>
+    <string name="setup_description">Selecione a pasta onde estão os arquivos do jogo (.rcf) para iniciar.</string>
+    <string name="select_game_folder">Selecionar Pasta do Jogo</string>
+
+    <!-- Folder Picker -->
+    <string name="select_folder">Selecionar Pasta</string>
+    <string name="cancel">Cancelar</string>
+    <string name="select_this_folder">Selecionar Esta Pasta</string>
+    <string name="folder_configured">Pasta configurada com sucesso!</string>
+    <string name="no_rcf_files">Esta pasta não contém arquivos .rcf do jogo.</string>
+
+    <!-- Storage Permission -->
+    <string name="storage_access_title">Acesso ao Armazenamento</string>
+    <string name="storage_access_message">Para selecionar qualquer pasta do aparelho, o jogo precisa de acesso para gerenciar os arquivos no Android.\n\nVocê será redirecionado para as configurações. Por favor, ative a opção.</string>
+    <string name="settings_btn">Configurar</string>
+    <string name="permission_not_granted">Permissão de armazenamento não concedida.</string>
+
+    <!-- Settings Panel -->
+    <string name="settings_title">CONFIGURAÇÕES</string>
+    <string name="settings_subtitle">Ajustes do Jogo &amp; Controles</string>
+    <string name="show_fps">Exibir FPS</string>
+    <string name="swipe_camera">Deslizar Câmera</string>
+    <string name="native_hud">HUD Nativo</string>
+    <string name="vibration">Vibração</string>
+    <string name="sensitivity">Sensibilidade</string>
+    <string name="control_editor">EDITOR DE CONTROLES</string>
+    <string name="export_hud">EXPORTAR HUD</string>
+    <string name="import_hud">IMPORTAR HUD</string>
+    <string name="current_fps">FPS atual: %.1f</string>
+
+    <!-- Editor Panel -->
+    <string name="editor_title">EDITOR</string>
+    <string name="none">Nenhum</string>
+    <string name="mode_car">Modo: No Carro</string>
+    <string name="mode_on_foot">Modo: A Pé</string>
+    <string name="tap_to_edit">Toque em um controle na tela para editar</string>
+    <string name="size_label">Tamanho</string>
+    <string name="opacity_label">Opacidade</string>
+    <string name="reset_btn">RESETAR</string>
+    <string name="drag_hint">Arraste para mover | Painel abaixo para ajustar</string>
+</resources>
