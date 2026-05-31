@@ -1844,6 +1844,7 @@ public class GamepadOverlayView extends View {
             }
             if (!mSettingsPanelRect.contains(x, y)) {
                 mShowSettings = false;
+                mSettingsPointerId = -1;
                 return;
             }
             mSettingsPointerId = pid;
@@ -2081,6 +2082,9 @@ public class GamepadOverlayView extends View {
     // ── handleCancel ──────────────────────────────────────────────────
     private void handleCancel() {
         releaseAllGameInputs();
+        mShowSettings = false;
+        mEditorMode = false;
+        mTitleScreenStartPressed = false;
         mSettingsPointerId = -1;
         mSettingsClosePressed = false;
         mFpsTogglePressed = false;
@@ -2091,18 +2095,22 @@ public class GamepadOverlayView extends View {
         mImportBtnPressed = false;
         mSaveMgrBtnPressed = false;
 
-        if (mEditorMode) {
-            mEditorSelectedIdx = -1;
-            mEditorDragging = false;
-            mEditorPointerId = -1;
-            mEditorSizeDownPressed = false;
-            mEditorSizeUpPressed = false;
-            mEditorAlphaDownPressed = false;
-            mEditorAlphaUpPressed = false;
-            mEditorResetPressed = false;
-            mEditorClosePressed = false;
-            mEditorContextTogglePressed = false;
-        }
+        mEditorSelectedIdx = -1;
+        mEditorDragging = false;
+        mEditorPointerId = -1;
+        mEditorSizeDownPressed = false;
+        mEditorSizeUpPressed = false;
+        mEditorAlphaDownPressed = false;
+        mEditorAlphaUpPressed = false;
+        mEditorResetPressed = false;
+        mEditorClosePressed = false;
+        mEditorContextTogglePressed = false;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        handleCancel();
     }
 
     // ── Editor: handleDown ────────────────────────────────────────────
