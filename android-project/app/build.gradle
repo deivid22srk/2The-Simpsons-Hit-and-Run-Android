@@ -9,14 +9,14 @@ android {
 
     defaultConfig {
         applicationId "com.c4rlox.simpsons"
-        minSdkVersion 24
+        minSdkVersion 29
         targetSdkVersion 35
         versionCode 86
         versionName "0.86"
 
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_PLATFORM=android-24",
+                arguments "-DANDROID_PLATFORM=android-29",
                         //"-DANDROID_STL=c++_static",
                         "-DANDROID_STL=c++_shared",
                         "-DANDROID=ON"

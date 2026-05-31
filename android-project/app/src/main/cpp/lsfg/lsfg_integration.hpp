@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 #include <android/hardware_buffer.h>
+#include <android/native_window.h>
 #include <jni.h>
 
 #include <cstdint>
