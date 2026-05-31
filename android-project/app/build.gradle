@@ -48,17 +48,6 @@ android {
                 }
             }
         }
-            }
-        }
-        ntsc {
-            dimension "region"
-            externalNativeBuild {
-                cmake {
-                    arguments "-DANDROID_PLATFORM=android-29",
-                            "-DSRR2_REGION=NTSC"
-                }
-            }
-        }
     }
 
     //ndk {
