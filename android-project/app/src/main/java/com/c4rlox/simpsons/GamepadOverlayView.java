@@ -1847,7 +1847,7 @@ public class GamepadOverlayView extends View {
             float valX = Math.max(-1.0f, Math.min(1.0f, dx * sensitivity));
             float valY = Math.max(-1.0f, Math.min(1.0f, dy * sensitivity));
 
-            SDLControllerManager.onNativeJoy(9999, 2, valX);
+            SDLControllerManager.onNativeJoy(9999, 2, -valX);
             SDLControllerManager.onNativeJoy(9999, 3, valY);
 
             mSwipeHandler.postDelayed(mSwipeResetRunnable, 40);
@@ -2359,7 +2359,7 @@ public class GamepadOverlayView extends View {
         // Send to JNI virtual gamepad
         float valX = dx / s.r;
         float valY = dy / s.r;
-        SDLControllerManager.onNativeJoy(9999, stickIdx * 2, valX);
+        SDLControllerManager.onNativeJoy(9999, stickIdx * 2, stickIdx == 1 ? -valX : valX);
         SDLControllerManager.onNativeJoy(9999, stickIdx * 2 + 1, valY);
     }
 
