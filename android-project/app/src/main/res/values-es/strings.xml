@@ -52,6 +52,13 @@
     <string name="settings_category_display">Pantalla</string>
     <string name="settings_category_controls">Controles</string>
     <string name="settings_category_hud">Gestión HUD</string>
+    <string name="settings_category_framegen">Generación de Fotogramas</string>
+    <string name="framegen_enable">Activar Generación</string>
+    <string name="framegen_select_dll">Seleccionar Lossless.dll</string>
+    <string name="framegen_multiplier">Multiplicador</string>
+    <string name="framegen_status_active">Activo ✓</string>
+    <string name="framegen_status_inactive">Inactivo</string>
+    <string name="framegen_fps_count">FPS Generado: %d</string>
     <string name="back_btn">← Volver</string>
     <string name="save_manager_title">Administrar Partidas</string>
     <string name="slot_prefix">Slot</string>

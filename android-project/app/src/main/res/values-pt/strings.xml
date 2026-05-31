@@ -52,6 +52,13 @@
     <string name="settings_category_display">Exibição</string>
     <string name="settings_category_controls">Controles</string>
     <string name="settings_category_hud">Gerenciamento HUD</string>
+    <string name="settings_category_framegen">Geração de Quadros</string>
+    <string name="framegen_enable">Ativar Geração</string>
+    <string name="framegen_select_dll">Selecionar Lossless.dll</string>
+    <string name="framegen_multiplier">Multiplicador</string>
+    <string name="framegen_status_active">Ativo ✓</string>
+    <string name="framegen_status_inactive">Inativo</string>
+    <string name="framegen_fps_count">FPS Gerado: %d</string>
     <string name="back_btn">← Voltar</string>
     <string name="save_manager_title">Gerenciar Saves</string>
     <string name="slot_prefix">Slot</string>

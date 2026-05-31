@@ -194,6 +194,13 @@ public class GamepadOverlayView extends View {
     private RectF mDisplayCategoryRect = new RectF();
     private RectF mControlsCategoryRect = new RectF();
     private RectF mHudMgmtCategoryRect = new RectF();
+    private RectF mFrameGenCategoryRect = new RectF();
+
+    // ── Frame generation subpage rects ─────────────────────────────────
+    private RectF mFrameGenToggleRect = new RectF();
+    private RectF mFrameGenDllBtnRect = new RectF();
+    private RectF mFrameGenStatusRect = new RectF();
+    private RectF mFrameGenFpsRect = new RectF();
 
     // ── Editor panel rects ────────────────────────────────────────────
     private RectF mEditorPanelRect = new RectF();
@@ -258,6 +265,7 @@ public class GamepadOverlayView extends View {
     private static final int SETTINGS_PAGE_DISPLAY  = 1;
     private static final int SETTINGS_PAGE_CONTROLS = 2;
     private static final int SETTINGS_PAGE_HUD_MGMT = 3;
+    private static final int SETTINGS_PAGE_FRAMEGEN = 4;
     private int mSettingsPage = SETTINGS_PAGE_MAIN;
 
 
@@ -278,8 +286,17 @@ public class GamepadOverlayView extends View {
     private boolean mDisplayCategoryPressed = false;
     private boolean mControlsCategoryPressed = false;
     private boolean mHudMgmtCategoryPressed = false;
+    private boolean mFrameGenCategoryPressed = false;
+    private boolean mFrameGenTogglePressed = false;
+    private boolean mFrameGenDllBtnPressed = false;
     public static final int REQUEST_CODE_EXPORT_JSON = 1001;
     public static final int REQUEST_CODE_IMPORT_JSON = 1002;
+
+    // ── LSFG Frame Generation state ───────────────────────────────────
+    private boolean mFrameGenEnabled = false;
+    private boolean mFrameGenInitialized = false;
+    private String mFrameGenDllPath = "";
+    private long mFrameGenCount = 0;
 
     // ── Swipe camera touch tracking ───────────────────────────────────
     private int mSwipePointerId = -1;
@@ -659,6 +676,20 @@ public class GamepadOverlayView extends View {
         float saveBtnT = panelT + panelH * 0.90f;
         mSaveMgrBtnRect.set(saveBtnL, saveBtnT, saveBtnL + saveBtnW, saveBtnT + saveBtnH);
 
+        // ── Frame Generation subpage controls ───────────────────────────
+        // Reuse existing row position for the toggle (similar to other toggles)
+        mFrameGenToggleRect.set(cardL, row1T, cardR, row1B);
+        // DLL selection button (like editor button but lower)
+        float fgDllBtnW = panelW * 0.70f;
+        float fgDllBtnH = panelH * 0.09f;
+        float fgDllBtnL = panelL + (panelW - fgDllBtnW) / 2f;
+        float fgDllBtnT = panelT + panelH * 0.66f;
+        mFrameGenDllBtnRect.set(fgDllBtnL, fgDllBtnT, fgDllBtnL + fgDllBtnW, fgDllBtnT + fgDllBtnH);
+        // Status text area
+        mFrameGenStatusRect.set(cardL, row2T, cardR, row2B);
+        // FPS count area
+        mFrameGenFpsRect.set(cardL, row3T, cardR, row3B);
+
         // ── Settings category buttons (main page) ────────────────────────
         float catBtnW = panelW * 0.80f;
         float catBtnH = panelH * 0.14f;
@@ -669,6 +700,7 @@ public class GamepadOverlayView extends View {
         mDisplayCategoryRect.set(catBtnL, catsStartY, catBtnL + catBtnW, catsStartY + catBtnH);
         mControlsCategoryRect.set(catBtnL, mDisplayCategoryRect.bottom + catBtnSpacing, catBtnL + catBtnW, mDisplayCategoryRect.bottom + catBtnSpacing + catBtnH);
         mHudMgmtCategoryRect.set(catBtnL, mControlsCategoryRect.bottom + catBtnSpacing, catBtnL + catBtnW, mControlsCategoryRect.bottom + catBtnSpacing + catBtnH);
+        mFrameGenCategoryRect.set(catBtnL, mHudMgmtCategoryRect.bottom + catBtnSpacing, catBtnL + catBtnW, mHudMgmtCategoryRect.bottom + catBtnSpacing + catBtnH);
 
         // ── Editor panel (bottom of screen, when editor mode is active) ──
         float editorPanelH = h * 0.30f;
@@ -1374,6 +1406,9 @@ public class GamepadOverlayView extends View {
             drawCategoryButton(canvas, mHudMgmtCategoryRect,
                 s(R.string.settings_category_hud), "Editor, Export/Import, Save Manager", "\u2699\uFE0F",
                 mHudMgmtCategoryPressed);
+            drawCategoryButton(canvas, mFrameGenCategoryRect,
+                s(R.string.settings_category_framegen), "Enable, DLL, Status", "\uD83C\uDFAC",
+                mFrameGenCategoryPressed);
         } else {
             // ── SUBPAGE: Show category content ──────────────────────────
             drawSubpageHeader(canvas, left, top, w, h);
@@ -1384,6 +1419,8 @@ public class GamepadOverlayView extends View {
                 drawControlsSubpage(canvas, left, top, w, h);
             } else if (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) {
                 drawHudMgmtSubpage(canvas, left, top, w, h);
+            } else if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
+                drawFrameGenSubpage(canvas, left, top, w, h);
             }
         }
     }
@@ -1468,6 +1505,49 @@ public class GamepadOverlayView extends View {
         drawActionButton(canvas, mExportBtnRect, s(R.string.export_hud), null, mExportBtnPressed);
         drawActionButton(canvas, mImportBtnRect, s(R.string.import_hud), null, mImportBtnPressed);
         drawActionButton(canvas, mSaveMgrBtnRect, s(R.string.save_manager_btn), "\uD83D\uDCBE", mSaveMgrBtnPressed);
+    }
+
+    // ── Frame Generation subpage ──────────────────────────────────────
+    private void drawFrameGenSubpage(Canvas canvas, float left, float top, float w, float h) {
+        // Enable/Disable toggle
+        drawToggleRow(canvas, mFrameGenToggleRect, w, h,
+            s(R.string.framegen_enable), mFrameGenEnabled, mFrameGenTogglePressed);
+
+        // Status card
+        Paint cardBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardBgPaint.setStyle(Paint.Style.FILL);
+        cardBgPaint.setColor(Color.argb(15, 255, 255, 255));
+        canvas.drawRoundRect(mFrameGenStatusRect, 16f, 16f, cardBgPaint);
+
+        Paint cardBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        cardBorderPaint.setStyle(Paint.Style.STROKE);
+        cardBorderPaint.setStrokeWidth(1.5f);
+        cardBorderPaint.setColor(Color.argb(25, 255, 255, 255));
+        canvas.drawRoundRect(mFrameGenStatusRect, 16f, 16f, cardBorderPaint);
+
+        boolean active = mFrameGenEnabled && mFrameGenInitialized;
+        mPanelLabelPaint.setColor(SETTINGS_TEXT_COLOR);
+        mPanelLabelPaint.setTextSize(h * 0.045f);
+        mPanelLabelPaint.setTextAlign(Paint.Align.LEFT);
+        mPanelLabelPaint.setFakeBoldText(false);
+        canvas.drawText(active ? s(R.string.framegen_status_active) : s(R.string.framegen_status_inactive),
+            mFrameGenStatusRect.left + w * 0.05f,
+            mFrameGenStatusRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+        // DLL selection button
+        drawActionButton(canvas, mFrameGenDllBtnRect,
+            mFrameGenDllPath.isEmpty() ? s(R.string.framegen_select_dll) : mFrameGenDllPath,
+            "\uD83D\uDCC1", mFrameGenDllBtnPressed);
+
+        // Generated FPS count
+        if (mFrameGenEnabled && mFrameGenInitialized) {
+            Paint fpsPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            fpsPaint.setColor(SETTINGS_ACCENT);
+            fpsPaint.setTextSize(h * 0.04f);
+            fpsPaint.setTextAlign(Paint.Align.CENTER);
+            canvas.drawText(String.format(s(R.string.framegen_fps_count), mFrameGenCount),
+                left + w / 2f, mFrameGenDllBtnRect.bottom + h * 0.05f, fpsPaint);
+        }
     }
 
     // ── Editor Panel ──────────────────────────────────────────────────
@@ -1805,6 +1885,11 @@ public class GamepadOverlayView extends View {
                     mHudMgmtCategoryPressed = true;
                     return;
                 }
+                if (mFrameGenCategoryRect.contains(x, y)) {
+                    mSettingsPointerId = pid;
+                    mFrameGenCategoryPressed = true;
+                    return;
+                }
             } else {
                 // Subpage: back button + close button + content
                 if (mSettingsBackRect.contains(x, y)) {
@@ -1868,6 +1953,18 @@ public class GamepadOverlayView extends View {
                     mSettingsPointerId = pid;
                     mSaveMgrBtnPressed = true;
                     return;
+                }
+                if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
+                    if (mFrameGenToggleRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mFrameGenTogglePressed = true;
+                        return;
+                    }
+                    if (mFrameGenDllBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mFrameGenDllBtnPressed = true;
+                        return;
+                    }
                 }
             }
             if (!mSettingsPanelRect.contains(x, y)) {
@@ -1965,6 +2062,10 @@ public class GamepadOverlayView extends View {
                     mSensDownPressed = mSensDownRect.contains(x, y);
                     mSensUpPressed = mSensUpRect.contains(x, y);
                 }
+                if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
+                    mFrameGenTogglePressed = mFrameGenToggleRect.contains(x, y);
+                    mFrameGenDllBtnPressed = mFrameGenDllBtnRect.contains(x, y);
+                }
             }
             return;
         }
@@ -2033,6 +2134,8 @@ public class GamepadOverlayView extends View {
                     mSettingsPage = SETTINGS_PAGE_CONTROLS;
                 } else if (mHudMgmtCategoryPressed) {
                     mSettingsPage = SETTINGS_PAGE_HUD_MGMT;
+                } else if (mFrameGenCategoryPressed) {
+                    mSettingsPage = SETTINGS_PAGE_FRAMEGEN;
                 }
             } else {
                 if (mSettingsBackPressed) {
@@ -2082,6 +2185,31 @@ public class GamepadOverlayView extends View {
                     if (ctx instanceof SimpsonsActivity) {
                         ((SimpsonsActivity) ctx).showSaveManager();
                     }
+                } else if (mFrameGenTogglePressed) {
+                    mFrameGenEnabled = !mFrameGenEnabled;
+                    if (mFrameGenEnabled && !mFrameGenInitialized && !mFrameGenDllPath.isEmpty()) {
+                        try {
+                            int result = LsfgBridge.nativeSetDllPath(mFrameGenDllPath, 
+                                getContext().getCacheDir().getAbsolutePath() + "/lsfg_shaders");
+                            if (result == 0) {
+                                mFrameGenInitialized = true;
+                            }
+                        } catch (Throwable t) {
+                            mFrameGenEnabled = false;
+                        }
+                    }
+                    if (mFrameGenEnabled) {
+                        try { LsfgBridge.nativeSetFrameGenEnabled(true); } catch (Throwable t) {}
+                    } else {
+                        try { LsfgBridge.nativeSetFrameGenEnabled(false); } catch (Throwable t) {}
+                    }
+                } else if (mFrameGenDllBtnPressed) {
+                    // Open file picker for DLL selection
+                    Context ctx = getContext();
+                    if (ctx instanceof SimpsonsActivity) {
+                        // For now, show a toast explaining what to do
+                        Toast.makeText(ctx, "Place Lossless.dll in game folder or use file manager to select it", Toast.LENGTH_LONG).show();
+                    }
                 }
             }
             mSettingsPointerId = -1;
@@ -2100,6 +2228,9 @@ public class GamepadOverlayView extends View {
             mDisplayCategoryPressed = false;
             mControlsCategoryPressed = false;
             mHudMgmtCategoryPressed = false;
+            mFrameGenCategoryPressed = false;
+            mFrameGenTogglePressed = false;
+            mFrameGenDllBtnPressed = false;
             return;
         }
 
@@ -2157,6 +2288,9 @@ public class GamepadOverlayView extends View {
         mDisplayCategoryPressed = false;
         mControlsCategoryPressed = false;
         mHudMgmtCategoryPressed = false;
+        mFrameGenCategoryPressed = false;
+        mFrameGenTogglePressed = false;
+        mFrameGenDllBtnPressed = false;
 
         mEditorSelectedIdx = -1;
         mEditorDragging = false;
