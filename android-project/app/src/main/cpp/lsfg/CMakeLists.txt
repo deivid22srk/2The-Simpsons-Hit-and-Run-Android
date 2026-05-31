@@ -53,4 +53,8 @@ target_link_libraries(lsfg-integration PRIVATE
     log
 )
 
+target_compile_definitions(lsfg-integration PRIVATE
+    VK_USE_PLATFORM_ANDROID_KHR
+)
+
 target_compile_features(lsfg-integration PUBLIC cxx_std_20)
