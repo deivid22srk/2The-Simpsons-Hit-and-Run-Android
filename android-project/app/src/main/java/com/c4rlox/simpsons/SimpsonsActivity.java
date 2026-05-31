@@ -520,7 +520,7 @@ public class SimpsonsActivity extends SDLActivity {
         };
         mDirList.setAdapter(mAdapter);
 
-        mDirList.setOnItemClickListener((parent, view, pos, id) -> {
+        mDirList.setOnItemClickListener((_parent, view, pos, id) -> {
             mErrorText.setVisibility(View.GONE);
             String name = mSubDirNames.get(pos);
             if (name.endsWith("..")) {
