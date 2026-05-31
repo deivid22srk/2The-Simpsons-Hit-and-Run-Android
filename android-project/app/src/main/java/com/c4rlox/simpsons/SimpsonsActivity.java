@@ -6,7 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.content.res.TypedArray;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -85,18 +85,10 @@ public class SimpsonsActivity extends SDLActivity {
     private void extractDynamicColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                int[] attrs = {
-                    android.R.attr.colorPrimary,
-                    android.R.attr.colorOnPrimary,
-                    android.R.attr.colorSurface,
-                    android.R.attr.colorOnSurface
-                };
-                TypedArray ta = getTheme().obtainStyledAttributes(attrs);
-                mDynamicPrimary = ta.getColor(0, mDynamicPrimary);
-                mDynamicOnPrimary = ta.getColor(1, mDynamicOnPrimary);
-                mDynamicSurface = ta.getColor(2, mDynamicSurface);
-                mDynamicOnSurface = ta.getColor(3, mDynamicOnSurface);
-                ta.recycle();
+                TypedValue tv = new TypedValue();
+                if (getTheme().resolveAttribute(android.R.attr.colorPrimary, tv, true)) {
+                    mDynamicPrimary = tv.data;
+                }
             } catch (Exception ignored) {}
         }
     }
@@ -314,7 +306,7 @@ public class SimpsonsActivity extends SDLActivity {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             android.graphics.drawable.RippleDrawable ripple = new android.graphics.drawable.RippleDrawable(
-                Color.argb(30, 0, 0, 0),
+                ColorStateList.valueOf(Color.argb(50, 255, 255, 255)),
                 bg,
                 null
             );
