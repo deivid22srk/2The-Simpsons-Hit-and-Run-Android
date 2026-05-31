@@ -1,5 +1,4 @@
-#include <volk.h>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #include "lsfg_3_1.hpp"
 #include "v3_1/context.hpp"
