@@ -82,6 +82,10 @@ public class SimpsonsActivity extends SDLActivity {
 
     public static native float nativeGetFPS();
 
+    public static native int nativeGetHudContext();
+
+    public static native boolean nativeIsTitleScreen();
+
     public static native void nativeSetRumbleEnabled(boolean enabled);
 
     public static native void nativeSetFPSCap(int fps);
