@@ -107,16 +107,16 @@ public class GamepadOverlayView extends View {
 
     // ── Default layouts para Virtual Gamepad (classic) e Native HUD ─────
     private static final Btn[] BTNS_CLASSIC = {
-        // ── D-Pad (left side, below left stick, vertically centered) ─────
-        new Btn("D-Pad: UP",    0.180f, 0.560f, 0.075f, 0.075f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.180f, 0.680f, 0.075f, 0.075f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.120f, 0.620f, 0.075f, 0.075f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.240f, 0.620f, 0.075f, 0.075f, 0),  // 3
+        // ── D-Pad (left side, below left stick, larger cross) ───────────
+        new Btn("D-Pad: UP",    0.180f, 0.545f, 0.085f, 0.085f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.180f, 0.695f, 0.085f, 0.085f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.110f, 0.620f, 0.085f, 0.085f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.250f, 0.620f, 0.085f, 0.085f, 0),  // 3
         // ── Face Buttons A/B/X/Y (right side, above right stick) ────────
-        new Btn("Face: A",      0.820f, 0.480f, 0.120f, 0.120f, 0),  // 4 - Green (bottom)
-        new Btn("Face: B",      0.920f, 0.380f, 0.120f, 0.120f, 0),  // 5 - Red (right)
-        new Btn("Face: X",      0.720f, 0.380f, 0.120f, 0.120f, 0),  // 6 - Blue (left)
-        new Btn("Face: Y",      0.820f, 0.280f, 0.120f, 0.120f, 0),  // 7 - Yellow (top)
+        new Btn("Face: A",      0.820f, 0.490f, 0.135f, 0.135f, 0),  // 4 - Green (bottom)
+        new Btn("Face: B",      0.930f, 0.380f, 0.135f, 0.135f, 0),  // 5 - Red (right)
+        new Btn("Face: X",      0.710f, 0.380f, 0.135f, 0.135f, 0),  // 6 - Blue (left)
+        new Btn("Face: Y",      0.820f, 0.270f, 0.135f, 0.135f, 0),  // 7 - Yellow (top)
         // ── Top buttons ─────────────────────────────────────────────────
         new Btn("START",        0.520f, 0.040f, 0.090f, 0.050f, 0),  // 8
         new Btn("SELECT",       0.430f, 0.040f, 0.090f, 0.050f, 0),  // 9
@@ -1137,10 +1137,9 @@ public class GamepadOverlayView extends View {
 
             if (!isBtnVisible(i)) continue;
 
-            // ── D-Pad: draw as cross of white lines ────────────────
+            // ── D-Pad: drawn as single cross piece by drawDPadCross() ─
             if (i >= 0 && i <= 3) {
-                drawDPadButton(canvas, b, i, mButtonPointerIds[i] != -1);
-                // Editor: highlight selected button
+                // Editor: highlight selected button's hit area
                 if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
                     mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
                     mEditorHighlightPaint.setStrokeWidth(3f);
@@ -1260,64 +1259,9 @@ public class GamepadOverlayView extends View {
         }
     }
 
-    // ── Draw D-Pad button as cross of lines ────────────────────────────
-    private void drawDPadButton(Canvas canvas, Btn b, int idx, boolean pressed) {
-        float cx = b.rect.centerX();
-        float cy = b.rect.centerY();
-        float size = Math.min(b.rect.width(), b.rect.height()) * 0.5f;
-        float strokeW = size * 0.35f;
-
-        Paint dpadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dpadPaint.setStyle(Paint.Style.FILL);
-        int alpha = pressed ? 180 : b.alpha;
-        dpadPaint.setColor(Color.argb(alpha, 255, 255, 255));
-
-        // Draw directional arrow for each D-pad button
-        switch (idx) {
-            case 0: // UP
-                canvas.drawRect(cx - strokeW * 0.5f, cy - size * 0.6f, cx + strokeW * 0.5f, cy + size * 0.1f, dpadPaint);
-                // Arrow triangle
-                android.graphics.Path path = new android.graphics.Path();
-                path.moveTo(cx, cy - size * 0.85f);
-                path.lineTo(cx - size * 0.5f, cy - size * 0.1f);
-                path.lineTo(cx + size * 0.5f, cy - size * 0.1f);
-                path.close();
-                canvas.drawPath(path, dpadPaint);
-                break;
-            case 1: // DOWN
-                canvas.drawRect(cx - strokeW * 0.5f, cy - size * 0.1f, cx + strokeW * 0.5f, cy + size * 0.6f, dpadPaint);
-                android.graphics.Path pathD = new android.graphics.Path();
-                pathD.moveTo(cx, cy + size * 0.85f);
-                pathD.lineTo(cx - size * 0.5f, cy + size * 0.1f);
-                pathD.lineTo(cx + size * 0.5f, cy + size * 0.1f);
-                pathD.close();
-                canvas.drawPath(pathD, dpadPaint);
-                break;
-            case 2: // LEFT
-                canvas.drawRect(cx - size * 0.6f, cy - strokeW * 0.5f, cx + size * 0.1f, cy + strokeW * 0.5f, dpadPaint);
-                android.graphics.Path pathL = new android.graphics.Path();
-                pathL.moveTo(cx - size * 0.85f, cy);
-                pathL.lineTo(cx - size * 0.1f, cy - size * 0.5f);
-                pathL.lineTo(cx - size * 0.1f, cy + size * 0.5f);
-                pathL.close();
-                canvas.drawPath(pathL, dpadPaint);
-                break;
-            case 3: // RIGHT
-                canvas.drawRect(cx - size * 0.1f, cy - strokeW * 0.5f, cx + size * 0.6f, cy + strokeW * 0.5f, dpadPaint);
-                android.graphics.Path pathR = new android.graphics.Path();
-                pathR.moveTo(cx + size * 0.85f, cy);
-                pathR.lineTo(cx + size * 0.1f, cy - size * 0.5f);
-                pathR.lineTo(cx + size * 0.1f, cy + size * 0.5f);
-                pathR.close();
-                canvas.drawPath(pathR, dpadPaint);
-                break;
-        }
-    }
-
-    // ── Draw D-Pad cross background ─────────────────────────────────────
+    // ── Draw D-Pad as single classic cross piece ────────────────────────
     private void drawDPadCross(Canvas canvas) {
         if (BTNS[0] == null) return;
-        float cxUp = BTNS[0].rect.centerX();
         float cyUp = BTNS[0].rect.centerY();
         float cyDn = BTNS[1].rect.centerY();
         float cxLf = BTNS[2].rect.centerX();
@@ -1326,20 +1270,86 @@ public class GamepadOverlayView extends View {
         float centerX = (cxLf + cxRt) * 0.5f;
         float centerY = (cyUp + cyDn) * 0.5f;
 
-        float size = Math.min(BTNS[0].rect.width(), BTNS[0].rect.height()) * 0.45f;
-        float strokeW = size * 0.28f;
-        float gap = size * 0.15f;
+        float armH = (cyDn - cyUp) * 0.45f;
+        float armW = (cxRt - cxLf) * 0.45f;
+        float thick = Math.min(BTNS[0].rect.width(), BTNS[0].rect.height()) * 0.32f;
+        float halfT = thick * 0.5f;
+        float cornerR = thick * 0.35f;
 
-        Paint crossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        crossPaint.setStyle(Paint.Style.FILL);
-        crossPaint.setColor(Color.argb(50, 255, 255, 255));
+        // Pressed states
+        boolean upP = mButtonPointerIds[0] != -1;
+        boolean dnP = mButtonPointerIds[1] != -1;
+        boolean lfP = mButtonPointerIds[2] != -1;
+        boolean rtP = mButtonPointerIds[3] != -1;
 
-        // Vertical bar
-        canvas.drawRect(centerX - strokeW * 0.5f, cyUp + gap, centerX + strokeW * 0.5f, cyDn - gap, crossPaint);
-        // Horizontal bar
-        canvas.drawRect(cxLf + gap, centerY - strokeW * 0.5f, cxRt - gap, centerY + strokeW * 0.5f, crossPaint);
-        // Center circle
-        canvas.drawCircle(centerX, centerY, strokeW * 0.7f, crossPaint);
+        Paint fillP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fillP.setStyle(Paint.Style.FILL);
+
+        // ── Draw pressed arm highlights ──────────────────────────────
+        if (upP) {
+            fillP.setColor(Color.argb(160, 255, 255, 255));
+            canvas.drawRoundRect(centerX - halfT, centerY - armH, centerX + halfT, centerY + halfT, cornerR, cornerR, fillP);
+        }
+        if (dnP) {
+            fillP.setColor(Color.argb(160, 255, 255, 255));
+            canvas.drawRoundRect(centerX - halfT, centerY - halfT, centerX + halfT, centerY + armH, cornerR, cornerR, fillP);
+        }
+        if (lfP) {
+            fillP.setColor(Color.argb(160, 255, 255, 255));
+            canvas.drawRoundRect(centerX - armW, centerY - halfT, centerX + halfT, centerY + halfT, cornerR, cornerR, fillP);
+        }
+        if (rtP) {
+            fillP.setColor(Color.argb(160, 255, 255, 255));
+            canvas.drawRoundRect(centerX - halfT, centerY - halfT, centerX + armW, centerY + halfT, cornerR, cornerR, fillP);
+        }
+
+        // ── Draw full cross outline (arms + center) ──────────────────
+        Paint strokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        strokeP.setStyle(Paint.Style.STROKE);
+        strokeP.setStrokeWidth(2.5f);
+        strokeP.setColor(Color.argb(180, 255, 255, 255));
+
+        // Vertical arm
+        canvas.drawRoundRect(centerX - halfT, centerY - armH, centerX + halfT, centerY + armH, cornerR, cornerR, strokeP);
+        // Horizontal arm
+        canvas.drawRoundRect(centerX - armW, centerY - halfT, centerX + armW, centerY + halfT, cornerR, cornerR, strokeP);
+
+        // ── Center circle ────────────────────────────────────────────
+        boolean anyPressed = upP || dnP || lfP || rtP;
+        Paint centerP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        centerP.setStyle(Paint.Style.FILL);
+        centerP.setColor(Color.argb(anyPressed ? 140 : 60, 255, 255, 255));
+        canvas.drawCircle(centerX, centerY, thick * 0.4f, centerP);
+
+        // Center outline
+        strokeP.setStrokeWidth(1.5f);
+        strokeP.setColor(Color.argb(120, 255, 255, 255));
+        canvas.drawCircle(centerX, centerY, thick * 0.4f, strokeP);
+
+        // ── Small direction chevrons inside quadrants ────────────────
+        float chevSize = thick * 0.25f;
+        Paint chevP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        chevP.setColor(Color.argb(180, 255, 255, 255));
+        chevP.setStrokeWidth(2f);
+        chevP.setStyle(Paint.Style.STROKE);
+
+        float upChevY = centerY - armH * 0.55f;
+        float dnChevY = centerY + armH * 0.55f;
+        float lfChevX = centerX - armW * 0.55f;
+        float rtChevX = centerX + armW * 0.55f;
+
+        // Up chevron (^)
+        canvas.drawLine(centerX - chevSize, upChevY + chevSize, centerX, upChevY - chevSize, chevP);
+        canvas.drawLine(centerX + chevSize, upChevY + chevSize, centerX, upChevY - chevSize, chevP);
+        // Down chevron
+        canvas.drawLine(centerX - chevSize, dnChevY - chevSize, centerX, dnChevY + chevSize, chevP);
+        canvas.drawLine(centerX + chevSize, dnChevY - chevSize, centerX, dnChevY + chevSize, chevP);
+        // Left chevron
+        canvas.drawLine(lfChevX + chevSize, centerY - chevSize, lfChevX - chevSize, centerY, chevP);
+        canvas.drawLine(lfChevX + chevSize, centerY + chevSize, lfChevX - chevSize, centerY, chevP);
+        // Right chevron
+        canvas.drawLine(rtChevX - chevSize, centerY - chevSize, rtChevX + chevSize, centerY, chevP);
+        canvas.drawLine(rtChevX - chevSize, centerY + chevSize, rtChevX + chevSize, centerY, chevP);
     }
 
     // ── Draw face button (A/B/X/Y) as colored circle with text ──────────
