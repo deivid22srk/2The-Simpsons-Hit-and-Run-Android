@@ -637,6 +637,40 @@ public class GamepadOverlayView extends View {
         for (int i = 0; i < BTNS.length; i++) {
             recalcBtnRect(i, w, h);
         }
+
+        // Enforce D-Pad symmetry (indices 0..3)
+        if (BTNS.length >= 4 && BTNS[0] != null && BTNS[1] != null && BTNS[2] != null && BTNS[3] != null) {
+            boolean isCar = mNativeHudEnabled && (mEditorMode ? (mEditorHudContext == 2) : (mCachedHudContext == 2));
+            float upNy = isCar ? BTNS[0].carNy : BTNS[0].ny;
+            float dnNy = isCar ? BTNS[1].carNy : BTNS[1].ny;
+            float lfNx = isCar ? BTNS[2].carNx : BTNS[2].nx;
+            float rtNx = isCar ? BTNS[3].carNx : BTNS[3].nx;
+
+            float centerX = ((lfNx + rtNx) * 0.5f) * w;
+            float centerY = ((upNy + dnNy) * 0.5f) * h;
+            
+            // Symmetrical radius in pixels based on the vertical distance
+            float radiusPx = ((dnNy - upNy) * 0.5f) * h;
+            float minDim = Math.min(w, h);
+
+            // Re-align each D-Pad button around the symmetrical center in pixels
+            for (int i = 0; i < 4; i++) {
+                Btn b = BTNS[i];
+                float scx = centerX;
+                float scy = centerY;
+                if (i == 0) scy = centerY - radiusPx; // UP
+                else if (i == 1) scy = centerY + radiusPx; // DOWN
+                else if (i == 2) scx = centerX - radiusPx; // LEFT
+                else if (i == 3) scx = centerX + radiusPx; // RIGHT
+
+                float nw = isCar ? b.carNw : b.nw;
+                float nh = isCar ? b.carNh : b.nh;
+                float halfW = (nw * minDim) / 2f;
+                float halfH = (nh * minDim) / 2f;
+                b.rect.set(scx - halfW, scy - halfH, scx + halfW, scy + halfH);
+            }
+        }
+
         float minDim = Math.min(w, h);
         for (Stk s : STKS) {
             s.cx = s.ncx * w;
@@ -1313,11 +1347,22 @@ public class GamepadOverlayView extends View {
         float centerX = (cxLf + cxRt) * 0.5f;
         float centerY = (cyUp + cyDn) * 0.5f;
 
-        float armH = (cyDn - cyUp) * 0.45f;
-        float armW = (cxRt - cxLf) * 0.45f;
-        float thick = Math.min(BTNS[0].rect.width(), BTNS[0].rect.height()) * 0.32f;
-        float halfT = thick * 0.5f;
-        float cornerR = thick * 0.35f;
+        // Obtain dynamic button size (width and height are equal)
+        float btnW = BTNS[0].rect.width();
+        float halfW = btnW * 0.5f;
+
+        // Calculate actual distance from center to button centers (radiusPx)
+        float radiusPx = Math.abs(cyUp - centerY);
+
+        // Arm length from center (extends slightly past the button centers for a fuller look)
+        float arm = radiusPx + halfW * 0.45f;
+
+        // Arm thickness (half thickness)
+        // Set it to 82% of button's half-width for a modern chunky cross shape
+        float halfT = halfW * 0.82f;
+
+        // Corner radius for rounding (e.g. 70% of halfT to match the Xbox/Forza design nicely)
+        float cornerR = halfT * 0.7f;
 
         // Pressed states
         boolean upP = mButtonPointerIds[0] != -1;
@@ -1325,10 +1370,10 @@ public class GamepadOverlayView extends View {
         boolean lfP = mButtonPointerIds[2] != -1;
         boolean rtP = mButtonPointerIds[3] != -1;
 
-        float L = centerX - armW;
-        float R = centerX + armW;
-        float T = centerY - armH;
-        float B = centerY + armH;
+        float L = centerX - arm;
+        float R = centerX + arm;
+        float T = centerY - arm;
+        float B = centerY + arm;
         float x1 = centerX - halfT;
         float x2 = centerX + halfT;
         float y1 = centerY - halfT;
@@ -1351,71 +1396,56 @@ public class GamepadOverlayView extends View {
 
         CornerPathEffect cornerEffect = new CornerPathEffect(cornerR);
 
-        // 1. Draw base fill (subtle translucent white/glassmorphism effect)
         Paint fillP = new Paint(Paint.ANTI_ALIAS_FLAG);
         fillP.setStyle(Paint.Style.FILL);
-        fillP.setColor(Color.argb(20, 255, 255, 255));
+        fillP.setColor(Color.argb(45, 255, 255, 255));
         fillP.setPathEffect(cornerEffect);
-        canvas.drawPath(path, fillP);
 
-        // 2. Draw pressed highlights
-        Paint pressP = new Paint(Paint.ANTI_ALIAS_FLAG);
-        pressP.setStyle(Paint.Style.FILL);
-        pressP.setColor(Color.argb(140, 255, 255, 255));
-        pressP.setPathEffect(cornerEffect);
+        // Get the rounded path to clip correctly and avoid double-rounding
+        Path roundedPath = new Path();
+        fillP.getFillPath(path, roundedPath);
 
+        // 1. Draw base fill (premium translucent white glassmorphism effect)
+        Paint fillNoEffect = new Paint(Paint.ANTI_ALIAS_FLAG);
+        fillNoEffect.setStyle(Paint.Style.FILL);
+        fillNoEffect.setColor(Color.argb(45, 255, 255, 255));
+        canvas.drawPath(roundedPath, fillNoEffect);
+
+        // 2. Draw pressed highlights (with a smooth semi-transparent white highlight)
+        Paint pressNoEffect = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pressNoEffect.setStyle(Paint.Style.FILL);
+        pressNoEffect.setColor(Color.argb(160, 255, 255, 255));
+
+        canvas.save();
+        canvas.clipPath(roundedPath);
+        // Draw slightly wider/longer rectangles to ensure full coverage when clipped
         if (upP) {
-            Path upPath = new Path();
-            upPath.moveTo(x1, centerY);
-            upPath.lineTo(x1, T);
-            upPath.lineTo(x2, T);
-            upPath.lineTo(x2, centerY);
-            upPath.close();
-            canvas.drawPath(upPath, pressP);
+            canvas.drawRect(x1 - 20, T - 20, x2 + 20, centerY, pressNoEffect);
         }
         if (dnP) {
-            Path dnPath = new Path();
-            dnPath.moveTo(x1, centerY);
-            dnPath.lineTo(x2, centerY);
-            dnPath.lineTo(x2, B);
-            dnPath.lineTo(x1, B);
-            dnPath.close();
-            canvas.drawPath(dnPath, pressP);
+            canvas.drawRect(x1 - 20, centerY, x2 + 20, B + 20, pressNoEffect);
         }
         if (lfP) {
-            Path lfPath = new Path();
-            lfPath.moveTo(centerX, y1);
-            lfPath.lineTo(L, y1);
-            lfPath.lineTo(L, y2);
-            lfPath.lineTo(centerX, y2);
-            lfPath.close();
-            canvas.drawPath(lfPath, pressP);
+            canvas.drawRect(L - 20, y1 - 20, centerX, y2 + 20, pressNoEffect);
         }
         if (rtP) {
-            Path rtPath = new Path();
-            rtPath.moveTo(centerX, y1);
-            rtPath.lineTo(centerX, y2);
-            rtPath.lineTo(R, y2);
-            rtPath.lineTo(R, y1);
-            rtPath.close();
-            canvas.drawPath(rtPath, pressP);
+            canvas.drawRect(centerX, y1 - 20, R + 20, y2 + 20, pressNoEffect);
         }
+        canvas.restore();
 
-        // 3. Draw black outline/shadow first to make white outline pop on light backgrounds
-        Paint shadowP = new Paint(Paint.ANTI_ALIAS_FLAG);
-        shadowP.setStyle(Paint.Style.STROKE);
-        shadowP.setStrokeWidth(4.5f);
-        shadowP.setColor(Color.argb(100, 0, 0, 0));
-        shadowP.setPathEffect(cornerEffect);
-        canvas.drawPath(path, shadowP);
+        // 3. Draw black shadow outline to make the white border pop
+        Paint shadowNoEffect = new Paint(Paint.ANTI_ALIAS_FLAG);
+        shadowNoEffect.setStyle(Paint.Style.STROKE);
+        shadowNoEffect.setStrokeWidth(8.5f);
+        shadowNoEffect.setColor(Color.argb(130, 0, 0, 0));
+        canvas.drawPath(roundedPath, shadowNoEffect);
 
         // 4. Draw white outline
-        Paint strokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
-        strokeP.setStyle(Paint.Style.STROKE);
-        strokeP.setStrokeWidth(3.0f);
-        strokeP.setColor(Color.argb(220, 255, 255, 255));
-        strokeP.setPathEffect(cornerEffect);
-        canvas.drawPath(path, strokeP);
+        Paint strokeNoEffect = new Paint(Paint.ANTI_ALIAS_FLAG);
+        strokeNoEffect.setStyle(Paint.Style.STROKE);
+        strokeNoEffect.setStrokeWidth(5.0f);
+        strokeNoEffect.setColor(Color.argb(235, 255, 255, 255));
+        canvas.drawPath(roundedPath, strokeNoEffect);
     }
 
     // ── Draw face button (A/B/X/Y) as colored circle with text ──────────
@@ -2861,14 +2891,34 @@ public class GamepadOverlayView extends View {
             } else {
                 Btn b = BTNS[mEditorSelectedIdx];
                 boolean isCar = mNativeHudEnabled && (mEditorHudContext == 2) && (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7);
-                if (isCar) {
-                    b.carNx = Math.max(0.02f, Math.min(0.98f, newNX));
-                    b.carNy = Math.max(0.02f, Math.min(0.98f, newNY));
+                if (mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
+                    // It's a D-Pad button: drag the whole D-pad group
+                    float oldNX = isCar ? b.carNx : b.nx;
+                    float oldNY = isCar ? b.carNy : b.ny;
+                    float deltaNX = Math.max(0.02f, Math.min(0.98f, newNX)) - oldNX;
+                    float deltaNY = Math.max(0.02f, Math.min(0.98f, newNY)) - oldNY;
+                    
+                    for (int i = 0; i < 4; i++) {
+                        Btn db = BTNS[i];
+                        if (isCar) {
+                            db.carNx = Math.max(0.02f, Math.min(0.98f, db.carNx + deltaNX));
+                            db.carNy = Math.max(0.02f, Math.min(0.98f, db.carNy + deltaNY));
+                        } else {
+                            db.nx = Math.max(0.02f, Math.min(0.98f, db.nx + deltaNX));
+                            db.ny = Math.max(0.02f, Math.min(0.98f, db.ny + deltaNY));
+                        }
+                    }
+                    recalcAllRects(w, h);
                 } else {
-                    b.nx = Math.max(0.02f, Math.min(0.98f, newNX));
-                    b.ny = Math.max(0.02f, Math.min(0.98f, newNY));
+                    if (isCar) {
+                        b.carNx = Math.max(0.02f, Math.min(0.98f, newNX));
+                        b.carNy = Math.max(0.02f, Math.min(0.98f, newNY));
+                    } else {
+                        b.nx = Math.max(0.02f, Math.min(0.98f, newNX));
+                        b.ny = Math.max(0.02f, Math.min(0.98f, newNY));
+                    }
+                    recalcBtnRect(mEditorSelectedIdx, w, h);
                 }
-                recalcBtnRect(mEditorSelectedIdx, w, h);
             }
             return;
         }
@@ -2941,20 +2991,39 @@ public class GamepadOverlayView extends View {
             s.nr = newNr;
             s.r = s.nr * minDim;
         } else {
-            Btn b = BTNS[mEditorSelectedIdx];
             boolean isCar = mNativeHudEnabled && (mEditorHudContext == 2) && (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7);
-            if (isCar) {
-                float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNw + delta));
-                float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNh + delta));
-                b.carNw = newNw;
-                b.carNh = newNh;
+            if (mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
+                // Adjust size for all D-Pad buttons
+                for (int i = 0; i < 4; i++) {
+                    Btn db = BTNS[i];
+                    if (isCar) {
+                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.carNw + delta));
+                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.carNh + delta));
+                        db.carNw = newNw;
+                        db.carNh = newNh;
+                    } else {
+                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nw + delta));
+                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nh + delta));
+                        db.nw = newNw;
+                        db.nh = newNh;
+                    }
+                }
+                recalcAllRects(w, h);
             } else {
-                float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nw + delta));
-                float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nh + delta));
-                b.nw = newNw;
-                b.nh = newNh;
+                Btn b = BTNS[mEditorSelectedIdx];
+                if (isCar) {
+                    float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNw + delta));
+                    float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.carNh + delta));
+                    b.carNw = newNw;
+                    b.carNh = newNh;
+                } else {
+                    float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nw + delta));
+                    float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, b.nh + delta));
+                    b.nw = newNw;
+                    b.nh = newNh;
+                }
+                recalcBtnRect(mEditorSelectedIdx, w, h);
             }
-            recalcBtnRect(mEditorSelectedIdx, w, h);
         }
         Log.i(TAG, "Editor: size adjusted by " + delta);
     }
@@ -2968,8 +3037,15 @@ public class GamepadOverlayView extends View {
             s.baseAlpha = newBase;
             s.knobAlpha = newKnob;
         } else {
-            Btn b = BTNS[mEditorSelectedIdx];
-            b.alpha = Math.max(EDITOR_ALPHA_MIN, Math.min(EDITOR_ALPHA_MAX, b.alpha + delta));
+            if (mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
+                // Adjust alpha for all D-Pad buttons
+                for (int i = 0; i < 4; i++) {
+                    BTNS[i].alpha = Math.max(EDITOR_ALPHA_MIN, Math.min(EDITOR_ALPHA_MAX, BTNS[i].alpha + delta));
+                }
+            } else {
+                Btn b = BTNS[mEditorSelectedIdx];
+                b.alpha = Math.max(EDITOR_ALPHA_MIN, Math.min(EDITOR_ALPHA_MAX, b.alpha + delta));
+            }
         }
         Log.i(TAG, "Editor: alpha adjusted by " + delta);
     }
