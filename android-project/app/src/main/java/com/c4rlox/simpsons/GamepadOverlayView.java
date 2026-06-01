@@ -1086,31 +1086,60 @@ public class GamepadOverlayView extends View {
             }
             Stk s = STKS[i];
 
-            // Apply the custom alpha to the stick base and knob
+            // Base and knob alphas from settings
             int baseAlpha = s.baseAlpha;
             int knobAlpha = s.knobAlpha;
 
-            mPStkBase.setColor(Color.argb(baseAlpha, 255, 255, 255));
-            mPStkKnob.setColor(Color.argb(knobAlpha, 255, 255, 255));
+            // 1. Draw outer base circle (white outline with shadow)
+            Paint basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            basePaint.setStyle(Paint.Style.STROKE);
+            basePaint.setStrokeWidth(2.5f);
+            
+            // Draw a subtle black backing first for visibility
+            basePaint.setColor(Color.argb(baseAlpha * 100 / 255, 0, 0, 0));
+            basePaint.setStrokeWidth(4.0f);
+            canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
 
-            canvas.drawCircle(s.cx, s.cy, s.r, mPStkBase);
+            // Draw white base circle
+            basePaint.setColor(Color.argb(baseAlpha, 255, 255, 255));
+            basePaint.setStrokeWidth(2.5f);
+            canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
+
+            // Calculate knob position
             float kx = mStickKnobX[i];
             float ky = mStickKnobY[i];
-            canvas.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
+            float knobR = s.r * 0.42f;
 
-            // Stick label (L/R) in classic mode
-            if (!mNativeHudEnabled) {
-                Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                lblPaint.setColor(Color.argb(120, 255, 255, 255));
-                lblPaint.setTextSize(s.r * 0.5f);
-                lblPaint.setTextAlign(Paint.Align.CENTER);
-                lblPaint.setFakeBoldText(true);
-                canvas.drawText(i == 0 ? "L" : "R", s.cx, s.cy + s.r * 0.18f, lblPaint);
-            }
+            // 2. Draw knob fill (subtle glassmorphism/semi-transparent background)
+            Paint knobFillP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            knobFillP.setStyle(Paint.Style.FILL);
+            knobFillP.setColor(Color.argb(knobAlpha * 50 / 255, 255, 255, 255)); // slight white fill
+            canvas.drawCircle(kx, ky, knobR, knobFillP);
 
-            // Restore defaults
-            mPStkBase.setColor(Color.argb(STK_BASE_ALPHA_DEF, 255, 255, 255));
-            mPStkKnob.setColor(Color.argb(STK_KNOB_ALPHA_DEF, 255, 255, 255));
+            // Draw a subtle dark shadow for the knob for contrast
+            Paint knobShadowP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            knobShadowP.setStyle(Paint.Style.STROKE);
+            knobShadowP.setStrokeWidth(4.0f);
+            knobShadowP.setColor(Color.argb(knobAlpha * 80 / 255, 0, 0, 0));
+            canvas.drawCircle(kx, ky, knobR, knobShadowP);
+
+            // Draw knob white outline
+            Paint knobStrokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
+            knobStrokeP.setStyle(Paint.Style.STROKE);
+            knobStrokeP.setStrokeWidth(2.5f);
+            knobStrokeP.setColor(Color.argb(knobAlpha, 255, 255, 255));
+            canvas.drawCircle(kx, ky, knobR, knobStrokeP);
+
+            // 3. Draw "L" or "R" label inside the moving knob
+            Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            lblPaint.setColor(Color.argb(knobAlpha, 255, 255, 255));
+            lblPaint.setTextSize(knobR * 0.9f);
+            lblPaint.setTextAlign(Paint.Align.CENTER);
+            lblPaint.setFakeBoldText(true);
+            
+            // Vertically center the text
+            float textOffset = (lblPaint.ascent() + lblPaint.descent()) / 2f;
+            canvas.drawText(i == 0 ? "L" : "R", kx, ky - textOffset, lblPaint);
 
             // Editor: highlight selected stick
             if (mEditorMode && mEditorSelectedIsStick && mEditorSelectedIdx == i) {
