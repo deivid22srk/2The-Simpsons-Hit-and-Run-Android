@@ -672,6 +672,38 @@ public class GamepadOverlayView extends View {
             }
         }
 
+        // Enforce Face Button symmetry for BTNS_CLASSIC (indices 4..7)
+        if (BTNS == BTNS_CLASSIC && BTNS.length >= 8 && BTNS[4] != null && BTNS[5] != null && BTNS[6] != null && BTNS[7] != null) {
+            float upNy = BTNS[7].ny; // Y (top)
+            float dnNy = BTNS[4].ny; // A (bottom)
+            float lfNx = BTNS[6].nx; // X (left)
+            float rtNx = BTNS[5].nx; // B (right)
+
+            float centerX = ((lfNx + rtNx) * 0.5f) * w;
+            float centerY = ((upNy + dnNy) * 0.5f) * h;
+            
+            // Symmetrical radius in pixels based on the vertical distance
+            float radiusPx = ((dnNy - upNy) * 0.5f) * h;
+            float minDim = Math.min(w, h);
+
+            // Re-align each Face button around the symmetrical center in pixels
+            for (int i = 4; i <= 7; i++) {
+                Btn b = BTNS[i];
+                float scx = centerX;
+                float scy = centerY;
+                if (i == 7) scy = centerY - radiusPx; // Y
+                else if (i == 4) scy = centerY + radiusPx; // A
+                else if (i == 6) scx = centerX - radiusPx; // X
+                else if (i == 5) scx = centerX + radiusPx; // B
+
+                float nw = b.nw;
+                float nh = b.nh;
+                float halfW = (nw * minDim) / 2f;
+                float halfH = (nh * minDim) / 2f;
+                b.rect.set(scx - halfW, scy - halfH, scx + halfW, scy + halfH);
+            }
+        }
+
         float minDim = Math.min(w, h);
         for (Stk s : STKS) {
             s.cx = s.ncx * w;
@@ -1231,7 +1263,25 @@ public class GamepadOverlayView extends View {
             if (i >= 4 && i <= 7) {
                 drawFaceButton(canvas, b, i, mButtonPointerIds[i] != -1);
                 // Editor: highlight selected button
-                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7 && BTNS == BTNS_CLASSIC) {
+                    if (i == 4) { // Only draw group outline once
+                        float cyUp = BTNS[7].rect.centerY();
+                        float cyDn = BTNS[4].rect.centerY();
+                        float cxLf = BTNS[6].rect.centerX();
+                        float cxRt = BTNS[5].rect.centerX();
+                        float centerX = (cxLf + cxRt) * 0.5f;
+                        float centerY = (cyUp + cyDn) * 0.5f;
+                        float btnW = BTNS[4].rect.width();
+                        float halfW = btnW * 0.5f;
+                        float radiusPx = Math.abs(cyUp - centerY);
+                        float arm = radiusPx + halfW;
+                        
+                        mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                        mEditorHighlightPaint.setStrokeWidth(3f);
+                        mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                        canvas.drawRoundRect(new RectF(centerX - arm, centerY - arm, centerX + arm, centerY + arm), 8f, 8f, mEditorHighlightPaint);
+                    }
+                } else if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
                     mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
                     mEditorHighlightPaint.setStrokeWidth(3f);
                     mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
@@ -2911,8 +2961,41 @@ public class GamepadOverlayView extends View {
             }
         }
 
+        // Face buttons group selection (if classic layout)
+        if (BTNS == BTNS_CLASSIC && BTNS.length >= 8 && BTNS[4] != null && BTNS[5] != null && BTNS[6] != null && BTNS[7] != null) {
+            float cyUp = BTNS[7].rect.centerY();
+            float cyDn = BTNS[4].rect.centerY();
+            float cxLf = BTNS[6].rect.centerX();
+            float cxRt = BTNS[5].rect.centerX();
+            float centerX = (cxLf + cxRt) * 0.5f;
+            float centerY = (cyUp + cyDn) * 0.5f;
+            float btnW = BTNS[4].rect.width();
+            float halfW = btnW * 0.5f;
+            float radiusPx = Math.abs(cyUp - centerY);
+            float arm = radiusPx + halfW;
+            RectF faceRect = new RectF(centerX - arm, centerY - arm, centerX + arm, centerY + arm);
+
+            if (faceRect.contains(x, y)) {
+                if (!mEditorSelectedIsStick && mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7) {
+                    // Already selected — start dragging
+                    mEditorPointerId = pid;
+                    mEditorDragging = true;
+                    mEditorDragOffX = x - BTNS[4].rect.centerX();
+                    mEditorDragOffY = y - BTNS[4].rect.centerY();
+                } else {
+                    // Select Face buttons group (represented by index 4)
+                    mEditorSelectedIdx = 4;
+                    mEditorSelectedIsStick = false;
+                    mEditorPointerId = pid;
+                }
+                Log.i(TAG, "Editor: selected Face buttons via group rect");
+                return;
+            }
+        }
+
         for (int i = 0; i < BTNS.length; i++) {
             if (i >= 0 && i <= 3) continue; // D-pad handled above as group
+            if (BTNS == BTNS_CLASSIC && i >= 4 && i <= 7) continue; // Face buttons handled above as group
             if (BTNS[i].rect.contains(x, y)) {
                 if (i == BTN_IDX_SETTINGS) {
                     // Gear icon toggles editor mode off
@@ -2987,6 +3070,19 @@ public class GamepadOverlayView extends View {
                             db.nx = Math.max(0.02f, Math.min(0.98f, db.nx + deltaNX));
                             db.ny = Math.max(0.02f, Math.min(0.98f, db.ny + deltaNY));
                         }
+                    }
+                    recalcAllRects(w, h);
+                } else if (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7 && BTNS == BTNS_CLASSIC) {
+                    // Drag the whole Face button group
+                    float oldNX = b.nx;
+                    float oldNY = b.ny;
+                    float deltaNX = Math.max(0.02f, Math.min(0.98f, newNX)) - oldNX;
+                    float deltaNY = Math.max(0.02f, Math.min(0.98f, newNY)) - oldNY;
+                    
+                    for (int i = 4; i <= 7; i++) {
+                        Btn db = BTNS[i];
+                        db.nx = Math.max(0.02f, Math.min(0.98f, db.nx + deltaNX));
+                        db.ny = Math.max(0.02f, Math.min(0.98f, db.ny + deltaNY));
                     }
                     recalcAllRects(w, h);
                 } else {
@@ -3089,6 +3185,16 @@ public class GamepadOverlayView extends View {
                     }
                 }
                 recalcAllRects(w, h);
+            } else if (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7 && BTNS == BTNS_CLASSIC) {
+                // Adjust size for all Face buttons
+                for (int i = 4; i <= 7; i++) {
+                    Btn db = BTNS[i];
+                    float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nw + delta));
+                    float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nh + delta));
+                    db.nw = newNw;
+                    db.nh = newNh;
+                }
+                recalcAllRects(w, h);
             } else {
                 Btn b = BTNS[mEditorSelectedIdx];
                 if (isCar) {
@@ -3120,6 +3226,11 @@ public class GamepadOverlayView extends View {
             if (mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
                 // Adjust alpha for all D-Pad buttons
                 for (int i = 0; i < 4; i++) {
+                    BTNS[i].alpha = Math.max(EDITOR_ALPHA_MIN, Math.min(EDITOR_ALPHA_MAX, BTNS[i].alpha + delta));
+                }
+            } else if (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7 && BTNS == BTNS_CLASSIC) {
+                // Adjust alpha for all Face buttons
+                for (int i = 4; i <= 7; i++) {
                     BTNS[i].alpha = Math.max(EDITOR_ALPHA_MIN, Math.min(EDITOR_ALPHA_MAX, BTNS[i].alpha + delta));
                 }
             } else {
