@@ -49,6 +49,12 @@ public class GamepadOverlayView extends View {
     private static final int STK_BASE_ALPHA_DEF = 120;
     private static final int STK_KNOB_ALPHA_DEF = 140;
 
+    // ── Action button colors ────────────────────────────────────────────
+    private static final int COLOR_A = Color.rgb(0, 200, 80);     // Green
+    private static final int COLOR_B = Color.rgb(220, 50, 50);    // Red
+    private static final int COLOR_X = Color.rgb(50, 120, 220);   // Blue
+    private static final int COLOR_Y = Color.rgb(220, 200, 0);    // Yellow
+
     // ── Settings UI constants ─────────────────────────────────────────
     private static final int SETTINGS_PANEL_ALPHA = 200;
     private static final int SETTINGS_TEXT_COLOR  = Color.WHITE;
@@ -100,40 +106,38 @@ public class GamepadOverlayView extends View {
     private static final int BTN_IDX_SETTINGS = 12;
 
     private static final Btn[] BTNS = {
-        // ── D-Pad (bottom-left, centered at x=0.215, y=0.780) ───────────
-        new Btn("D-Pad: UP",    0.215f, 0.720f, 0.080f, 0.080f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.215f, 0.840f, 0.080f, 0.080f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.155f, 0.780f, 0.080f, 0.080f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.275f, 0.780f, 0.080f, 0.080f, 0),  // 3
-        // ── Face Buttons A/B/X/Y ─────────────────────────────────────────
-        new Btn("Face: A",      0.855f, 0.884f, 0.180f, 0.180f, 0),  // 4
-        new Btn("Face: B",      0.929f, 0.884f, 0.180f, 0.180f, 0),  // 5
-        new Btn("Face: X",      0.924f, 0.725f, 0.180f, 0.180f, 0),  // 6
-        new Btn("Face: Y",      0.919f, 0.564f, 0.180f, 0.180f, 0),  // 7
-        // ── Top buttons ─────────────────────────────────────────
-        new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
-        new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
-        new Btn("L1",           0.120f, 0.050f, 0.160f, 0.080f, 0),  // 10
-        new Btn("R1",           0.880f, 0.050f, 0.160f, 0.080f, 0),  // 11
-        new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
+        // ── D-Pad (right of left stick, drawn as cross of lines) ────────
+        new Btn("D-Pad: UP",    0.330f, 0.705f, 0.075f, 0.075f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.330f, 0.815f, 0.075f, 0.075f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.275f, 0.760f, 0.075f, 0.075f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.385f, 0.760f, 0.075f, 0.075f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (colored, right side) ───────────────────
+        new Btn("Face: A",      0.780f, 0.770f, 0.130f, 0.130f, 0),  // 4 - Green (bottom)
+        new Btn("Face: B",      0.870f, 0.680f, 0.130f, 0.130f, 0),  // 5 - Red (right)
+        new Btn("Face: X",      0.690f, 0.680f, 0.130f, 0.130f, 0),  // 6 - Blue (left)
+        new Btn("Face: Y",      0.780f, 0.590f, 0.130f, 0.130f, 0),  // 7 - Yellow (top)
+        // ── Top buttons ─────────────────────────────────────────────────
+        new Btn("START",        0.540f, 0.040f, 0.100f, 0.055f, 0),  // 8
+        new Btn("SELECT",       0.440f, 0.040f, 0.100f, 0.055f, 0),  // 9
+        new Btn("L1",           0.090f, 0.040f, 0.150f, 0.070f, 0),  // 10
+        new Btn("R1",           0.880f, 0.040f, 0.150f, 0.070f, 0),  // 11
+        new Btn("CONFIG",       0.960f, 0.040f, 0.055f, 0.055f, 0),  // 12: Settings gear
     };
 
     static {
-        // Face buttons: set default alpha to 125 (from profile)
         for (int i = 4; i <= 7; i++) {
-            BTNS[i].alpha = 125;
+            BTNS[i].alpha = 195;
         }
-        // In-car positions for face buttons (from layout profile)
-        BTNS[4].carNx = 0.935f; BTNS[4].carNy = 0.882f; BTNS[4].carNw = 0.200f; BTNS[4].carNh = 0.200f;
-        BTNS[5].carNx = 0.842f; BTNS[5].carNy = 0.884f; BTNS[5].carNw = 0.200f; BTNS[5].carNh = 0.200f;
-        BTNS[6].carNx = 0.084f; BTNS[6].carNy = 0.132f; BTNS[6].carNw = 0.170f; BTNS[6].carNh = 0.170f;
-        BTNS[7].carNx = 0.932f; BTNS[7].carNy = 0.675f; BTNS[7].carNw = 0.200f; BTNS[7].carNh = 0.200f;
+        BTNS[4].carNx = 0.850f; BTNS[4].carNy = 0.770f; BTNS[4].carNw = 0.170f; BTNS[4].carNh = 0.170f;
+        BTNS[5].carNx = 0.740f; BTNS[5].carNy = 0.770f; BTNS[5].carNw = 0.170f; BTNS[5].carNh = 0.170f;
+        BTNS[6].carNx = 0.064f; BTNS[6].carNy = 0.100f; BTNS[6].carNw = 0.150f; BTNS[6].carNh = 0.150f;
+        BTNS[7].carNx = 0.850f; BTNS[7].carNy = 0.620f; BTNS[7].carNw = 0.170f; BTNS[7].carNh = 0.170f;
     }
 
     // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS = {
-        new Stk(0.145f, 0.723f, 0.130f),  // Left stick (lower-left, larger)
-        new Stk(0.734f, 0.466f, 0.090f),  // Right stick (center-right)
+        new Stk(0.135f, 0.760f, 0.125f),  // Left stick (bottom-left)
+        new Stk(0.690f, 0.760f, 0.110f),  // Right stick (bottom-right, slightly smaller)
     };
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
@@ -160,10 +164,10 @@ public class GamepadOverlayView extends View {
 
     // ── Resource IDs para bitmaps ─────────────────────────────────────
     private static final int[] BTN_RES_IDS = {
-        R.drawable.dpad_up,            // 0: UP
-        R.drawable.dpad_down,          // 1: DOWN
-        R.drawable.dpad_left,          // 2: LEFT
-        R.drawable.dpad_right,         // 3: RIGHT
+        0,                             // 0: UP (drawn as lines)
+        0,                             // 1: DOWN (drawn as lines)
+        0,                             // 2: LEFT (drawn as lines)
+        0,                             // 3: RIGHT (drawn as lines)
         R.drawable.button_a,           // 4: A
         R.drawable.button_b,           // 5: B
         R.drawable.button_x,           // 6: X
@@ -1072,46 +1076,36 @@ public class GamepadOverlayView extends View {
 
             if (!isBtnVisible(i)) continue;
 
+            // ── D-Pad: draw as cross of white lines ────────────────
+            if (i >= 0 && i <= 3) {
+                drawDPadButton(canvas, b, i, mButtonPointerIds[i] != -1);
+                // Editor: highlight selected button
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                    mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                    mEditorHighlightPaint.setStrokeWidth(3f);
+                    mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                    canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
+                }
+                continue;
+            }
+
+            // ── Face buttons A/B/X/Y: draw as colored circles ─────
+            if (i >= 4 && i <= 7) {
+                drawFaceButton(canvas, b, i, mButtonPointerIds[i] != -1);
+                // Editor: highlight selected button
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                    mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                    mEditorHighlightPaint.setStrokeWidth(3f);
+                    mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                    canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
+                }
+                continue;
+            }
+
             Bitmap bmp = mBtnBmps[i];
-            if (mNativeHudEnabled) {
+            if (mNativeHudEnabled && (i == 10 || i == 11)) {
                 int context = mEditorMode ? mEditorHudContext : mCachedHudContext;
-                if (i == 4) {
-                    if (context == 2) {
-                        bmp = mBmpAcelerar;
-                    } else if (context == 4) {
-                        bmp = mBmpPularCutscene;
-                    } else {
-                        bmp = mBmpPular;
-                    }
-                } else if (i == 5) {
-                    bmp = (context == 2) ? mBmpFrear : mBmpCorrer;
-                } else if (i == 6) {
-                    if (context == 2) {
-                        bmp = mBmpFreioDeMao;
-                    } else {
-                        bmp = mBmpSoco;
-                    }
-                } else if (i == 7) {
-                    switch (context) {
-                        case 1:  bmp = mBmpEntrarCarro; break;
-                        case 2:  bmp = mBmpSairCarro; break;
-                        case 3:  bmp = mBmpEntrarCasa; break;
-                        case 5:  bmp = mBmpFalarComPersonagens; break;
-                        case 6:  bmp = mBmpMissao; break;
-                        case 7:  bmp = mBmpTelefone; break;
-                        case 8:  bmp = mBmpGag; break;
-                        case 9:  bmp = mBmpComprarCarro; break;
-                        case 10: bmp = mBmpComprarSkin; break;
-                        case 11: bmp = mBmpCartaColecao; break;
-                        case 12: bmp = mBmpCameraAlienigena; break;
-                        case 13: bmp = mBmpChaveInglesa; break;
-                        case 14: bmp = mBmpNitro; break;
-                        case 15: bmp = mBmpTeleporte; break;
-                        case 16: bmp = mBmpAcao; break;
-                    }
-                } else if (i == 10 && context == 2) {
-                    bmp = mBmpMudarCamera;
-                } else if (i == 11 && context == 2) {
+                if (context == 2) {
                     bmp = mBmpMudarCamera;
                 }
             }
@@ -1129,6 +1123,13 @@ public class GamepadOverlayView extends View {
                 mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
                 canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
             }
+        }
+
+        // ── D-Pad cross background ────────────────────────────────────
+        if (!mEditorMode) {
+            drawDPadCross(canvas);
+            drawL3R3Indicators(canvas);
+            drawCenterButtons(canvas);
         }
 
         // ── Editor mode: drag hint for selected element ───────────────
@@ -1174,6 +1175,169 @@ public class GamepadOverlayView extends View {
 
         if (mShowFPS || (mNativeHudEnabled && !mEditorMode) || (mFrameGenEnabled && mFrameGenInitialized)) {
             postInvalidateDelayed(33);
+        }
+    }
+
+    // ── Draw D-Pad button as cross of lines ────────────────────────────
+    private void drawDPadButton(Canvas canvas, Btn b, int idx, boolean pressed) {
+        float cx = b.rect.centerX();
+        float cy = b.rect.centerY();
+        float size = Math.min(b.rect.width(), b.rect.height()) * 0.5f;
+        float strokeW = size * 0.35f;
+
+        Paint dpadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dpadPaint.setStyle(Paint.Style.FILL);
+        int alpha = pressed ? 180 : b.alpha;
+        dpadPaint.setColor(Color.argb(alpha, 255, 255, 255));
+
+        // Draw directional arrow for each D-pad button
+        switch (idx) {
+            case 0: // UP
+                canvas.drawRect(cx - strokeW * 0.5f, cy - size * 0.6f, cx + strokeW * 0.5f, cy + size * 0.1f, dpadPaint);
+                // Arrow triangle
+                android.graphics.Path path = new android.graphics.Path();
+                path.moveTo(cx, cy - size * 0.85f);
+                path.lineTo(cx - size * 0.5f, cy - size * 0.1f);
+                path.lineTo(cx + size * 0.5f, cy - size * 0.1f);
+                path.close();
+                canvas.drawPath(path, dpadPaint);
+                break;
+            case 1: // DOWN
+                canvas.drawRect(cx - strokeW * 0.5f, cy - size * 0.1f, cx + strokeW * 0.5f, cy + size * 0.6f, dpadPaint);
+                android.graphics.Path pathD = new android.graphics.Path();
+                pathD.moveTo(cx, cy + size * 0.85f);
+                pathD.lineTo(cx - size * 0.5f, cy + size * 0.1f);
+                pathD.lineTo(cx + size * 0.5f, cy + size * 0.1f);
+                pathD.close();
+                canvas.drawPath(pathD, dpadPaint);
+                break;
+            case 2: // LEFT
+                canvas.drawRect(cx - size * 0.6f, cy - strokeW * 0.5f, cx + size * 0.1f, cy + strokeW * 0.5f, dpadPaint);
+                android.graphics.Path pathL = new android.graphics.Path();
+                pathL.moveTo(cx - size * 0.85f, cy);
+                pathL.lineTo(cx - size * 0.1f, cy - size * 0.5f);
+                pathL.lineTo(cx - size * 0.1f, cy + size * 0.5f);
+                pathL.close();
+                canvas.drawPath(pathL, dpadPaint);
+                break;
+            case 3: // RIGHT
+                canvas.drawRect(cx - size * 0.1f, cy - strokeW * 0.5f, cx + size * 0.6f, cy + strokeW * 0.5f, dpadPaint);
+                android.graphics.Path pathR = new android.graphics.Path();
+                pathR.moveTo(cx + size * 0.85f, cy);
+                pathR.lineTo(cx + size * 0.1f, cy - size * 0.5f);
+                pathR.lineTo(cx + size * 0.1f, cy + size * 0.5f);
+                pathR.close();
+                canvas.drawPath(pathR, dpadPaint);
+                break;
+        }
+    }
+
+    // ── Draw D-Pad cross background ─────────────────────────────────────
+    private void drawDPadCross(Canvas canvas) {
+        if (BTNS[0] == null) return;
+        float cxUp = BTNS[0].rect.centerX();
+        float cyUp = BTNS[0].rect.centerY();
+        float cyDn = BTNS[1].rect.centerY();
+        float cxLf = BTNS[2].rect.centerX();
+        float cxRt = BTNS[3].rect.centerX();
+
+        float centerX = (cxLf + cxRt) * 0.5f;
+        float centerY = (cyUp + cyDn) * 0.5f;
+
+        float size = Math.min(BTNS[0].rect.width(), BTNS[0].rect.height()) * 0.45f;
+        float strokeW = size * 0.28f;
+        float gap = size * 0.15f;
+
+        Paint crossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        crossPaint.setStyle(Paint.Style.FILL);
+        crossPaint.setColor(Color.argb(50, 255, 255, 255));
+
+        // Vertical bar
+        canvas.drawRect(centerX - strokeW * 0.5f, cyUp + gap, centerX + strokeW * 0.5f, cyDn - gap, crossPaint);
+        // Horizontal bar
+        canvas.drawRect(cxLf + gap, centerY - strokeW * 0.5f, cxRt - gap, centerY + strokeW * 0.5f, crossPaint);
+        // Center circle
+        canvas.drawCircle(centerX, centerY, strokeW * 0.7f, crossPaint);
+    }
+
+    // ── Draw face button (A/B/X/Y) as colored circle with text ──────────
+    private void drawFaceButton(Canvas canvas, Btn b, int idx, boolean pressed) {
+        float cx = b.rect.centerX();
+        float cy = b.rect.centerY();
+        float r = Math.min(b.rect.width(), b.rect.height()) * 0.45f;
+
+        int[] colors = {COLOR_A, COLOR_B, COLOR_X, COLOR_Y};
+        String[] labels = {"A", "B", "X", "Y"};
+
+        int color = colors[idx - 4];
+        String label = labels[idx - 4];
+
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bgPaint.setStyle(Paint.Style.FILL);
+        if (pressed) {
+            bgPaint.setColor(Color.argb(220, 255, 255, 255));
+        } else {
+            bgPaint.setColor(color);
+        }
+        canvas.drawCircle(cx, cy, r, bgPaint);
+
+        // Subtle border
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(2f);
+        borderPaint.setColor(Color.argb(80, 255, 255, 255));
+        canvas.drawCircle(cx, cy, r, borderPaint);
+
+        // Label text
+        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setColor(pressed ? color : Color.WHITE);
+        textPaint.setTextSize(r * 1.1f);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setFakeBoldText(true);
+        canvas.drawText(label, cx, cy + r * 0.38f, textPaint);
+    }
+
+    // ── Draw L3/R3 indicators near sticks ───────────────────────────────
+    private void drawL3R3Indicators(Canvas canvas) {
+        for (int i = 0; i < STKS.length; i++) {
+            Stk s = STKS[i];
+            Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            lblPaint.setColor(Color.argb(100, 255, 255, 255));
+            lblPaint.setTextSize(s.r * 0.35f);
+            lblPaint.setTextAlign(Paint.Align.CENTER);
+            lblPaint.setFakeBoldText(true);
+            String lbl = (i == 0) ? "L3" : "R3";
+            canvas.drawText(lbl, s.cx, s.cy + s.r + s.r * 0.5f, lblPaint);
+        }
+    }
+
+    // ── Draw center buttons (window, menu, capture) ─────────────────────
+    private void drawCenterButtons(Canvas canvas) {
+        float cy = 0.50f;
+        float baseX = 0.50f;
+        float spacing = 0.06f;
+        int w = getWidth();
+        int h = getHeight();
+        float y = cy * h;
+
+        String[] icons = {"\u25A1", "\u2630", "\u25CF"};
+        String[] labels = {"", "", ""};
+
+        for (int i = 0; i < 3; i++) {
+            float x = (baseX + (i - 1) * spacing) * w;
+            float r = spacing * 0.35f * Math.min(w, h);
+
+            Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            bgPaint.setStyle(Paint.Style.FILL);
+            bgPaint.setColor(Color.argb(60, 255, 255, 255));
+            canvas.drawCircle(x, y, r, bgPaint);
+
+            Paint iconPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            iconPaint.setColor(Color.argb(180, 255, 255, 255));
+            iconPaint.setTextSize(r * 1.2f);
+            iconPaint.setTextAlign(Paint.Align.CENTER);
+            iconPaint.setFakeBoldText(true);
+            canvas.drawText(icons[i], x, y + r * 0.4f, iconPaint);
         }
     }
 
