@@ -241,6 +241,7 @@ public class GamepadOverlayView extends View {
     private RectF mExportBtnRect = new RectF();
     private RectF mImportBtnRect = new RectF();
     private RectF mSaveMgrBtnRect = new RectF();
+    private RectF mAutoHideGamepadToggleRect = new RectF();
 
     // ── Settings category button rects ─────────────────────────────────
     private RectF mDisplayCategoryRect = new RectF();
@@ -312,6 +313,8 @@ public class GamepadOverlayView extends View {
     private boolean mNativeHudEnabled = false;
     private int mCachedHudContext = 0;
     private boolean mTitleScreenStartPressed = false;
+    private boolean mAutoHideWithGamepad = true;
+    private boolean mPhysicalGamepadConnected = false;
 
     // ── Settings subcategory pages ─────────────────────────────────────
     private static final int SETTINGS_PAGE_MAIN     = 0;
@@ -343,6 +346,7 @@ public class GamepadOverlayView extends View {
     private boolean mFrameGenTogglePressed = false;
     private boolean mFrameGenDllBtnPressed = false;
     private boolean mFpsUnlockPressed = false;
+    private boolean mAutoHideGamepadTogglePressed = false;
     public static final int REQUEST_CODE_EXPORT_JSON = 1001;
     public static final int REQUEST_CODE_IMPORT_JSON = 1002;
     public static final int REQUEST_CODE_SELECT_DLL = 1003;
@@ -432,6 +436,81 @@ public class GamepadOverlayView extends View {
         // Init originals arrays
         mBtnOrigins = new float[BTNS.length][9];
         mStkOrigins = new float[STKS.length][5];
+
+        // Register gamepad input device listener
+        try {
+            android.hardware.input.InputManager im = (android.hardware.input.InputManager) ctx.getSystemService(Context.INPUT_SERVICE);
+            if (im != null) {
+                im.registerInputDeviceListener(new android.hardware.input.InputManager.InputDeviceListener() {
+                    @Override
+                    public void onInputDeviceAdded(int deviceId) {
+                        checkPhysicalGamepadConnected();
+                    }
+
+                    @Override
+                    public void onInputDeviceRemoved(int deviceId) {
+                        checkPhysicalGamepadConnected();
+                    }
+
+                    @Override
+                    public void onInputDeviceChanged(int deviceId) {
+                        checkPhysicalGamepadConnected();
+                    }
+                }, null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error registering InputDeviceListener: " + e.getMessage());
+        }
+        checkPhysicalGamepadConnected();
+    }
+
+    private void checkPhysicalGamepadConnected() {
+        boolean gamepadFound = false;
+        Context ctx = getContext();
+        if (ctx != null) {
+            try {
+                android.hardware.input.InputManager im = (android.hardware.input.InputManager) ctx.getSystemService(Context.INPUT_SERVICE);
+                if (im != null) {
+                    int[] deviceIds = im.getInputDeviceIds();
+                    for (int id : deviceIds) {
+                        android.view.InputDevice device = im.getInputDevice(id);
+                        if (device != null) {
+                            int sources = device.getSources();
+                            boolean isGamepad = (sources & android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD;
+                            boolean isJoystick = (sources & android.view.InputDevice.SOURCE_CLASS_JOYSTICK) == android.view.InputDevice.SOURCE_CLASS_JOYSTICK;
+                            if (isGamepad || isJoystick) {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    if (!device.isVirtual()) {
+                                        gamepadFound = true;
+                                        break;
+                                    }
+                                } else {
+                                    String name = device.getName();
+                                    if (name == null || (!name.toLowerCase().contains("virtual") && !name.toLowerCase().contains("overlay"))) {
+                                        gamepadFound = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking gamepad connection: " + e.getMessage());
+            }
+        }
+        if (mPhysicalGamepadConnected != gamepadFound) {
+            mPhysicalGamepadConnected = gamepadFound;
+            Log.i(TAG, "Physical gamepad connected status: " + mPhysicalGamepadConnected);
+            postInvalidate();
+        }
+    }
+
+    private boolean areSticksHidden() {
+        if (mEditorMode) {
+            return false;
+        }
+        return mAutoHideWithGamepad && mPhysicalGamepadConnected;
     }
 
     // ── Save current values as originals (for Reset) ──────────────────
@@ -517,6 +596,7 @@ public class GamepadOverlayView extends View {
         defEditor.putString("framegen_dll_path", mFrameGenDllPath);
         defEditor.putBoolean("framegen_enabled", mFrameGenEnabled);
         defEditor.putBoolean("fps_unlocked", mFpsUnlocked);
+        defEditor.putBoolean("auto_hide_gamepad", mAutoHideWithGamepad);
         defEditor.apply();
 
         // 2. Save layout settings to active profile
@@ -567,6 +647,7 @@ public class GamepadOverlayView extends View {
         mFrameGenDllPath = spDefault.getString("framegen_dll_path", "");
         mFrameGenEnabled = spDefault.getBoolean("framegen_enabled", false);
         mFpsUnlocked = spDefault.getBoolean("fps_unlocked", false);
+        mAutoHideWithGamepad = spDefault.getBoolean("auto_hide_gamepad", true);
 
         // 2. Load layout settings from active profile
         String profileName = mNativeHudEnabled ? "GamepadOverlayProfile_Native" : "GamepadOverlayProfile";
@@ -777,6 +858,7 @@ public class GamepadOverlayView extends View {
         float row3T = row2B + rowSpacing;
         float row3B = row3T + rowH;
         mNativeHudToggleRect.set(cardL, row3T, cardR, row3B);
+        mAutoHideGamepadToggleRect.set(cardL, row3T, cardR, row3B);
 
         // Row 4 (Vibration Toggle Row):
         float row4T = row3B + rowSpacing;
@@ -928,6 +1010,9 @@ public class GamepadOverlayView extends View {
     }
 
     private boolean isBtnVisible(int idx) {
+        if (idx != BTN_IDX_SETTINGS && !mEditorMode && mAutoHideWithGamepad && mPhysicalGamepadConnected) {
+            return false;
+        }
         if (!mNativeHudEnabled) {
             return true;
         }
@@ -1156,73 +1241,75 @@ public class GamepadOverlayView extends View {
         }
 
         // ── Desenha sticks ────────────────────────────────────────────
-        for (int i = 0; i < STKS.length; i++) {
-            if (i == 1 && mSwipeCameraEnabled && !mEditorMode) {
-                continue;
-            }
-            Stk s = STKS[i];
+        if (!areSticksHidden()) {
+            for (int i = 0; i < STKS.length; i++) {
+                if (i == 1 && mSwipeCameraEnabled && !mEditorMode) {
+                    continue;
+                }
+                Stk s = STKS[i];
 
-            // Base and knob alphas from settings
-            int baseAlpha = s.baseAlpha;
-            int knobAlpha = s.knobAlpha;
+                // Base and knob alphas from settings
+                int baseAlpha = s.baseAlpha;
+                int knobAlpha = s.knobAlpha;
 
-            // 1. Draw outer base circle (white outline with shadow)
-            Paint basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            basePaint.setStyle(Paint.Style.STROKE);
-            basePaint.setStrokeWidth(2.5f);
-            
-            // Draw a subtle black backing first for visibility
-            basePaint.setColor(Color.argb(baseAlpha * 100 / 255, 0, 0, 0));
-            basePaint.setStrokeWidth(4.0f);
-            canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
+                // 1. Draw outer base circle (white outline with shadow)
+                Paint basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                basePaint.setStyle(Paint.Style.STROKE);
+                basePaint.setStrokeWidth(2.5f);
+                
+                // Draw a subtle black backing first for visibility
+                basePaint.setColor(Color.argb(baseAlpha * 100 / 255, 0, 0, 0));
+                basePaint.setStrokeWidth(4.0f);
+                canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
 
-            // Draw white base circle
-            basePaint.setColor(Color.argb(baseAlpha, 255, 255, 255));
-            basePaint.setStrokeWidth(2.5f);
-            canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
+                // Draw white base circle
+                basePaint.setColor(Color.argb(baseAlpha, 255, 255, 255));
+                basePaint.setStrokeWidth(2.5f);
+                canvas.drawCircle(s.cx, s.cy, s.r, basePaint);
 
-            // Calculate knob position
-            float kx = mStickKnobX[i];
-            float ky = mStickKnobY[i];
-            float knobR = s.r * 0.42f;
+                // Calculate knob position
+                float kx = mStickKnobX[i];
+                float ky = mStickKnobY[i];
+                float knobR = s.r * 0.42f;
 
-            // 2. Draw knob fill (subtle glassmorphism/semi-transparent background)
-            Paint knobFillP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            knobFillP.setStyle(Paint.Style.FILL);
-            knobFillP.setColor(Color.argb(knobAlpha * 50 / 255, 255, 255, 255)); // slight white fill
-            canvas.drawCircle(kx, ky, knobR, knobFillP);
+                // 2. Draw knob fill (subtle glassmorphism/semi-transparent background)
+                Paint knobFillP = new Paint(Paint.ANTI_ALIAS_FLAG);
+                knobFillP.setStyle(Paint.Style.FILL);
+                knobFillP.setColor(Color.argb(knobAlpha * 50 / 255, 255, 255, 255)); // slight white fill
+                canvas.drawCircle(kx, ky, knobR, knobFillP);
 
-            // Draw a subtle dark shadow for the knob for contrast
-            Paint knobShadowP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            knobShadowP.setStyle(Paint.Style.STROKE);
-            knobShadowP.setStrokeWidth(4.0f);
-            knobShadowP.setColor(Color.argb(knobAlpha * 80 / 255, 0, 0, 0));
-            canvas.drawCircle(kx, ky, knobR, knobShadowP);
+                // Draw a subtle dark shadow for the knob for contrast
+                Paint knobShadowP = new Paint(Paint.ANTI_ALIAS_FLAG);
+                knobShadowP.setStyle(Paint.Style.STROKE);
+                knobShadowP.setStrokeWidth(4.0f);
+                knobShadowP.setColor(Color.argb(knobAlpha * 80 / 255, 0, 0, 0));
+                canvas.drawCircle(kx, ky, knobR, knobShadowP);
 
-            // Draw knob white outline
-            Paint knobStrokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
-            knobStrokeP.setStyle(Paint.Style.STROKE);
-            knobStrokeP.setStrokeWidth(2.5f);
-            knobStrokeP.setColor(Color.argb(knobAlpha, 255, 255, 255));
-            canvas.drawCircle(kx, ky, knobR, knobStrokeP);
+                // Draw knob white outline
+                Paint knobStrokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
+                knobStrokeP.setStyle(Paint.Style.STROKE);
+                knobStrokeP.setStrokeWidth(2.5f);
+                knobStrokeP.setColor(Color.argb(knobAlpha, 255, 255, 255));
+                canvas.drawCircle(kx, ky, knobR, knobStrokeP);
 
-            // 3. Draw "L" or "R" label inside the moving knob
-            Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            lblPaint.setColor(Color.argb(knobAlpha, 255, 255, 255));
-            lblPaint.setTextSize(knobR * 0.9f);
-            lblPaint.setTextAlign(Paint.Align.CENTER);
-            lblPaint.setFakeBoldText(true);
-            
-            // Vertically center the text
-            float textOffset = (lblPaint.ascent() + lblPaint.descent()) / 2f;
-            canvas.drawText(i == 0 ? "L" : "R", kx, ky - textOffset, lblPaint);
+                // 3. Draw "L" or "R" label inside the moving knob
+                Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                lblPaint.setColor(Color.argb(knobAlpha, 255, 255, 255));
+                lblPaint.setTextSize(knobR * 0.9f);
+                lblPaint.setTextAlign(Paint.Align.CENTER);
+                lblPaint.setFakeBoldText(true);
+                
+                // Vertically center the text
+                float textOffset = (lblPaint.ascent() + lblPaint.descent()) / 2f;
+                canvas.drawText(i == 0 ? "L" : "R", kx, ky - textOffset, lblPaint);
 
-            // Editor: highlight selected stick
-            if (mEditorMode && mEditorSelectedIsStick && mEditorSelectedIdx == i) {
-                mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
-                mEditorHighlightPaint.setStrokeWidth(4f);
-                mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
-                canvas.drawCircle(s.cx, s.cy, s.r + 8f, mEditorHighlightPaint);
+                // Editor: highlight selected stick
+                if (mEditorMode && mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                    mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                    mEditorHighlightPaint.setStrokeWidth(4f);
+                    mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                    canvas.drawCircle(s.cx, s.cy, s.r + 8f, mEditorHighlightPaint);
+                }
             }
         }
 
@@ -1356,7 +1443,7 @@ public class GamepadOverlayView extends View {
         }
 
         // ── Extra visual elements (only in classic virtual gamepad mode) ─
-        if (!mNativeHudEnabled) {
+        if (!mNativeHudEnabled && !areSticksHidden()) {
             drawDPadCross(canvas);
             if (!mEditorMode) {
                 drawL3R3Indicators(canvas);
@@ -1935,6 +2022,7 @@ public class GamepadOverlayView extends View {
     // ── Controls subpage ──────────────────────────────────────────────
     private void drawControlsSubpage(Canvas canvas, float left, float top, float w, float h) {
         drawToggleRow(canvas, mCameraSwipeToggleRect, w, h, s(R.string.swipe_camera), mSwipeCameraEnabled, mCameraSwipeTogglePressed);
+        drawToggleRow(canvas, mAutoHideGamepadToggleRect, w, h, s(R.string.auto_hide_gamepad), mAutoHideWithGamepad, mAutoHideGamepadTogglePressed);
         drawToggleRow(canvas, mVibrationToggleRect, w, h, s(R.string.vibration), mVibrationEnabled, mVibrationTogglePressed);
 
         if (mSwipeCameraEnabled) {
@@ -2370,7 +2458,7 @@ public class GamepadOverlayView extends View {
                     break;
                 }
             }
-            if (!isHud) {
+            if (!isHud && !areSticksHidden()) {
                 // Check sticks
                 for (int i = 0; i < STKS.length; i++) {
                     if (i == 1 && mSwipeCameraEnabled) continue;
@@ -2453,6 +2541,11 @@ public class GamepadOverlayView extends View {
                     if (mCameraSwipeToggleRect.contains(x, y)) {
                         mSettingsPointerId = pid;
                         mCameraSwipeTogglePressed = true;
+                        return;
+                    }
+                    if (mAutoHideGamepadToggleRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mAutoHideGamepadTogglePressed = true;
                         return;
                     }
                     if (mVibrationToggleRect.contains(x, y)) {
@@ -2555,6 +2648,7 @@ public class GamepadOverlayView extends View {
             }
         }
         for (int i = 0; i < STKS.length; i++) {
+            if (areSticksHidden()) continue;
             if (i == 1 && mSwipeCameraEnabled) continue;
             if (mStickPointerIds[i] != -1) continue;
             Stk s = STKS[i];
@@ -2598,6 +2692,7 @@ public class GamepadOverlayView extends View {
                 mSettingsClosePressed = mSettingsCloseRect.contains(x, y);
                 mFpsTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mFpsToggleRect.contains(x, y);
                 mCameraSwipeTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mCameraSwipeToggleRect.contains(x, y);
+                mAutoHideGamepadTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mAutoHideGamepadToggleRect.contains(x, y);
                 mNativeHudTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mNativeHudToggleRect.contains(x, y);
                 mVibrationTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mVibrationToggleRect.contains(x, y);
                 mEditorBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mEditorBtnRect.contains(x, y);
@@ -2638,6 +2733,7 @@ public class GamepadOverlayView extends View {
 
         // Sticks
         for (int i = 0; i < STKS.length; i++) {
+            if (areSticksHidden()) continue;
             if (i == 1 && mSwipeCameraEnabled) continue;
             if (mStickPointerIds[i] == pid) {
                 clampKnob(i, x, y);
@@ -2695,6 +2791,9 @@ public class GamepadOverlayView extends View {
                     mShowFPS = !mShowFPS;
                 } else if (mCameraSwipeTogglePressed) {
                     mSwipeCameraEnabled = !mSwipeCameraEnabled;
+                    saveProfile();
+                } else if (mAutoHideGamepadTogglePressed) {
+                    mAutoHideWithGamepad = !mAutoHideWithGamepad;
                     saveProfile();
                 } else if (mVibrationTogglePressed) {
                     mVibrationEnabled = !mVibrationEnabled;
@@ -2791,6 +2890,7 @@ public class GamepadOverlayView extends View {
             mFrameGenTogglePressed = false;
             mFpsUnlockPressed = false;
             mFrameGenDllBtnPressed = false;
+            mAutoHideGamepadTogglePressed = false;
             return;
         }
 
@@ -2853,6 +2953,7 @@ public class GamepadOverlayView extends View {
         mFrameGenTogglePressed = false;
         mFpsUnlockPressed = false;
         mFrameGenDllBtnPressed = false;
+        mAutoHideGamepadTogglePressed = false;
 
         mEditorSelectedIdx = -1;
         mEditorDragging = false;
@@ -3348,15 +3449,17 @@ public class GamepadOverlayView extends View {
     private boolean hitsHudElement(float x, float y) {
         // Check all buttons (including settings gear)
         for (int i = 0; i < BTNS.length; i++) {
-            if (BTNS[i].rect.contains(x, y)) {
+            if (isBtnVisible(i) && BTNS[i].rect.contains(x, y)) {
                 return true;
             }
         }
         // Check all sticks (inner area)
-        for (Stk s : STKS) {
-            float dx = x - s.cx, dy = y - s.cy;
-            if (dx * dx + dy * dy <= s.r * s.r) {
-                return true;
+        if (!areSticksHidden()) {
+            for (Stk s : STKS) {
+                float dx = x - s.cx, dy = y - s.cy;
+                if (dx * dx + dy * dy <= s.r * s.r) {
+                    return true;
+                }
             }
         }
         return false;

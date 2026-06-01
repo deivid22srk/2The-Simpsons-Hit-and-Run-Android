@@ -78,4 +78,5 @@
     <string name="no_saves_found">No save files found</string>
     <string name="invalid_save_file">Invalid save file</string>
     <string name="import_save_title">Import Save</string>
+    <string name="auto_hide_gamepad">Auto-hide with Gamepad</string>
 </resources>
