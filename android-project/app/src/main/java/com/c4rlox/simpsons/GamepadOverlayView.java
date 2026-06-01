@@ -2527,7 +2527,7 @@ public class GamepadOverlayView extends View {
                     mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
                     saveProfile();
                 } else if (mSwipeCameraEnabled && mSensUpPressed) {
-                    mSwipeSensitivity = Math.min(3.0f, Math.round((mSwipeSensitivity + 0.1f) * 10f) / 10f);
+                    mSwipeSensitivity = Math.min(10.0f, Math.round((mSwipeSensitivity + 0.1f) * 10f) / 10f);
                     saveProfile();
                 } else if (mEditorBtnPressed) {
                     mShowSettings = false;
