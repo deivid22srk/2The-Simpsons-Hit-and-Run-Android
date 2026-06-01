@@ -46,7 +46,7 @@ public:
 
     void OnProcessRequestsComplete( void* pUserData );
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     virtual eFEHotspotType CheckCursorAgainstHotspots( float x, float y );
 #endif
 

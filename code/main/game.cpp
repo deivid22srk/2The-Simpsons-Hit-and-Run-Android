@@ -27,7 +27,7 @@
 #include <p3d/loadmanager.hpp>
 #include <p3d/utility.hpp>
 
-#ifdef RAD_WIN32
+#if defined(RAD_WIN32) || defined(RAD_ANDROID)
 #include <SDL.h>  // for SDL_PollEvent...
 #endif
 
@@ -52,6 +52,12 @@
 #include <render/RenderFlow/renderflow.h>
 #include <sound/soundmanager.h>
 #include <input/inputmanager.h>
+#ifdef RAD_ANDROID
+#include <main/fpscounter.h>
+#endif
+#ifndef RAD_ANDROID
+#include <input/touchGui.h>
+#endif
 
 //******************************************************************************
 //
@@ -392,6 +398,15 @@ void Game::Initialize()
 
     CGuiScreenMissionLoad::InitializePermanentVariables();
 
+#ifdef RAD_ANDROID
+    // Create FPS counter for Java HUD bridge.
+    g_FPSCounter = new(GMA_PERSISTENT) FPSCounter();
+#endif
+#ifndef RAD_ANDROID
+    TouchGui::CreateInstance();
+    TouchGui::GetInstance()->Init();
+#endif
+
 #ifdef RAD_E3
     rReleasePrintf( "\n----------=[  SIMPSONS HIT & RUN - E3 BUILD  ]=----------\n\n" );
 #endif
@@ -415,6 +430,16 @@ void Game::Initialize()
 //==============================================================================
 void Game::Terminate() 
 {
+#ifdef RAD_ANDROID
+    if (g_FPSCounter) {
+        delete g_FPSCounter;
+        g_FPSCounter = NULL;
+    }
+#endif
+#ifndef RAD_ANDROID
+    TouchGui::DestroyInstance();
+#endif
+
     rAssert( mpGameFlow != NULL );
     rAssert( mpRenderFlow != NULL );
     rAssert( mpTimerList != NULL );
@@ -500,12 +525,31 @@ void Game::Run()
         time = newTime;
 
         //
-        // Service the windows message loop.
+        // Service the SDL message loop.
         //
-#ifdef RAD_WIN32
+#if defined(RAD_WIN32) || defined(RAD_ANDROID)
         SDL_Event msg;
         while( SDL_PollEvent( &msg ) )
         {
+#ifndef RAD_ANDROID
+            // Lifecycle events: release all touch inputs when app loses focus
+            // to prevent stuck buttons/sticks when the game is backgrounded.
+            if (msg.type == SDL_APP_WILLENTERBACKGROUND || msg.type == SDL_APP_DIDENTERBACKGROUND) {
+                if (TouchGui::GetInstance()) {
+                    TouchGui::GetInstance()->ReleaseAllInputs();
+                }
+            }
+            // Also handle window focus loss (e.g. notification shade pulled down
+            // without fully backgrounding the app). This catches ACTION_CANCEL
+            // scenarios where FINGERUP is never delivered by SDL.
+            if (msg.type == SDL_WINDOWEVENT && msg.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                if (TouchGui::GetInstance()) {
+                    TouchGui::GetInstance()->ReleaseAllInputs();
+                }
+            }
+            TouchGui::GetInstance()->HandleTouchEvent(&msg);
+#endif
+
 #if SDL_MAJOR_VERSION < 3
             if( msg.type == SDL_QUIT )
 #else
@@ -530,7 +574,7 @@ void Game::Run()
                 }               
             }
         }
-#endif // RAD_WIN32
+#endif // RAD_WIN32 || RAD_ANDROID
 
         //
         // Service the GameFlow and RenderFlow.
@@ -599,6 +643,13 @@ void Game::Run()
         DEMOPROFILE( g_DemoProfiler.Stop(PROFILE_CHANNEL_LOAD); )
 
         ++mFrameCount;
+
+#ifdef RAD_ANDROID
+        // Update FPS counter every frame for Java HUD bridge.
+        if (g_FPSCounter) {
+            g_FPSCounter->Update();
+        }
+#endif
 
         DEMOPROFILE( g_DemoProfiler.Stop(PROFILE_CHANNEL_ALL); )
 

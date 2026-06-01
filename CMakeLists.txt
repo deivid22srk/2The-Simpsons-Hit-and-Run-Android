@@ -218,6 +218,11 @@ endif()
 add_subdirectory(libs)
 add_subdirectory(code)
 
+# LSFG Frame Generation (Android only)
+if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+    add_subdirectory(android-project/app/src/main/cpp/lsfg lsfg-build)
+endif()
+
 if(VITA)
 	## Create Vita files
 	if(SRR2_P3D_PDDI STREQUAL "GLES2" AND NOT SRR2_USE_VITAGL)

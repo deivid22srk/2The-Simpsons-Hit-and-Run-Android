@@ -27,6 +27,9 @@
 #else
 #include <input/usercontroller.h>
 #endif
+#if defined(RAD_ANDROID) && 0
+#include <input/touchGui.h>
+#endif
 #include <input/button.h>
 
 #include <main/game.h>
@@ -151,8 +154,43 @@ MEMTRACK_POP_GROUP("InputManager");
 
 void InputManager::Update( unsigned int timeinms )
 {
+#if defined(RAD_ANDROID) && 0
+    // Always show touch controls on Android. SDL may misidentify built-in
+    // sensors (accelerometer, gyroscope, etc.) as gamepads via
+    // SDL_NumJoysticks(), which would incorrectly hide the HUD.
+    if (TouchGui::GetInstance()) {
+        bool showTouch = true;
+        TouchGui::GetInstance()->SetVisible(showTouch);
+
+        // If we are using touch controls, ensure the first controller is marked as connected
+        // so its Update() method will process and dispatch our injected inputs.
+        if (showTouch && !mControllerArray[0].IsConnected()) {
+            mControllerArray[0].NotifyConnect();
+        }
+
+        // Without a physical gamepad, mButtonNames are empty and LoadControllerMappings
+        // cannot create any associations. Set up virtual button names so touch inputs
+        // are properly mapped to logical game actions.
+        if (showTouch && !mControllerArray[0].AreInputPointsRegistered()) {
+            mControllerArray[0].InitializeVirtualForTouch();
+            mControllerArray[0].LoadControllerMappings();
+        }
+    }
+#endif
+
     // update the button timestamp (so we can tell when buttons were pressed)
     Button::Tick(timeinms);
+
+#if defined(RAD_ANDROID) && 0
+    // TouchGui::Update() MUST run AFTER Button::Tick().
+    // See SyncControllerValues() in touchGui.cpp for the detailed
+    // explanation — the gist is that SetValue(0.0f) for release must
+    // set mTickCountAtChange to the POST-Tick mTickCount so that
+    // TimeSinceChange() == 0 in UserController::Update().
+    if (TouchGui::GetInstance()) {
+        TouchGui::GetInstance()->Update(timeinms);
+    }
+#endif
 
     ::radControllerSystemService();
 
@@ -404,7 +442,7 @@ m_isProScanButtonsPressed( false )
     }
 
     GetGameDataManager()->RegisterGameData( this, 1, "Input Manager" );
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     m_pFEMouse = new FEMouse;
 #endif
 #ifdef RAD_PS2
@@ -423,7 +461,7 @@ InputManager::~InputManager()
     mxIControllerSystem2->UnRegisterConnectionChangeCallback( this );
 #endif
     ::radControllerTerminate();
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     delete m_pFEMouse;
     m_pFEMouse = NULL;
 #endif

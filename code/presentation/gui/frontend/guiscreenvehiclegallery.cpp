@@ -92,7 +92,7 @@ CGuiScreenVehicleGallery::CGuiScreenVehicleGallery
     m_elapsedTime( 0 ),
     m_projectileVelocity( 0.0f, 0.0f, 0.0f ),
     m_vehicleInfo( NULL ),
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     m_selectedVehicle(0),
 #endif
     m_vehicleName( NULL )
@@ -260,7 +260,7 @@ void CGuiScreenVehicleGallery::HandleMessage
             {
                 this->OnMenuSelectionMade( static_cast<int>( param1 ) );
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
                 m_selectedVehicle = static_cast<int>( param1 );
                 // Hide/disable all other menu items.
                 this->SetVisibilityForAllOtherMenuItems( false );
@@ -829,7 +829,7 @@ CGuiScreenVehicleGallery::Unload2DImages()
 
     m_isVehiclesLoaded = false;
 }
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 void CGuiScreenVehicleGallery::SetVisibilityForAllOtherMenuItems( bool bVisible )
 {
     for( int i = 0; i < MAX_NUM_VEHICLES_PER_LEVEL; i++ )

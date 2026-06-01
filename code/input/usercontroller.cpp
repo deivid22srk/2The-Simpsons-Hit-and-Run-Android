@@ -235,6 +235,58 @@ void UserController::OnControllerInputPointChange( unsigned int buttonId, float 
     mButtonArray[ buttonId ].SetValue( value );
 }
 
+#if defined(RAD_ANDROID)
+#include <input/inputmanager.h>
+
+void UserController::InitializeVirtualForTouch( void )
+{
+    if ( mbInputPointsRegistered )
+    {
+        return;
+    }
+
+    // Register virtual button names to match Xbox controller layout so
+    // Mappable::Map() can resolve names to indices without a physical gamepad.
+    // These indices must align with InputManager::eButtonMap (Xbox/Console enum)
+    // because TouchGui writes directly to mButtonArray[enumValue].
+
+    for ( unsigned int i = 0; i < Input::MaxPhysicalButtons; i++ )
+    {
+        mButtonNames[i] = 0;
+        mButtonDeadZones[i] = 0.0f;
+        mButtonArray[i].SetValue( 0.0f );
+    }
+
+    mButtonNames[ InputManager::DPadUp ]    = radMakeKey( "DPadUp" );
+    mButtonNames[ InputManager::DPadDown ]  = radMakeKey( "DPadDown" );
+    mButtonNames[ InputManager::DPadLeft ]  = radMakeKey( "DPadLeft" );
+    mButtonNames[ InputManager::DPadRight ] = radMakeKey( "DPadRight" );
+    mButtonNames[ InputManager::Start ]     = radMakeKey( "Start" );
+    mButtonNames[ InputManager::Select ]    = radMakeKey( "Back" );   // Select = Back on Xbox
+    mButtonNames[ InputManager::LeftThumb ] = radMakeKey( "LeftThumb" ); // L3
+    mButtonNames[ InputManager::RightThumb ]= radMakeKey( "RightThumb" ); // R3
+    mButtonNames[ InputManager::A ]         = radMakeKey( "A" );
+    mButtonNames[ InputManager::B ]         = radMakeKey( "B" );
+    mButtonNames[ InputManager::Square ]    = radMakeKey( "X" );      // Square enum = Xbox X button
+    mButtonNames[ InputManager::Triangle ]  = radMakeKey( "Y" );      // Triangle = Y
+    mButtonNames[ InputManager::AnalogL1 ]  = radMakeKey( "LeftTrigger" );
+    mButtonNames[ InputManager::AnalogR1 ]  = radMakeKey( "RightTrigger" );
+    mButtonNames[ InputManager::LeftStickX ] = radMakeKey( "LeftStickX" );
+    mButtonNames[ InputManager::LeftStickY ] = radMakeKey( "LeftStickY" );
+    mButtonNames[ InputManager::RightStickX ] = radMakeKey( "RightStickX" );
+    mButtonNames[ InputManager::RightStickY ] = radMakeKey( "RightStickY" );
+
+    // Default deadzones: axes need deadzone, buttons do not.
+    mButtonDeadZones[ InputManager::LeftStickX ] = 0.25f;
+    mButtonDeadZones[ InputManager::LeftStickY ] = 0.25f;
+    mButtonDeadZones[ InputManager::RightStickX ] = 0.25f;
+    mButtonDeadZones[ InputManager::RightStickY ] = 0.25f;
+
+    mNumButtons = Input::MaxPhysicalButtons;
+    mbInputPointsRegistered = true;
+}
+#endif
+
 void UserController::Initialize( IRadController* pIController2 )
 {
     // if we are being called while initialized, something is wrong
@@ -605,7 +657,10 @@ float UserController::GetInputValue( unsigned int index ) const
 // Returns the real-time value of the input point at index.
 float UserController::GetInputValueRT( unsigned int index ) const
 {
-    rAssert( m_xIController2 != NULL );
+    if ( m_xIController2 == NULL )
+    {
+        return 0.0f;
+    }
 
     IRadControllerInputPoint* pInputPoint = m_xIController2->GetInputPointByIndex( index );
     if( pInputPoint != NULL )

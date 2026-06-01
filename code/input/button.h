@@ -44,8 +44,11 @@ void Button::ForceChange(void)
 
 void Button::SetValue( float fValue )
 {
-    mTickCountAtChange = mTickCount;
-    mfValue = fValue;
+    if ( mfValue != fValue )
+    {
+        mTickCountAtChange = mTickCount;
+        mfValue = fValue;
+    }
 }
 
 bool Button::IsDown( void ) const

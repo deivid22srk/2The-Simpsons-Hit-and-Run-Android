@@ -37,6 +37,7 @@
 #endif
 
 #ifdef RAD_ANDROID
+#include <jni.h>
 #include <android/log.h>
 #include <unistd.h>
 #include <errno.h>
@@ -310,21 +311,46 @@ radSdlDrive::radSdlDrive(const char* pdrivespec, radMemoryAllocator alloc)
     // storage "Android/data/<package>/files/" usando SDL.
     // ============================================================
 #if defined(RAD_ANDROID)
-
-    // CAMBIO AQUÍ: usamos SDL_AndroidGetExternalStoragePath (SDL_system.h)
-    const char* ext = SDL_AndroidGetExternalStoragePath();
-
-    if (ext && ext[0])
+    bool pathSet = false;
+    JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    if (env && activity)
     {
-        
-		strncpy(m_DrivePath, ext, radFileFilenameMax);
-        m_DrivePath[radFileFilenameMax] = '\0'; // CAMBIO AQUÍ
+        jclass activityClass = env->GetObjectClass(activity);
+        jmethodID getGameDataPathMethod = env->GetMethodID(activityClass, "getGameDataPath", "()Ljava/lang/String;");
+        if (getGameDataPathMethod)
+        {
+            jstring jPath = (jstring)env->CallObjectMethod(activity, getGameDataPathMethod);
+            if (jPath)
+            {
+                const char* pathChars = env->GetStringUTFChars(jPath, NULL);
+                if (pathChars && pathChars[0])
+                {
+                    strncpy(m_DrivePath, pathChars, radFileFilenameMax);
+                    m_DrivePath[radFileFilenameMax] = '\0';
+                    pathSet = true;
+                }
+                env->ReleaseStringUTFChars(jPath, pathChars);
+                env->DeleteLocalRef(jPath);
+            }
+        }
+        env->DeleteLocalRef(activityClass);
+        env->DeleteLocalRef(activity);
     }
-    else
+
+    if (!pathSet)
     {
-        // CAMBIO AQUÍ: fallback por si SDL devuelve null (raro)
-        strncpy(m_DrivePath, "/storage/emulated/0/Android/data/com.c4rlox.simpsons/files/", radFileFilenameMax);
-        m_DrivePath[radFileFilenameMax] = '\0';
+        const char* ext = SDL_AndroidGetExternalStoragePath();
+        if (ext && ext[0])
+        {
+            strncpy(m_DrivePath, ext, radFileFilenameMax);
+            m_DrivePath[radFileFilenameMax] = '\0';
+        }
+        else
+        {
+            strncpy(m_DrivePath, "/storage/emulated/0/Android/data/com.c4rlox.simpsons/files/", radFileFilenameMax);
+            m_DrivePath[radFileFilenameMax] = '\0';
+        }
     }
 
 #else

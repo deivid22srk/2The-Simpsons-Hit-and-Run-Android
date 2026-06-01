@@ -59,7 +59,7 @@ private:
     void OnMenuSelectionChange( int selection );
     void OnMenuSelectionMade( int selection );
     void SetMenuAlpha( float alpha );
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     void SetVisibilityForAllOtherMenuItems( bool bDisable );
 #endif
 
@@ -92,7 +92,7 @@ private:
     Scrooby::Layer* m_vehicleInfo;
     Scrooby::Text* m_vehicleName;
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     int m_selectedVehicle;
 #endif
 };

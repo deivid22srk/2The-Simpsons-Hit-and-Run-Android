@@ -445,7 +445,7 @@ CGuiScreenPurchaseRewards::OnProcessRequestsComplete( void* pUserData )
     }
 }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 //===========================================================================
 // CGuiScreenPurchaseRewards::CheckCursorAgainstHotspots
 //===========================================================================
@@ -939,7 +939,7 @@ CGuiScreenPurchaseRewards::UpdateRewardPrice()
             {
                 // special case for German for proper grammar
                 //
-                sprintf( buffer, "Für %d %s", rewardCost, coinsText );
+                sprintf( buffer, "FÃ¼r %d %s", rewardCost, coinsText );
             }
             else
 #endif // PAL

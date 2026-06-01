@@ -22,7 +22,7 @@
 //===========================================================================
 #include <presentation/gui/guientity.h>
 #include <presentation/gui/guimenu.h>
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
 #include <input/FEMouse.h>
 #endif
 
@@ -132,7 +132,7 @@ class CGuiWindow : public CGuiEntity
 
         bool IsRunning(void) {return m_state == GUI_WINDOW_STATE_RUNNING;}
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
         virtual eFEHotspotType CheckCursorAgainstHotspots( float x, float y )
         {
             return HOTSPOT_NONE;

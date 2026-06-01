@@ -111,6 +111,7 @@ void MouseCursor::Render()
 {
     if( !m_bVisible ) return;
 
+#ifndef RAD_ANDROID
     rmt::Vector v1(-0.1f, -0.1f, 0.0f);
     rmt::Vector v2(-0.1f, 0.1f, 0.0f);
     rmt::Vector v3(0.1f, 0.1f, 0.0f);
@@ -149,4 +150,5 @@ void MouseCursor::Render()
 
     //Restore things we've messed with
     p3d::pddi->SetProjectionMode(pMode);
+#endif
 }

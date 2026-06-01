@@ -24,9 +24,12 @@
 #include <input/controller.h>
 #ifdef RAD_PC
 #include <input/usercontrollerWin32.h>
-#include <input/FEMouse.h>
 #else
 #include <input/usercontroller.h>
+#endif
+
+#if defined(RAD_PC) || defined(RAD_ANDROID)
+#include <input/FEMouse.h>
 #endif
 #include <constants/maxplayers.h>
 
@@ -292,7 +295,7 @@ public:
 
     bool IsProScanButtonsPressed() const { return m_isProScanButtonsPressed; }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     FEMouse* GetFEMouse() const { return m_pFEMouse; }
 #endif
 
@@ -331,7 +334,7 @@ private:
 
     bool m_isProScanButtonsPressed : 1;
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     FEMouse* m_pFEMouse;
 #endif
 #ifdef RAD_PS2

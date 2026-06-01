@@ -32,6 +32,14 @@ public:
     // connection state changes)
     virtual void Initialize( IRadController* pIController2 );
 
+#if defined(RAD_ANDROID)
+    // Set up virtual button names for touch controls when no physical gamepad is present.
+    void InitializeVirtualForTouch( void );
+#endif
+
+    // Returns true if input point callbacks have been registered (real or virtual).
+    bool AreInputPointsRegistered( void ) const { return mbInputPointsRegistered; }
+
     // release ftech controllers (called prior to input connection state change)
     virtual void ReleaseRadController( void );
 

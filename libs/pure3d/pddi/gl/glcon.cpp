@@ -103,7 +103,7 @@ void pglContext::BeginFrame()
 {
     pddiBaseContext::BeginFrame();
 
-    SDL_GL_SetSwapInterval(display->GetForceVSync() ? 1 : 0);
+    SDL_GL_SetSwapInterval((display->GetForceVSync() && !(display->GetTargetFps() > 0)) ? 1 : 0);
 
     if(display->HasReset())
     {

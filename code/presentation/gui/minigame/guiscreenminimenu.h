@@ -88,7 +88,7 @@ public:
 			                    unsigned int param1 = 0,
 								unsigned int param2 = 0 );
     virtual CGuiMenu* HasMenu() { return m_pTrackMenu; }
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     virtual eFEHotspotType CheckCursorAgainstHotspots( float x, float y );
 #endif
 
@@ -185,7 +185,7 @@ private:
     Scrooby::Pure3dObject* m_3dCharacters[ NUM_CHARACTERS ];
 #endif
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     int m_currentTrack;
     bool m_bTrackSelected;
 #endif

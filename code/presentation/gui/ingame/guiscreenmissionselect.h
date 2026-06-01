@@ -54,7 +54,7 @@ public:
 								unsigned int param2 = 0 );
 
     virtual CGuiMenu* HasMenu() { return m_pMenu; }
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     virtual eFEHotspotType CheckCursorAgainstHotspots( float x, float y );
 #endif
 

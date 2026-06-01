@@ -2096,7 +2096,7 @@ bool SDLCALL Win32Platform::WndProc( void * userdata, SDL_Event * event )
                     }
                     break;
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
                 case SDL_WINDOWEVENT_LEAVE:
                     GetInputManager()->GetFEMouse()->getCursor()->SetVisible( false );
                     break;
@@ -2134,7 +2134,7 @@ bool SDLCALL Win32Platform::WndProc( void * userdata, SDL_Event * event )
 #endif
                     break;
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
                 case SDL_EVENT_WINDOW_LEAVE:
                     GetInputManager()->GetFEMouse()->getCursor()->SetVisible( false );
                     break;
@@ -2176,7 +2176,7 @@ bool SDLCALL Win32Platform::WndProc( void * userdata, SDL_Event * event )
     case SDL_EVENT_MOUSE_MOTION:
 #endif
         {
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
             // For some reason beyond my comprehension WM_MOUSEMOVE seems to be getting called regardless if the
             // mouse moved or not. So let the FEMouse determine if we moved.
             FEMouse* pFEMouse = GetInputManager()->GetFEMouse();
@@ -2193,7 +2193,7 @@ bool SDLCALL Win32Platform::WndProc( void * userdata, SDL_Event * event )
             break;
         }
 
-#ifdef RAD_PC
+#if defined(RAD_PC) || defined(RAD_ANDROID)
     case SDL_MOUSEBUTTONDOWN:
         if (event->button.button == SDL_BUTTON_LEFT)
             GetInputManager()->GetFEMouse()->ButtonDown( BUTTON_LEFT );
