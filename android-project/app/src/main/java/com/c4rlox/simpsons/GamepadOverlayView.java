@@ -125,6 +125,29 @@ public class GamepadOverlayView extends View {
         new Btn("CONFIG",       0.960f, 0.040f, 0.050f, 0.050f, 0),  // 12: Settings gear
     };
 
+    static {
+        for (int i = 4; i <= 7; i++) {
+            BTNS_CLASSIC[i].alpha = 195;
+        }
+        BTNS_CLASSIC[4].carNx = 0.880f; BTNS_CLASSIC[4].carNy = 0.480f; BTNS_CLASSIC[4].carNw = 0.150f; BTNS_CLASSIC[4].carNh = 0.150f;
+        BTNS_CLASSIC[5].carNx = 0.770f; BTNS_CLASSIC[5].carNy = 0.380f; BTNS_CLASSIC[5].carNw = 0.150f; BTNS_CLASSIC[5].carNh = 0.150f;
+        BTNS_CLASSIC[6].carNx = 0.064f; BTNS_CLASSIC[6].carNy = 0.100f; BTNS_CLASSIC[6].carNw = 0.140f; BTNS_CLASSIC[6].carNh = 0.140f;
+        BTNS_CLASSIC[7].carNx = 0.820f; BTNS_CLASSIC[7].carNy = 0.620f; BTNS_CLASSIC[7].carNw = 0.150f; BTNS_CLASSIC[7].carNh = 0.150f;
+    }
+
+    // ── Definicões de sticks ──────────────────────────────────────────
+    private static final Stk[] STKS_CLASSIC = {
+        new Stk(0.180f, 0.340f, 0.140f),  // Left stick (upper-left, above D-pad)
+        new Stk(0.820f, 0.680f, 0.130f),  // Right stick (bottom-right)
+    };
+
+    static {
+        STKS_CLASSIC[0].baseAlpha = 80;
+        STKS_CLASSIC[0].knobAlpha = 100;
+        STKS_CLASSIC[1].baseAlpha = 80;
+        STKS_CLASSIC[1].knobAlpha = 100;
+    }
+
     private static final Btn[] BTNS_NATIVE = {
         // ── D-Pad (bottom-left) ──────────────────────────────────────────
         new Btn("D-Pad: UP",    0.215f, 0.720f, 0.080f, 0.080f, 0),  // 0
@@ -144,18 +167,7 @@ public class GamepadOverlayView extends View {
         new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
     };
 
-    // ── Runtime BTNS/STKS (points to the active layout set) ──────────────
-    private static Btn[] BTNS = BTNS_CLASSIC;
-    private static Stk[] STKS = STKS_CLASSIC;
-
     static {
-        for (int i = 4; i <= 7; i++) {
-            BTNS_CLASSIC[i].alpha = 195;
-        }
-        BTNS_CLASSIC[4].carNx = 0.880f; BTNS_CLASSIC[4].carNy = 0.480f; BTNS_CLASSIC[4].carNw = 0.150f; BTNS_CLASSIC[4].carNh = 0.150f;
-        BTNS_CLASSIC[5].carNx = 0.770f; BTNS_CLASSIC[5].carNy = 0.380f; BTNS_CLASSIC[5].carNw = 0.150f; BTNS_CLASSIC[5].carNh = 0.150f;
-        BTNS_CLASSIC[6].carNx = 0.064f; BTNS_CLASSIC[6].carNy = 0.100f; BTNS_CLASSIC[6].carNw = 0.140f; BTNS_CLASSIC[6].carNh = 0.140f;
-        BTNS_CLASSIC[7].carNx = 0.820f; BTNS_CLASSIC[7].carNy = 0.620f; BTNS_CLASSIC[7].carNw = 0.150f; BTNS_CLASSIC[7].carNh = 0.150f;
         for (int i = 4; i <= 7; i++) {
             BTNS_NATIVE[i].alpha = 125;
         }
@@ -165,24 +177,13 @@ public class GamepadOverlayView extends View {
         BTNS_NATIVE[7].carNx = 0.932f; BTNS_NATIVE[7].carNy = 0.675f; BTNS_NATIVE[7].carNw = 0.200f; BTNS_NATIVE[7].carNh = 0.200f;
     }
 
-    // ── Definicões de sticks ──────────────────────────────────────────
-    private static final Stk[] STKS_CLASSIC = {
-        new Stk(0.180f, 0.340f, 0.140f),  // Left stick (upper-left, above D-pad)
-        new Stk(0.820f, 0.680f, 0.130f),  // Right stick (bottom-right)
-    };
-
     private static final Stk[] STKS_NATIVE = {
         new Stk(0.145f, 0.723f, 0.130f),  // Left stick (lower-left)
         new Stk(0.734f, 0.466f, 0.090f),  // Right stick (center-right)
     };
 
-    static {
-        STKS_CLASSIC[0].baseAlpha = 80;
-        STKS_CLASSIC[0].knobAlpha = 100;
-        STKS_CLASSIC[1].baseAlpha = 80;
-        STKS_CLASSIC[1].knobAlpha = 100;
-    }
-
+    // ── Runtime arrays (point to active layout) ──────────────────────────
+    private static Btn[] BTNS = BTNS_CLASSIC;
     private static Stk[] STKS = STKS_CLASSIC;
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
