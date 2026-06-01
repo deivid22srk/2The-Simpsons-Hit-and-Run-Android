@@ -218,8 +218,8 @@ public class GamepadOverlayView extends View {
         R.drawable.button_b,           // 5: B
         R.drawable.button_x,           // 6: X
         R.drawable.button_y,           // 7: Y
-        R.drawable.button_start_menu,  // 8: START
-        R.drawable.button_select_view, // 9: SELECT
+        0,                             // 8: START (drawn programmatically)
+        0,                             // 9: SELECT (drawn programmatically)
         R.drawable.button_lt,          // 10: L1
         R.drawable.button_lt,          // 11: R1 (flipped in onDraw)
         0,                             // 12: SETTINGS (drawn programmatically)
@@ -1163,6 +1163,18 @@ public class GamepadOverlayView extends View {
                 continue;
             }
 
+            // ── START/SELECT: draw as transparent pills with text ────
+            if (i == 8 || i == 9) {
+                drawStartSelectButton(canvas, b, i, mButtonPointerIds[i] != -1);
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                    mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                    mEditorHighlightPaint.setStrokeWidth(3f);
+                    mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                    canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
+                }
+                continue;
+            }
+
             // ── Shoulder buttons L1/R1: draw as transparent pill shapes ─
             if (i == 10 || i == 11) {
                 if (mNativeHudEnabled) {
@@ -1211,7 +1223,6 @@ public class GamepadOverlayView extends View {
         if (!mEditorMode && !mNativeHudEnabled) {
             drawDPadCross(canvas);
             drawL3R3Indicators(canvas);
-            drawCenterButtons(canvas);
         }
 
         // ── Editor mode: drag hint for selected element ───────────────
@@ -1433,33 +1444,32 @@ public class GamepadOverlayView extends View {
         }
     }
 
-    // ── Draw center buttons (window, menu, capture) ─────────────────────
-    private void drawCenterButtons(Canvas canvas) {
-        float cy = 0.54f;
-        float baseX = 0.52f;
-        float spacing = 0.065f;
-        int w = getWidth();
-        int h = getHeight();
-        float y = cy * h;
+    // ── Draw START/SELECT as transparent pills with text ────────────────
+    private void drawStartSelectButton(Canvas canvas, Btn b, int idx, boolean pressed) {
+        float cx = b.rect.centerX();
+        float cy = b.rect.centerY();
+        float pw = b.rect.width();
+        float ph = b.rect.height();
+        float r = ph * 0.5f;
 
-        String[] icons = {"\u25A1", "\u2630", "\u25CF"};
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setStyle(Paint.Style.FILL);
+        bg.setColor(Color.argb(pressed ? 160 : 70, 255, 255, 255));
+        canvas.drawRoundRect(b.rect, r, r, bg);
 
-        for (int i = 0; i < 3; i++) {
-            float x = (baseX + (i - 1) * spacing) * w;
-            float r = spacing * 0.35f * Math.min(w, h);
+        Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(1.5f);
+        border.setColor(Color.argb(pressed ? 200 : 100, 255, 255, 255));
+        canvas.drawRoundRect(b.rect, r, r, border);
 
-            Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            bgPaint.setStyle(Paint.Style.FILL);
-            bgPaint.setColor(Color.argb(60, 255, 255, 255));
-            canvas.drawCircle(x, y, r, bgPaint);
-
-            Paint iconPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            iconPaint.setColor(Color.argb(180, 255, 255, 255));
-            iconPaint.setTextSize(r * 1.2f);
-            iconPaint.setTextAlign(Paint.Align.CENTER);
-            iconPaint.setFakeBoldText(true);
-            canvas.drawText(icons[i], x, y + r * 0.4f, iconPaint);
-        }
+        String label = (idx == 8) ? "START" : "SELECT";
+        Paint txt = new Paint(Paint.ANTI_ALIAS_FLAG);
+        txt.setColor(Color.argb(pressed ? 255 : 180, 255, 255, 255));
+        txt.setTextSize(ph * 0.4f);
+        txt.setTextAlign(Paint.Align.CENTER);
+        txt.setFakeBoldText(true);
+        canvas.drawText(label, cx, cy + ph * 0.15f, txt);
     }
 
     // ── Settings gear icon ────────────────────────────────────────────
