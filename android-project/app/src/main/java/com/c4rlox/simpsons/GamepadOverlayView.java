@@ -105,40 +105,85 @@ public class GamepadOverlayView extends View {
     // ── Definicões de botoes (coord normalizadas) ─────────────────────
     private static final int BTN_IDX_SETTINGS = 12;
 
-    private static final Btn[] BTNS = {
-        // ── D-Pad (right of left stick, drawn as cross of lines) ────────
-        new Btn("D-Pad: UP",    0.330f, 0.705f, 0.075f, 0.075f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.330f, 0.815f, 0.075f, 0.075f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.275f, 0.760f, 0.075f, 0.075f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.385f, 0.760f, 0.075f, 0.075f, 0),  // 3
-        // ── Face Buttons A/B/X/Y (colored, right side) ───────────────────
-        new Btn("Face: A",      0.780f, 0.770f, 0.130f, 0.130f, 0),  // 4 - Green (bottom)
-        new Btn("Face: B",      0.870f, 0.680f, 0.130f, 0.130f, 0),  // 5 - Red (right)
-        new Btn("Face: X",      0.690f, 0.680f, 0.130f, 0.130f, 0),  // 6 - Blue (left)
-        new Btn("Face: Y",      0.780f, 0.590f, 0.130f, 0.130f, 0),  // 7 - Yellow (top)
+    // ── Default layouts para Virtual Gamepad (classic) e Native HUD ─────
+    private static final Btn[] BTNS_CLASSIC = {
+        // ── D-Pad (left side, below left stick, vertically centered) ─────
+        new Btn("D-Pad: UP",    0.180f, 0.560f, 0.075f, 0.075f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.180f, 0.680f, 0.075f, 0.075f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.120f, 0.620f, 0.075f, 0.075f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.240f, 0.620f, 0.075f, 0.075f, 0),  // 3
+        // ── Face Buttons A/B/X/Y (right side, above right stick) ────────
+        new Btn("Face: A",      0.820f, 0.480f, 0.120f, 0.120f, 0),  // 4 - Green (bottom)
+        new Btn("Face: B",      0.920f, 0.380f, 0.120f, 0.120f, 0),  // 5 - Red (right)
+        new Btn("Face: X",      0.720f, 0.380f, 0.120f, 0.120f, 0),  // 6 - Blue (left)
+        new Btn("Face: Y",      0.820f, 0.280f, 0.120f, 0.120f, 0),  // 7 - Yellow (top)
         // ── Top buttons ─────────────────────────────────────────────────
-        new Btn("START",        0.540f, 0.040f, 0.100f, 0.055f, 0),  // 8
-        new Btn("SELECT",       0.440f, 0.040f, 0.100f, 0.055f, 0),  // 9
-        new Btn("L1",           0.090f, 0.040f, 0.150f, 0.070f, 0),  // 10
-        new Btn("R1",           0.880f, 0.040f, 0.150f, 0.070f, 0),  // 11
-        new Btn("CONFIG",       0.960f, 0.040f, 0.055f, 0.055f, 0),  // 12: Settings gear
+        new Btn("START",        0.520f, 0.040f, 0.090f, 0.050f, 0),  // 8
+        new Btn("SELECT",       0.430f, 0.040f, 0.090f, 0.050f, 0),  // 9
+        new Btn("L1",           0.080f, 0.040f, 0.140f, 0.065f, 0),  // 10
+        new Btn("R1",           0.880f, 0.040f, 0.140f, 0.065f, 0),  // 11
+        new Btn("CONFIG",       0.960f, 0.040f, 0.050f, 0.050f, 0),  // 12: Settings gear
     };
+
+    private static final Btn[] BTNS_NATIVE = {
+        // ── D-Pad (bottom-left) ──────────────────────────────────────────
+        new Btn("D-Pad: UP",    0.215f, 0.720f, 0.080f, 0.080f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.215f, 0.840f, 0.080f, 0.080f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.155f, 0.780f, 0.080f, 0.080f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.275f, 0.780f, 0.080f, 0.080f, 0),  // 3
+        // ── Face Buttons A/B/X/Y ─────────────────────────────────────────
+        new Btn("Face: A",      0.855f, 0.884f, 0.180f, 0.180f, 0),  // 4
+        new Btn("Face: B",      0.929f, 0.884f, 0.180f, 0.180f, 0),  // 5
+        new Btn("Face: X",      0.924f, 0.725f, 0.180f, 0.180f, 0),  // 6
+        new Btn("Face: Y",      0.919f, 0.564f, 0.180f, 0.180f, 0),  // 7
+        // ── Top buttons ─────────────────────────────────────────────────
+        new Btn("START",        0.560f, 0.050f, 0.120f, 0.060f, 0),  // 8
+        new Btn("SELECT",       0.440f, 0.050f, 0.120f, 0.060f, 0),  // 9
+        new Btn("L1",           0.120f, 0.050f, 0.160f, 0.080f, 0),  // 10
+        new Btn("R1",           0.880f, 0.050f, 0.160f, 0.080f, 0),  // 11
+        new Btn("CONFIG",       0.950f, 0.050f, 0.060f, 0.060f, 0),  // 12: Settings gear
+    };
+
+    // ── Runtime BTNS/STKS (points to the active layout set) ──────────────
+    private static Btn[] BTNS = BTNS_CLASSIC;
+    private static Stk[] STKS = STKS_CLASSIC;
 
     static {
         for (int i = 4; i <= 7; i++) {
-            BTNS[i].alpha = 195;
+            BTNS_CLASSIC[i].alpha = 195;
         }
-        BTNS[4].carNx = 0.850f; BTNS[4].carNy = 0.770f; BTNS[4].carNw = 0.170f; BTNS[4].carNh = 0.170f;
-        BTNS[5].carNx = 0.740f; BTNS[5].carNy = 0.770f; BTNS[5].carNw = 0.170f; BTNS[5].carNh = 0.170f;
-        BTNS[6].carNx = 0.064f; BTNS[6].carNy = 0.100f; BTNS[6].carNw = 0.150f; BTNS[6].carNh = 0.150f;
-        BTNS[7].carNx = 0.850f; BTNS[7].carNy = 0.620f; BTNS[7].carNw = 0.170f; BTNS[7].carNh = 0.170f;
+        BTNS_CLASSIC[4].carNx = 0.880f; BTNS_CLASSIC[4].carNy = 0.480f; BTNS_CLASSIC[4].carNw = 0.150f; BTNS_CLASSIC[4].carNh = 0.150f;
+        BTNS_CLASSIC[5].carNx = 0.770f; BTNS_CLASSIC[5].carNy = 0.380f; BTNS_CLASSIC[5].carNw = 0.150f; BTNS_CLASSIC[5].carNh = 0.150f;
+        BTNS_CLASSIC[6].carNx = 0.064f; BTNS_CLASSIC[6].carNy = 0.100f; BTNS_CLASSIC[6].carNw = 0.140f; BTNS_CLASSIC[6].carNh = 0.140f;
+        BTNS_CLASSIC[7].carNx = 0.820f; BTNS_CLASSIC[7].carNy = 0.620f; BTNS_CLASSIC[7].carNw = 0.150f; BTNS_CLASSIC[7].carNh = 0.150f;
+        for (int i = 4; i <= 7; i++) {
+            BTNS_NATIVE[i].alpha = 125;
+        }
+        BTNS_NATIVE[4].carNx = 0.935f; BTNS_NATIVE[4].carNy = 0.882f; BTNS_NATIVE[4].carNw = 0.200f; BTNS_NATIVE[4].carNh = 0.200f;
+        BTNS_NATIVE[5].carNx = 0.842f; BTNS_NATIVE[5].carNy = 0.884f; BTNS_NATIVE[5].carNw = 0.200f; BTNS_NATIVE[5].carNh = 0.200f;
+        BTNS_NATIVE[6].carNx = 0.084f; BTNS_NATIVE[6].carNy = 0.132f; BTNS_NATIVE[6].carNw = 0.170f; BTNS_NATIVE[6].carNh = 0.170f;
+        BTNS_NATIVE[7].carNx = 0.932f; BTNS_NATIVE[7].carNy = 0.675f; BTNS_NATIVE[7].carNw = 0.200f; BTNS_NATIVE[7].carNh = 0.200f;
     }
 
     // ── Definicões de sticks ──────────────────────────────────────────
-    private static final Stk[] STKS = {
-        new Stk(0.135f, 0.760f, 0.125f),  // Left stick (bottom-left)
-        new Stk(0.690f, 0.760f, 0.110f),  // Right stick (bottom-right, slightly smaller)
+    private static final Stk[] STKS_CLASSIC = {
+        new Stk(0.180f, 0.340f, 0.140f),  // Left stick (upper-left, above D-pad)
+        new Stk(0.820f, 0.680f, 0.130f),  // Right stick (bottom-right)
     };
+
+    private static final Stk[] STKS_NATIVE = {
+        new Stk(0.145f, 0.723f, 0.130f),  // Left stick (lower-left)
+        new Stk(0.734f, 0.466f, 0.090f),  // Right stick (center-right)
+    };
+
+    static {
+        STKS_CLASSIC[0].baseAlpha = 80;
+        STKS_CLASSIC[0].knobAlpha = 100;
+        STKS_CLASSIC[1].baseAlpha = 80;
+        STKS_CLASSIC[1].knobAlpha = 100;
+    }
+
+    private static Stk[] STKS = STKS_CLASSIC;
 
     // ── Nomes legiveis dos sticks para o editor ───────────────────────
     private static final String[] STICK_NAMES = {
@@ -414,27 +459,33 @@ public class GamepadOverlayView extends View {
         final int h = getHeight();
         final float minDim = Math.min(w, h);
 
+        // Select correct default layout based on current mode
+        Btn[] defaultBtns = mNativeHudEnabled ? BTNS_NATIVE : BTNS_CLASSIC;
+        Stk[] defaultStks = mNativeHudEnabled ? STKS_NATIVE : STKS_CLASSIC;
+
         for (int i = 0; i < BTNS.length; i++) {
             Btn b = BTNS[i];
-            b.nx = mBtnOrigins[i][0];
-            b.ny = mBtnOrigins[i][1];
-            b.nw = mBtnOrigins[i][2];
-            b.nh = mBtnOrigins[i][3];
-            b.alpha = (int) mBtnOrigins[i][4];
-            b.carNx = mBtnOrigins[i][5];
-            b.carNy = mBtnOrigins[i][6];
-            b.carNw = mBtnOrigins[i][7];
-            b.carNh = mBtnOrigins[i][8];
+            Btn def = defaultBtns[i];
+            b.nx = def.nx;
+            b.ny = def.ny;
+            b.nw = def.nw;
+            b.nh = def.nh;
+            b.alpha = def.alpha;
+            b.carNx = def.carNx;
+            b.carNy = def.carNy;
+            b.carNw = def.carNw;
+            b.carNh = def.carNh;
             recalcBtnRect(i, w, h);
         }
 
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
-            s.ncx = mStkOrigins[i][0];
-            s.ncy = mStkOrigins[i][1];
-            s.nr  = mStkOrigins[i][2];
-            s.baseAlpha  = (int) mStkOrigins[i][3];
-            s.knobAlpha  = (int) mStkOrigins[i][4];
+            Stk def = defaultStks[i];
+            s.ncx = def.ncx;
+            s.ncy = def.ncy;
+            s.nr  = def.nr;
+            s.baseAlpha  = def.baseAlpha;
+            s.knobAlpha  = def.knobAlpha;
             s.cx = s.ncx * w;
             s.cy = s.ncy * h;
             s.r  = s.nr * minDim;
@@ -1044,6 +1095,16 @@ public class GamepadOverlayView extends View {
             float ky = mStickKnobY[i];
             canvas.drawCircle(kx, ky, s.r * 0.35f, mPStkKnob);
 
+            // Stick label (L/R) in classic mode
+            if (!mNativeHudEnabled) {
+                Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                lblPaint.setColor(Color.argb(120, 255, 255, 255));
+                lblPaint.setTextSize(s.r * 0.5f);
+                lblPaint.setTextAlign(Paint.Align.CENTER);
+                lblPaint.setFakeBoldText(true);
+                canvas.drawText(i == 0 ? "L" : "R", s.cx, s.cy + s.r * 0.18f, lblPaint);
+            }
+
             // Restore defaults
             mPStkBase.setColor(Color.argb(STK_BASE_ALPHA_DEF, 255, 255, 255));
             mPStkKnob.setColor(Color.argb(STK_KNOB_ALPHA_DEF, 255, 255, 255));
@@ -1102,13 +1163,34 @@ public class GamepadOverlayView extends View {
                 continue;
             }
 
-            Bitmap bmp = mBtnBmps[i];
-            if (mNativeHudEnabled && (i == 10 || i == 11)) {
-                int context = mEditorMode ? mEditorHudContext : mCachedHudContext;
-                if (context == 2) {
-                    bmp = mBmpMudarCamera;
+            // ── Shoulder buttons L1/R1: draw as transparent pill shapes ─
+            if (i == 10 || i == 11) {
+                if (mNativeHudEnabled) {
+                    // Native mode: use bitmap as before
+                    Bitmap bmpSb = mBtnBmps[i];
+                    int context = mEditorMode ? mEditorHudContext : mCachedHudContext;
+                    if (context == 2) {
+                        bmpSb = mBmpMudarCamera;
+                    }
+                    if (bmpSb != null) {
+                        int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
+                        int finalAlpha = b.alpha * pressAlpha / 255;
+                        mPBmp.setAlpha(finalAlpha);
+                        canvas.drawBitmap(bmpSb, null, b.rect, mPBmp);
+                    }
+                } else {
+                    drawShoulderButton(canvas, b, i, mButtonPointerIds[i] != -1);
                 }
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                    mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
+                    mEditorHighlightPaint.setStrokeWidth(3f);
+                    mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
+                    canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
+                }
+                continue;
             }
+
+            Bitmap bmp = mBtnBmps[i];
             if (bmp == null) continue;
 
             int pressAlpha = (mButtonPointerIds[i] != -1) ? 180 : 255;
@@ -1125,8 +1207,8 @@ public class GamepadOverlayView extends View {
             }
         }
 
-        // ── D-Pad cross background ────────────────────────────────────
-        if (!mEditorMode) {
+        // ── Extra visual elements (only in classic virtual gamepad mode) ─
+        if (!mEditorMode && !mNativeHudEnabled) {
             drawDPadCross(canvas);
             drawL3R3Indicators(canvas);
             drawCenterButtons(canvas);
@@ -1297,31 +1379,59 @@ public class GamepadOverlayView extends View {
         canvas.drawText(label, cx, cy + r * 0.38f, textPaint);
     }
 
-    // ── Draw L3/R3 indicators near sticks ───────────────────────────────
+    // ── Draw shoulder button (L1/R1) as transparent pill ─────────────────
+    private void drawShoulderButton(Canvas canvas, Btn b, int idx, boolean pressed) {
+        float cx = b.rect.centerX();
+        float cy = b.rect.centerY();
+        float w = b.rect.width();
+        float h = b.rect.height();
+        float r = h * 0.5f;
+
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bgPaint.setStyle(Paint.Style.FILL);
+        int alpha = pressed ? 160 : 80;
+        bgPaint.setColor(Color.argb(alpha, 255, 255, 255));
+        canvas.drawRoundRect(b.rect, r, r, bgPaint);
+
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(2f);
+        borderPaint.setColor(Color.argb(pressed ? 200 : 100, 255, 255, 255));
+        canvas.drawRoundRect(b.rect, r, r, borderPaint);
+
+        String label = (idx == 10) ? "LB" : "RB";
+        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setColor(Color.argb(pressed ? 255 : 180, 255, 255, 255));
+        textPaint.setTextSize(h * 0.4f);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setFakeBoldText(true);
+        canvas.drawText(label, cx, cy + h * 0.15f, textPaint);
+    }
+
+    // ── Draw L3/R3 indicators (discreet, inside stick area) ──────────────
     private void drawL3R3Indicators(Canvas canvas) {
         for (int i = 0; i < STKS.length; i++) {
             Stk s = STKS[i];
             Paint lblPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            lblPaint.setColor(Color.argb(100, 255, 255, 255));
-            lblPaint.setTextSize(s.r * 0.35f);
+            lblPaint.setColor(Color.argb(70, 255, 255, 255));
+            lblPaint.setTextSize(s.r * 0.30f);
             lblPaint.setTextAlign(Paint.Align.CENTER);
             lblPaint.setFakeBoldText(true);
             String lbl = (i == 0) ? "L3" : "R3";
-            canvas.drawText(lbl, s.cx, s.cy + s.r + s.r * 0.5f, lblPaint);
+            canvas.drawText(lbl, s.cx, s.cy + s.r * 0.55f, lblPaint);
         }
     }
 
     // ── Draw center buttons (window, menu, capture) ─────────────────────
     private void drawCenterButtons(Canvas canvas) {
-        float cy = 0.50f;
-        float baseX = 0.50f;
-        float spacing = 0.06f;
+        float cy = 0.54f;
+        float baseX = 0.52f;
+        float spacing = 0.065f;
         int w = getWidth();
         int h = getHeight();
         float y = cy * h;
 
         String[] icons = {"\u25A1", "\u2630", "\u25CF"};
-        String[] labels = {"", "", ""};
 
         for (int i = 0; i < 3; i++) {
             float x = (baseX + (i - 1) * spacing) * w;
