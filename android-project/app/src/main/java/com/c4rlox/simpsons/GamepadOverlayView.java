@@ -6,8 +6,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.CornerPathEffect;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -1294,74 +1296,97 @@ public class GamepadOverlayView extends View {
         boolean lfP = mButtonPointerIds[2] != -1;
         boolean rtP = mButtonPointerIds[3] != -1;
 
+        float L = centerX - armW;
+        float R = centerX + armW;
+        float T = centerY - armH;
+        float B = centerY + armH;
+        float x1 = centerX - halfT;
+        float x2 = centerX + halfT;
+        float y1 = centerY - halfT;
+        float y2 = centerY + halfT;
+
+        Path path = new Path();
+        path.moveTo(x1, T);
+        path.lineTo(x2, T);
+        path.lineTo(x2, y1);
+        path.lineTo(R, y1);
+        path.lineTo(R, y2);
+        path.lineTo(x2, y2);
+        path.lineTo(x2, B);
+        path.lineTo(x1, B);
+        path.lineTo(x1, y2);
+        path.lineTo(L, y2);
+        path.lineTo(L, y1);
+        path.lineTo(x1, y1);
+        path.close();
+
+        CornerPathEffect cornerEffect = new CornerPathEffect(cornerR);
+
+        // 1. Draw base fill (subtle translucent white/glassmorphism effect)
         Paint fillP = new Paint(Paint.ANTI_ALIAS_FLAG);
         fillP.setStyle(Paint.Style.FILL);
+        fillP.setColor(Color.argb(20, 255, 255, 255));
+        fillP.setPathEffect(cornerEffect);
+        canvas.drawPath(path, fillP);
 
-        // ── Draw pressed arm highlights ──────────────────────────────
+        // 2. Draw pressed highlights
+        Paint pressP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pressP.setStyle(Paint.Style.FILL);
+        pressP.setColor(Color.argb(140, 255, 255, 255));
+        pressP.setPathEffect(cornerEffect);
+
         if (upP) {
-            fillP.setColor(Color.argb(160, 255, 255, 255));
-            canvas.drawRoundRect(centerX - halfT, centerY - armH, centerX + halfT, centerY + halfT, cornerR, cornerR, fillP);
+            Path upPath = new Path();
+            upPath.moveTo(x1, centerY);
+            upPath.lineTo(x1, T);
+            upPath.lineTo(x2, T);
+            upPath.lineTo(x2, centerY);
+            upPath.close();
+            canvas.drawPath(upPath, pressP);
         }
         if (dnP) {
-            fillP.setColor(Color.argb(160, 255, 255, 255));
-            canvas.drawRoundRect(centerX - halfT, centerY - halfT, centerX + halfT, centerY + armH, cornerR, cornerR, fillP);
+            Path dnPath = new Path();
+            dnPath.moveTo(x1, centerY);
+            dnPath.lineTo(x2, centerY);
+            dnPath.lineTo(x2, B);
+            dnPath.lineTo(x1, B);
+            dnPath.close();
+            canvas.drawPath(dnPath, pressP);
         }
         if (lfP) {
-            fillP.setColor(Color.argb(160, 255, 255, 255));
-            canvas.drawRoundRect(centerX - armW, centerY - halfT, centerX + halfT, centerY + halfT, cornerR, cornerR, fillP);
+            Path lfPath = new Path();
+            lfPath.moveTo(centerX, y1);
+            lfPath.lineTo(L, y1);
+            lfPath.lineTo(L, y2);
+            lfPath.lineTo(centerX, y2);
+            lfPath.close();
+            canvas.drawPath(lfPath, pressP);
         }
         if (rtP) {
-            fillP.setColor(Color.argb(160, 255, 255, 255));
-            canvas.drawRoundRect(centerX - halfT, centerY - halfT, centerX + armW, centerY + halfT, cornerR, cornerR, fillP);
+            Path rtPath = new Path();
+            rtPath.moveTo(centerX, y1);
+            rtPath.lineTo(centerX, y2);
+            rtPath.lineTo(R, y2);
+            rtPath.lineTo(R, y1);
+            rtPath.close();
+            canvas.drawPath(rtPath, pressP);
         }
 
-        // ── Draw full cross outline (arms + center) ──────────────────
+        // 3. Draw black outline/shadow first to make white outline pop on light backgrounds
+        Paint shadowP = new Paint(Paint.ANTI_ALIAS_FLAG);
+        shadowP.setStyle(Paint.Style.STROKE);
+        shadowP.setStrokeWidth(4.5f);
+        shadowP.setColor(Color.argb(100, 0, 0, 0));
+        shadowP.setPathEffect(cornerEffect);
+        canvas.drawPath(path, shadowP);
+
+        // 4. Draw white outline
         Paint strokeP = new Paint(Paint.ANTI_ALIAS_FLAG);
         strokeP.setStyle(Paint.Style.STROKE);
-        strokeP.setStrokeWidth(2.5f);
-        strokeP.setColor(Color.argb(180, 255, 255, 255));
-
-        // Vertical arm
-        canvas.drawRoundRect(centerX - halfT, centerY - armH, centerX + halfT, centerY + armH, cornerR, cornerR, strokeP);
-        // Horizontal arm
-        canvas.drawRoundRect(centerX - armW, centerY - halfT, centerX + armW, centerY + halfT, cornerR, cornerR, strokeP);
-
-        // ── Center circle ────────────────────────────────────────────
-        boolean anyPressed = upP || dnP || lfP || rtP;
-        Paint centerP = new Paint(Paint.ANTI_ALIAS_FLAG);
-        centerP.setStyle(Paint.Style.FILL);
-        centerP.setColor(Color.argb(anyPressed ? 140 : 60, 255, 255, 255));
-        canvas.drawCircle(centerX, centerY, thick * 0.4f, centerP);
-
-        // Center outline
-        strokeP.setStrokeWidth(1.5f);
-        strokeP.setColor(Color.argb(120, 255, 255, 255));
-        canvas.drawCircle(centerX, centerY, thick * 0.4f, strokeP);
-
-        // ── Small direction chevrons inside quadrants ────────────────
-        float chevSize = thick * 0.25f;
-        Paint chevP = new Paint(Paint.ANTI_ALIAS_FLAG);
-        chevP.setColor(Color.argb(180, 255, 255, 255));
-        chevP.setStrokeWidth(2f);
-        chevP.setStyle(Paint.Style.STROKE);
-
-        float upChevY = centerY - armH * 0.55f;
-        float dnChevY = centerY + armH * 0.55f;
-        float lfChevX = centerX - armW * 0.55f;
-        float rtChevX = centerX + armW * 0.55f;
-
-        // Up chevron (^)
-        canvas.drawLine(centerX - chevSize, upChevY + chevSize, centerX, upChevY - chevSize, chevP);
-        canvas.drawLine(centerX + chevSize, upChevY + chevSize, centerX, upChevY - chevSize, chevP);
-        // Down chevron
-        canvas.drawLine(centerX - chevSize, dnChevY - chevSize, centerX, dnChevY + chevSize, chevP);
-        canvas.drawLine(centerX + chevSize, dnChevY - chevSize, centerX, dnChevY + chevSize, chevP);
-        // Left chevron
-        canvas.drawLine(lfChevX + chevSize, centerY - chevSize, lfChevX - chevSize, centerY, chevP);
-        canvas.drawLine(lfChevX + chevSize, centerY + chevSize, lfChevX - chevSize, centerY, chevP);
-        // Right chevron
-        canvas.drawLine(rtChevX - chevSize, centerY - chevSize, rtChevX + chevSize, centerY, chevP);
-        canvas.drawLine(rtChevX - chevSize, centerY + chevSize, rtChevX + chevSize, centerY, chevP);
+        strokeP.setStrokeWidth(3.0f);
+        strokeP.setColor(Color.argb(220, 255, 255, 255));
+        strokeP.setPathEffect(cornerEffect);
+        canvas.drawPath(path, strokeP);
     }
 
     // ── Draw face button (A/B/X/Y) as colored circle with text ──────────
