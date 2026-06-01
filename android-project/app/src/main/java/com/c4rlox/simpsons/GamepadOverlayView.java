@@ -110,15 +110,15 @@ public class GamepadOverlayView extends View {
     // ── Default layouts para Virtual Gamepad (classic) e Native HUD ─────
     private static final Btn[] BTNS_CLASSIC = {
         // ── D-Pad (left side, below left stick, larger cross) ───────────
-        new Btn("D-Pad: UP",    0.180f, 0.545f, 0.085f, 0.085f, 0),  // 0
-        new Btn("D-Pad: DOWN",  0.180f, 0.695f, 0.085f, 0.085f, 0),  // 1
-        new Btn("D-Pad: LEFT",  0.110f, 0.620f, 0.085f, 0.085f, 0),  // 2
-        new Btn("D-Pad: RIGHT", 0.250f, 0.620f, 0.085f, 0.085f, 0),  // 3
+        new Btn("D-Pad: UP",    0.150f, 0.650f, 0.080f, 0.080f, 0),  // 0
+        new Btn("D-Pad: DOWN",  0.150f, 0.830f, 0.080f, 0.080f, 0),  // 1
+        new Btn("D-Pad: LEFT",  0.060f, 0.740f, 0.080f, 0.080f, 0),  // 2
+        new Btn("D-Pad: RIGHT", 0.240f, 0.740f, 0.080f, 0.080f, 0),  // 3
         // ── Face Buttons A/B/X/Y (right side, above right stick) ────────
-        new Btn("Face: A",      0.820f, 0.490f, 0.135f, 0.135f, 0),  // 4 - Green (bottom)
-        new Btn("Face: B",      0.930f, 0.380f, 0.135f, 0.135f, 0),  // 5 - Red (right)
-        new Btn("Face: X",      0.710f, 0.380f, 0.135f, 0.135f, 0),  // 6 - Blue (left)
-        new Btn("Face: Y",      0.820f, 0.270f, 0.135f, 0.135f, 0),  // 7 - Yellow (top)
+        new Btn("Face: A",      0.830f, 0.555f, 0.110f, 0.110f, 0),  // 4 - Green (bottom)
+        new Btn("Face: B",      0.925f, 0.460f, 0.110f, 0.110f, 0),  // 5 - Red (right)
+        new Btn("Face: X",      0.735f, 0.460f, 0.110f, 0.110f, 0),  // 6 - Blue (left)
+        new Btn("Face: Y",      0.830f, 0.365f, 0.110f, 0.110f, 0),  // 7 - Yellow (top)
         // ── Top buttons ─────────────────────────────────────────────────
         new Btn("START",        0.520f, 0.040f, 0.090f, 0.050f, 0),  // 8
         new Btn("SELECT",       0.430f, 0.040f, 0.090f, 0.050f, 0),  // 9
@@ -139,8 +139,8 @@ public class GamepadOverlayView extends View {
 
     // ── Definicões de sticks ──────────────────────────────────────────
     private static final Stk[] STKS_CLASSIC = {
-        new Stk(0.180f, 0.340f, 0.140f),  // Left stick (upper-left, above D-pad)
-        new Stk(0.820f, 0.680f, 0.130f),  // Right stick (bottom-right)
+        new Stk(0.150f, 0.460f, 0.120f),  // Left stick (upper-left, above D-pad)
+        new Stk(0.830f, 0.740f, 0.120f),  // Right stick (bottom-right)
     };
 
     static {
@@ -571,6 +571,15 @@ public class GamepadOverlayView extends View {
         // 2. Load layout settings from active profile
         String profileName = mNativeHudEnabled ? "GamepadOverlayProfile_Native" : "GamepadOverlayProfile";
         SharedPreferences spActive = context.getSharedPreferences(profileName, Context.MODE_PRIVATE);
+
+        // Auto-migrate from old bad default coordinates
+        if (spActive.contains("btn_0_nx") && !spActive.getBoolean("layout_v2_migrated", false)) {
+            resetToOrigins();
+            saveProfile();
+            spActive.edit().putBoolean("layout_v2_migrated", true).apply();
+            Log.i(TAG, "Migrated layout to new comfortable Xbox style default positions.");
+            return;
+        }
 
         // If no saved settings exist for active profile, reset to origins/defaults
         if (!spActive.contains("btn_0_nx")) {
