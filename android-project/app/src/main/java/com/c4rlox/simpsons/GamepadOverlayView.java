@@ -502,6 +502,7 @@ public class GamepadOverlayView extends View {
         if (mPhysicalGamepadConnected != gamepadFound) {
             mPhysicalGamepadConnected = gamepadFound;
             Log.i(TAG, "Physical gamepad connected status: " + mPhysicalGamepadConnected);
+            SDLControllerManager.pollInputDevices();
             postInvalidate();
         }
     }
