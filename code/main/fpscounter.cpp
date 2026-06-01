@@ -11,6 +11,8 @@
   #include <presentation/gui/guimanager.h>
   #include <presentation/gui/guiwindow.h>
   #include <input/inputmanager.h>
+  #include <pddi/pddi.hpp>
+  #include <p3d/utility.hpp>
 #else
   #include <cstdio>
   #define FPS_LOGI(...) do { std::printf("[FPSCounter] "); std::printf(__VA_ARGS__); std::printf("\n"); std::fflush(stdout); } while(0)
@@ -181,6 +183,23 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeIsRumbleEnabled(JNIEnv* /*env*/,
         return im->IsRumbleEnabled() ? JNI_TRUE : JNI_FALSE;
     }
     return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeSetFPSCap(JNIEnv* /*env*/, jclass /*clazz*/, jint fps)
+{
+    if (p3d::display) {
+        p3d::display->SetTargetFps(fps);
+        p3d::display->SetLsfgEnabled(fps > 0);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeSetLsfgEnabled(JNIEnv* /*env*/, jclass /*clazz*/, jboolean enabled)
+{
+    if (p3d::display) {
+        p3d::display->SetLsfgEnabled(enabled == JNI_TRUE);
+    }
 }
 
 #endif // RAD_ANDROID

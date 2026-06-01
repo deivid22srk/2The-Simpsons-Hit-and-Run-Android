@@ -201,6 +201,7 @@ public class GamepadOverlayView extends View {
     private RectF mFrameGenDllBtnRect = new RectF();
     private RectF mFrameGenStatusRect = new RectF();
     private RectF mFrameGenFpsRect = new RectF();
+    private RectF mFpsUnlockToggleRect = new RectF();
 
     // ── Editor panel rects ────────────────────────────────────────────
     private RectF mEditorPanelRect = new RectF();
@@ -289,6 +290,7 @@ public class GamepadOverlayView extends View {
     private boolean mFrameGenCategoryPressed = false;
     private boolean mFrameGenTogglePressed = false;
     private boolean mFrameGenDllBtnPressed = false;
+    private boolean mFpsUnlockPressed = false;
     public static final int REQUEST_CODE_EXPORT_JSON = 1001;
     public static final int REQUEST_CODE_IMPORT_JSON = 1002;
     public static final int REQUEST_CODE_SELECT_DLL = 1003;
@@ -301,6 +303,7 @@ public class GamepadOverlayView extends View {
     private long mLastFrameGenCount = 0;
     private long mLastFrameGenTime = 0;
     private float mFrameGenFps = 0f;
+    private boolean mFpsUnlocked = false;
 
     // ── Swipe camera touch tracking ───────────────────────────────────
     private int mSwipePointerId = -1;
@@ -452,6 +455,9 @@ public class GamepadOverlayView extends View {
         defEditor.putFloat("swipe_camera_sensitivity", mSwipeSensitivity);
         defEditor.putBoolean("vibration_enabled", mVibrationEnabled);
         defEditor.putBoolean("native_hud_enabled", mNativeHudEnabled);
+        defEditor.putString("framegen_dll_path", mFrameGenDllPath);
+        defEditor.putBoolean("framegen_enabled", mFrameGenEnabled);
+        defEditor.putBoolean("fps_unlocked", mFpsUnlocked);
         defEditor.apply();
 
         // 2. Save layout settings to active profile
@@ -499,6 +505,9 @@ public class GamepadOverlayView extends View {
         mSwipeSensitivity = spDefault.getFloat("swipe_camera_sensitivity", 1.0f);
         mVibrationEnabled = spDefault.getBoolean("vibration_enabled", true);
         mNativeHudEnabled = spDefault.getBoolean("native_hud_enabled", false);
+        mFrameGenDllPath = spDefault.getString("framegen_dll_path", "");
+        mFrameGenEnabled = spDefault.getBoolean("framegen_enabled", false);
+        mFpsUnlocked = spDefault.getBoolean("fps_unlocked", false);
 
         // 2. Load layout settings from active profile
         String profileName = mNativeHudEnabled ? "GamepadOverlayProfile_Native" : "GamepadOverlayProfile";
@@ -544,6 +553,7 @@ public class GamepadOverlayView extends View {
             }
         }
         Log.i(TAG, "Profile loaded successfully: " + profileName);
+        syncFrameGenState();
     }
 
     // ── Recalculate a single button's rect ────────────────────────────
@@ -683,6 +693,8 @@ public class GamepadOverlayView extends View {
         // ── Frame Generation subpage controls ───────────────────────────
         // Reuse existing row position for the toggle (similar to other toggles)
         mFrameGenToggleRect.set(cardL, row1T, cardR, row1B);
+        // FPS Unlock toggle (row, reuse row3 area)
+        mFpsUnlockToggleRect.set(cardL, row3T, cardR, row3B);
         // DLL selection button (like editor button but lower)
         float fgDllBtnW = panelW * 0.70f;
         float fgDllBtnH = panelH * 0.09f;
@@ -1199,6 +1211,14 @@ public class GamepadOverlayView extends View {
         canvas.drawCircle(cx, cy, r * 0.35f, mGearDotPaint);
     }
 
+    // ── Sync frame gen state to native ────────────────────────────────
+    private void syncFrameGenState() {
+        try {
+            SimpsonsActivity.nativeSetLsfgEnabled(mFrameGenEnabled || mFpsUnlocked);
+            SimpsonsActivity.nativeSetFPSCap(mFpsUnlocked ? 120 : (mFrameGenEnabled ? 120 : 0));
+        } catch (Throwable ignored) {}
+    }
+
     // ── Helper: draw close button (X) ────────────────────────────────
     private void drawCloseButton(Canvas canvas, RectF rect, boolean pressed) {
         float cx = rect.centerX();
@@ -1553,6 +1573,10 @@ public class GamepadOverlayView extends View {
         canvas.drawText(active ? s(R.string.framegen_status_active) : s(R.string.framegen_status_inactive),
             mFrameGenStatusRect.left + w * 0.05f,
             mFrameGenStatusRect.centerY() + h * 0.015f, mPanelLabelPaint);
+
+        // FPS Unlock toggle
+        drawToggleRow(canvas, mFpsUnlockToggleRect, w, h,
+            s(R.string.fps_unlock), mFpsUnlocked, mFpsUnlockPressed);
 
         // DLL selection button
         drawActionButton(canvas, mFrameGenDllBtnRect,
@@ -1994,6 +2018,11 @@ public class GamepadOverlayView extends View {
                         mFrameGenTogglePressed = true;
                         return;
                     }
+                    if (mFpsUnlockToggleRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mFpsUnlockPressed = true;
+                        return;
+                    }
                     if (mFrameGenDllBtnRect.contains(x, y)) {
                         mSettingsPointerId = pid;
                         mFrameGenDllBtnPressed = true;
@@ -2098,6 +2127,7 @@ public class GamepadOverlayView extends View {
                 }
                 if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
                     mFrameGenTogglePressed = mFrameGenToggleRect.contains(x, y);
+                    mFpsUnlockPressed = mFpsUnlockToggleRect.contains(x, y);
                     mFrameGenDllBtnPressed = mFrameGenDllBtnRect.contains(x, y);
                 }
             }
@@ -2241,6 +2271,12 @@ public class GamepadOverlayView extends View {
                     mLastFrameGenCount = 0;
                     mLastFrameGenTime = 0;
                     mFrameGenFps = 0f;
+                    syncFrameGenState();
+                    saveProfile();
+                } else if (mFpsUnlockPressed) {
+                    mFpsUnlocked = !mFpsUnlocked;
+                    syncFrameGenState();
+                    saveProfile();
                 } else if (mFrameGenDllBtnPressed) {
                     Context ctx = getContext();
                     if (ctx instanceof Activity) {
@@ -2269,6 +2305,7 @@ public class GamepadOverlayView extends View {
             mHudMgmtCategoryPressed = false;
             mFrameGenCategoryPressed = false;
             mFrameGenTogglePressed = false;
+            mFpsUnlockPressed = false;
             mFrameGenDllBtnPressed = false;
             return;
         }
@@ -2329,6 +2366,7 @@ public class GamepadOverlayView extends View {
         mHudMgmtCategoryPressed = false;
         mFrameGenCategoryPressed = false;
         mFrameGenTogglePressed = false;
+        mFpsUnlockPressed = false;
         mFrameGenDllBtnPressed = false;
 
         mEditorSelectedIdx = -1;

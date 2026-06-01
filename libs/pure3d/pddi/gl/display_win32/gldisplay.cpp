@@ -11,6 +11,7 @@
 #include<stdio.h>
 #include<string.h>
 #include<math.h>
+#include<dlfcn.h>
 
 bool pglDisplay::CheckExtension( const char *extName )
 {
@@ -335,14 +336,42 @@ void pglDisplay::SetGamma(float r, float g, float b)
 
 void pglDisplay::SwapBuffers(void)
 {
+    // ── Capture frame for LSFG before swapping ────────────────────────
+    #ifdef RAD_ANDROID
+    if (m_lsfgEnabled)
+    {
+        static void (*lsfg_push)(const void*, int, int, int) = nullptr;
+        static bool lsfg_resolved = false;
+        if (!lsfg_resolved) {
+            lsfg_push = (decltype(lsfg_push))dlsym(RTLD_DEFAULT, "lsfg_push_raw_frame");
+            lsfg_resolved = true;
+        }
+        if (lsfg_push) {
+            GLint vp[4];
+            glGetIntegerv(GL_VIEWPORT, vp);
+            if (vp[2] > 0 && vp[3] > 0) {
+                static size_t capBytes = 0;
+                static void* capBuf = nullptr;
+                size_t needed = vp[2] * vp[3] * 4;
+                if (needed > capBytes) {
+                    free(capBuf);
+                    capBuf = malloc(needed);
+                    capBytes = needed;
+                }
+                glReadPixels(vp[0], vp[1], vp[2], vp[3], GL_RGBA, GL_UNSIGNED_BYTE, capBuf);
+                lsfg_push(capBuf, vp[2], vp[3], vp[2] * 4);
+            }
+        }
+    }
+    #endif
+
     SDL_GL_SwapWindow(win);
     reset = false;
     #ifdef RAD_ANDROID
-    // --- FPS CAP 60 (muy ligero) ---
-    // Si además quieres, condiciona esto a m_only60 o a GetForceVSync().
-    if (m_only60)
+    // --- FPS CAP (configurable) ---
+    if (m_only60 || m_targetFps > 0)
     {
-        static const double TARGET_MS = 1000.0 / 60.0;  // 16.666...
+        double targetMs = (m_targetFps > 0) ? 1000.0 / m_targetFps : 1000.0 / 60.0;
         static Uint64 freq = 0;
         static Uint64 last = 0;
 
@@ -355,12 +384,10 @@ void pglDisplay::SwapBuffers(void)
         Uint64 now = SDL_GetPerformanceCounter();
         double ms = (double)(now - last) * 1000.0 / (double)freq;
 
-        if (ms < TARGET_MS)
+        if (ms < targetMs)
         {
-            // SDL_Delay es barato; puede tener cierta imprecisión, pero para física ligada a frame suele ir bien.
-            Uint32 delayMs = (Uint32)(TARGET_MS - ms);
+            Uint32 delayMs = (Uint32)(targetMs - ms);
             if (delayMs > 0) SDL_Delay(delayMs);
-            // Re-sincroniza timestamp tras el delay
             now = SDL_GetPerformanceCounter();
         }
 

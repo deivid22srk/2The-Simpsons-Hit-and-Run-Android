@@ -59,6 +59,7 @@
     <string name="framegen_status_active">Activo ✓</string>
     <string name="framegen_status_inactive">Inactivo</string>
     <string name="framegen_fps_count">FPS Generado: %d</string>
+    <string name="fps_unlock">Liberar 120 FPS</string>
     <string name="back_btn">← Volver</string>
     <string name="save_manager_title">Administrar Partidas</string>
     <string name="slot_prefix">Slot</string>

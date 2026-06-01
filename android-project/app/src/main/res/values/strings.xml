@@ -59,6 +59,7 @@
     <string name="framegen_status_active">Active ✓</string>
     <string name="framegen_status_inactive">Inactive</string>
     <string name="framegen_fps_count">Gen FPS: %d</string>
+    <string name="fps_unlock">Unlock 120 FPS</string>
     <string name="back_btn">← Back</string>
     <string name="save_manager_title">Save Manager</string>
     <string name="slot_prefix">Slot</string>

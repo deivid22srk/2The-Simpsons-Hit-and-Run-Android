@@ -329,12 +329,18 @@ public:
 
    PDDI_INTERFACE void SetForceVSync(bool IsForceVSync, bool only60 = false) {m_ForceVSync = IsForceVSync; m_only60 = only60;}
    PDDI_INTERFACE bool GetForceVSync(void) {return m_ForceVSync;}
+   PDDI_INTERFACE void SetLsfgEnabled(bool en) { m_lsfgEnabled = en; }
+   PDDI_INTERFACE bool GetLsfgEnabled(void) { return m_lsfgEnabled; }
+   PDDI_INTERFACE void SetTargetFps(int fps) { m_targetFps = fps; }
+   PDDI_INTERFACE int GetTargetFps(void) { return m_targetFps; }
 
 protected:
-   pddiDisplay() { m_ForceVSync = false; m_only60 = false; }
+   pddiDisplay() { m_ForceVSync = false; m_only60 = false; m_lsfgEnabled = false; m_targetFps = 0; }
    virtual ~pddiDisplay() {};
    bool m_ForceVSync;
    bool m_only60;
+   bool m_lsfgEnabled;
+   int m_targetFps;
 };
 
 

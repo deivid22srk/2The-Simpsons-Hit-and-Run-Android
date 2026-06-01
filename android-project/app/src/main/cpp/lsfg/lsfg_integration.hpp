@@ -65,4 +65,11 @@ void setBypass(bool bypass);
 // Shutdown LSFG system
 void shutdownLsfg();
 
+// Push raw RGBA pixels (CPU path) — creates an AHB and pushes it.
+// Used by the game's SwapBuffers hook.
+void captureRawFrame(const void* rgba, uint32_t w, uint32_t h, uint32_t stride);
+
 } // namespace lsfg
+
+// C-linkage export for dlsym lookup from libmain.so
+extern "C" void lsfg_push_raw_frame(const void* rgba, int w, int h, int stride);

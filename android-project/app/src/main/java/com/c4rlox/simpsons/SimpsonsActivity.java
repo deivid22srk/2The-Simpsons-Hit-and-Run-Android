@@ -81,9 +81,12 @@ public class SimpsonsActivity extends SDLActivity {
     private int mSelectedSlotForImport = -1;
 
     public static native float nativeGetFPS();
-    public static native int nativeGetHudContext();
-    public static native boolean nativeIsTitleScreen();
+
     public static native void nativeSetRumbleEnabled(boolean enabled);
+
+    public static native void nativeSetFPSCap(int fps);
+
+    public static native void nativeSetLsfgEnabled(boolean enabled);
     public static native boolean nativeIsRumbleEnabled();
 
     @Override

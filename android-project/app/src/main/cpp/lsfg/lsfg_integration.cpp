@@ -353,6 +353,44 @@ void pushFrame(AHardwareBuffer* ahb, int64_t timestampNs) {
     }
 }
 
+void captureRawFrame(const void* rgba, uint32_t w, uint32_t h, uint32_t stride) {
+    if (!g.framegenInitialized || !g.framegenEnabled || g.bypass || !rgba) return;
+    if (w == 0 || h == 0) return;
+
+    // Lazy-create a capture AHB
+    static AHardwareBuffer* captureAhb = nullptr;
+    if (!captureAhb) {
+        AHardwareBuffer_Desc desc = {};
+        desc.width = w;
+        desc.height = h;
+        desc.layers = 1;
+        desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+        desc.usage = AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN | AHARDWAREBUFFER_USAGE_CPU_READ_NEVER;
+        if (AHardwareBuffer_allocate(&desc, &captureAhb) != 0) {
+            LOGE("captureRawFrame: failed to allocate capture AHB");
+            return;
+        }
+    }
+
+    // Copy pixels into the capture AHB
+    void* dstPtr = nullptr;
+    if (AHardwareBuffer_lock(captureAhb, AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, -1, nullptr, &dstPtr) == 0) {
+        AHardwareBuffer_Desc desc;
+        AHardwareBuffer_describe(captureAhb, &desc);
+        size_t dstRowBytes = desc.stride * 4;
+        size_t srcRowBytes = (stride > 0) ? stride : w * 4;
+        size_t copyBytes = (srcRowBytes < dstRowBytes) ? srcRowBytes : dstRowBytes;
+        for (uint32_t y = 0; y < h && y < desc.height; y++) {
+            memcpy((uint8_t*)dstPtr + y * dstRowBytes,
+                   (const uint8_t*)rgba + y * srcRowBytes,
+                   copyBytes);
+        }
+        AHardwareBuffer_unlock(captureAhb, nullptr);
+    }
+
+    pushFrame(captureAhb, 0);
+}
+
 void setOutputSurface(ANativeWindow* window, uint32_t w, uint32_t h) {
     std::lock_guard<std::mutex> lock(g.mutex);
     if (g.outputWindow) {
@@ -575,3 +613,8 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physDev,
 
 } // namespace vk
 } // namespace lsfg
+
+// ── C-linkage export for dlsym from libmain.so ─────────────────────────
+extern "C" void lsfg_push_raw_frame(const void* rgba, int w, int h, int stride) {
+    lsfg::captureRawFrame(rgba, (uint32_t)w, (uint32_t)h, (uint32_t)stride);
+}
