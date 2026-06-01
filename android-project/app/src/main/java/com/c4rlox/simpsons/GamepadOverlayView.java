@@ -359,6 +359,7 @@ public class GamepadOverlayView extends View {
 
     // ── Swipe camera touch tracking ───────────────────────────────────
     private int mSwipePointerId = -1;
+    private final android.util.SparseBooleanArray mHudOwnedPointers = new android.util.SparseBooleanArray();
     private float mSwipeLastX = 0f;
     private float mSwipeLastY = 0f;
     private final android.os.Handler mSwipeHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -1205,12 +1206,23 @@ public class GamepadOverlayView extends View {
 
             // ── D-Pad: drawn as single cross piece by drawDPadCross() ─
             if (i >= 0 && i <= 3) {
-                // Editor: highlight selected button's hit area
-                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx == i) {
+                // Editor: highlight selected button's hit area as a group
+                if (mEditorMode && !mEditorSelectedIsStick && mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3 && i == 0) {
+                    float cyUp = BTNS[0].rect.centerY();
+                    float cyDn = BTNS[1].rect.centerY();
+                    float cxLf = BTNS[2].rect.centerX();
+                    float cxRt = BTNS[3].rect.centerX();
+                    float centerX = (cxLf + cxRt) * 0.5f;
+                    float centerY = (cyUp + cyDn) * 0.5f;
+                    float btnW = BTNS[0].rect.width();
+                    float halfW = btnW * 0.5f;
+                    float radiusPx = Math.abs(cyUp - centerY);
+                    float arm = radiusPx + halfW * 0.45f;
+
                     mEditorHighlightPaint.setStyle(Paint.Style.STROKE);
                     mEditorHighlightPaint.setStrokeWidth(3f);
                     mEditorHighlightPaint.setColor(SETTINGS_ACCENT);
-                    canvas.drawRoundRect(b.rect, 4f, 4f, mEditorHighlightPaint);
+                    canvas.drawRoundRect(new RectF(centerX - arm, centerY - arm, centerX + arm, centerY + arm), 8f, 8f, mEditorHighlightPaint);
                 }
                 continue;
             }
@@ -1285,9 +1297,11 @@ public class GamepadOverlayView extends View {
         }
 
         // ── Extra visual elements (only in classic virtual gamepad mode) ─
-        if (!mEditorMode && !mNativeHudEnabled) {
+        if (!mNativeHudEnabled) {
             drawDPadCross(canvas);
-            drawL3R3Indicators(canvas);
+            if (!mEditorMode) {
+                drawL3R3Indicators(canvas);
+            }
         }
 
         // ── Editor mode: drag hint for selected element ───────────────
@@ -2286,6 +2300,37 @@ public class GamepadOverlayView extends View {
 
     // ── handleDown ────────────────────────────────────────────────────
     private void handleDown(float x, float y, int pid) {
+        boolean isHud = false;
+        if (mShowSettings) {
+            isHud = true;
+        } else {
+            // Check buttons
+            for (int i = 0; i < BTNS.length; i++) {
+                if (isBtnVisible(i) && BTNS[i].rect.contains(x, y)) {
+                    isHud = true;
+                    break;
+                }
+            }
+            if (!isHud) {
+                // Check sticks
+                for (int i = 0; i < STKS.length; i++) {
+                    if (i == 1 && mSwipeCameraEnabled) continue;
+                    Stk s = STKS[i];
+                    float dx = x - s.cx, dy = y - s.cy;
+                    if (dx * dx + dy * dy <= s.r * s.r) {
+                        isHud = true;
+                        break;
+                    }
+                }
+            }
+            if (!isHud && mSwipeCameraEnabled && x > getWidth() / 2f) {
+                isHud = true;
+            }
+        }
+        if (isHud) {
+            mHudOwnedPointers.put(pid, true);
+        }
+
         // ── Editor mode takes priority ─────────────────────────────────
         if (mEditorMode) {
             handleEditorDown(x, y, pid);
@@ -2559,6 +2604,7 @@ public class GamepadOverlayView extends View {
 
     // ── handleUp ──────────────────────────────────────────────────────
     private void handleUp(int pid) {
+        mHudOwnedPointers.delete(pid);
         // ── Editor mode ───────────────────────────────────────────────
         if (mEditorMode) {
             handleEditorUp(pid);
@@ -2725,6 +2771,7 @@ public class GamepadOverlayView extends View {
 
     // ── handleCancel ──────────────────────────────────────────────────
     private void handleCancel() {
+        mHudOwnedPointers.clear();
         releaseAllGameInputs();
         mShowSettings = false;
         mSettingsPage = SETTINGS_PAGE_MAIN;
@@ -2832,7 +2879,40 @@ public class GamepadOverlayView extends View {
         }
 
         // Then buttons
+        // D-Pad group selection (if visible)
+        if (!mNativeHudEnabled && BTNS.length >= 4 && BTNS[0] != null && BTNS[1] != null && BTNS[2] != null && BTNS[3] != null) {
+            float cyUp = BTNS[0].rect.centerY();
+            float cyDn = BTNS[1].rect.centerY();
+            float cxLf = BTNS[2].rect.centerX();
+            float cxRt = BTNS[3].rect.centerX();
+            float centerX = (cxLf + cxRt) * 0.5f;
+            float centerY = (cyUp + cyDn) * 0.5f;
+            float btnW = BTNS[0].rect.width();
+            float halfW = btnW * 0.5f;
+            float radiusPx = Math.abs(cyUp - centerY);
+            float arm = radiusPx + halfW * 0.45f;
+            RectF dpadRect = new RectF(centerX - arm, centerY - arm, centerX + arm, centerY + arm);
+
+            if (dpadRect.contains(x, y)) {
+                if (!mEditorSelectedIsStick && mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
+                    // Already selected — start dragging
+                    mEditorPointerId = pid;
+                    mEditorDragging = true;
+                    mEditorDragOffX = x - BTNS[0].rect.centerX();
+                    mEditorDragOffY = y - BTNS[0].rect.centerY();
+                } else {
+                    // Select D-pad group (represent by index 0)
+                    mEditorSelectedIdx = 0;
+                    mEditorSelectedIsStick = false;
+                    mEditorPointerId = pid;
+                }
+                Log.i(TAG, "Editor: selected D-Pad via group rect");
+                return;
+            }
+        }
+
         for (int i = 0; i < BTNS.length; i++) {
+            if (i >= 0 && i <= 3) continue; // D-pad handled above as group
             if (BTNS[i].rect.contains(x, y)) {
                 if (i == BTN_IDX_SETTINGS) {
                     // Gear icon toggles editor mode off
@@ -3119,6 +3199,9 @@ public class GamepadOverlayView extends View {
     private void sendTouch(MotionEvent ev, int i, int touchDevId,
                            int action, int w, int h) {
         int pointerFingerId = ev.getPointerId(i);
+        if (mHudOwnedPointers.get(pointerFingerId)) {
+            return;
+        }
         float rawX = ev.getX(i);
         float rawY = ev.getY(i);
 
