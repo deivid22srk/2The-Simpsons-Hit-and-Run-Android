@@ -1,5 +1,5 @@
 Ola, eu criei este fork usando IA.
-Este projeto existe apenas porque achei o trabalho do Carlos muito bom.
+Este projeto existe apenas porque achei o trabalho do Carlox33 muito bom.
 Todo o crédito pelo port vai para o projeto original: https://github.com/Carlox33/The-Simpsons-Hit-and-Run-Android
 Meu objetivo não é ganhar fama ou me passar pelo desenvolvedor original; apenas quis explorar e aprender com o projeto.
 
