@@ -3280,19 +3280,36 @@ public class GamepadOverlayView extends View {
         } else {
             boolean isCar = mNativeHudEnabled && (mEditorHudContext == 2) && (mEditorSelectedIdx >= 4 && mEditorSelectedIdx <= 7);
             if (mEditorSelectedIdx >= 0 && mEditorSelectedIdx <= 3) {
-                // Adjust size for all D-Pad buttons
+                float centerX = 0, centerY = 0;
+                for (int i = 0; i < 4; i++) {
+                    Btn db = BTNS[i];
+                    centerX += isCar ? db.carNx : db.nx;
+                    centerY += isCar ? db.carNy : db.ny;
+                }
+                centerX /= 4f;
+                centerY /= 4f;
                 for (int i = 0; i < 4; i++) {
                     Btn db = BTNS[i];
                     if (isCar) {
-                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.carNw + delta));
-                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.carNh + delta));
+                        float oldNw = db.carNw;
+                        float oldNh = db.carNh;
+                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, oldNw + delta));
+                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, oldNh + delta));
+                        float scale = (newNw + newNh) / (oldNw + oldNh);
                         db.carNw = newNw;
                         db.carNh = newNh;
+                        db.carNx = centerX + (db.carNx - centerX) * scale;
+                        db.carNy = centerY + (db.carNy - centerY) * scale;
                     } else {
-                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nw + delta));
-                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, db.nh + delta));
+                        float oldNw = db.nw;
+                        float oldNh = db.nh;
+                        float newNw = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, oldNw + delta));
+                        float newNh = Math.max(EDITOR_SIZE_MIN, Math.min(EDITOR_SIZE_MAX, oldNh + delta));
+                        float scale = (newNw + newNh) / (oldNw + oldNh);
                         db.nw = newNw;
                         db.nh = newNh;
+                        db.nx = centerX + (db.nx - centerX) * scale;
+                        db.ny = centerY + (db.ny - centerY) * scale;
                     }
                 }
                 recalcAllRects(w, h);
