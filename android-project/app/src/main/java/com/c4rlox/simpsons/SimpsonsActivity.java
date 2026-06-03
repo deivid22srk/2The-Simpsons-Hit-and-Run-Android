@@ -1269,6 +1269,7 @@ public class SimpsonsActivity extends SDLActivity {
         mImportLog.append("Source URI: ").append(uri.toString()).append("\n");
         
         String fileName = "imported_mod";
+        long fileSize = -1;
         try {
             android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
             if (cursor != null) {
@@ -1277,14 +1278,19 @@ public class SimpsonsActivity extends SDLActivity {
                     if (idx >= 0) {
                         fileName = cursor.getString(idx);
                     }
+                    int sizeIdx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
+                    if (sizeIdx >= 0) {
+                        fileSize = cursor.getLong(sizeIdx);
+                    }
                 }
                 cursor.close();
             }
         } catch (Exception e) {
-            mImportLog.append("Warning: Could not query display name. Defaulting to imported_mod. Error: ").append(e.getMessage()).append("\n");
+            mImportLog.append("Warning: Could not query metadata. Error: ").append(e.getMessage()).append("\n");
         }
         
         mImportLog.append("Original file name: ").append(fileName).append("\n");
+        mImportLog.append("Source file size: ").append(fileSize != -1 ? fileSize + " bytes" : "unknown").append("\n");
         String modName = fileName;
         if (modName.toLowerCase().endsWith(".zip")) {
             modName = modName.substring(0, modName.length() - 4);
@@ -1594,6 +1600,9 @@ public class SimpsonsActivity extends SDLActivity {
                 zis.closeEntry();
             }
             log.append("Total zip entries processed: ").append(entriesCount).append("\n");
+            if (entriesCount == 0) {
+                throw new java.io.IOException("No files were extracted. The zip/lmlm file might be empty, corrupted, or not a valid archive.");
+            }
         } finally {
             zis.close();
         }
