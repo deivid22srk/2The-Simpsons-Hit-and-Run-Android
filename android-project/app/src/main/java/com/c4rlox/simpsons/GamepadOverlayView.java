@@ -1978,7 +1978,7 @@ public class GamepadOverlayView extends View {
             drawCloseButton(canvas, mSettingsCloseRect, mSettingsClosePressed);
 
             drawCategoryButton(canvas, mDisplayCategoryRect,
-                s(R.string.settings_category_display), "FPS, Native HUD", "\uD83D\uDCA1",
+                s(R.string.settings_category_display), "FPS", "\uD83D\uDCA1",
                 mDisplayCategoryPressed);
             drawCategoryButton(canvas, mControlsCategoryRect,
                 s(R.string.settings_category_controls), "Swipe Camera, Vibration, Sensitivity", "\uD83C\uDFAE",
@@ -1986,9 +1986,6 @@ public class GamepadOverlayView extends View {
             drawCategoryButton(canvas, mHudMgmtCategoryRect,
                 s(R.string.settings_category_hud), "Editor, Export/Import, Save Manager", "\u2699\uFE0F",
                 mHudMgmtCategoryPressed);
-            drawCategoryButton(canvas, mFrameGenCategoryRect,
-                s(R.string.settings_category_framegen), "Enable, DLL, Status", "\uD83C\uDFAC",
-                mFrameGenCategoryPressed);
         } else {
             // ── SUBPAGE: Show category content ──────────────────────────
             drawSubpageHeader(canvas, left, top, w, h);
@@ -1999,8 +1996,6 @@ public class GamepadOverlayView extends View {
                 drawControlsSubpage(canvas, left, top, w, h);
             } else if (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) {
                 drawHudMgmtSubpage(canvas, left, top, w, h);
-            } else if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
-                drawFrameGenSubpage(canvas, left, top, w, h);
             }
         }
     }
@@ -2008,7 +2003,6 @@ public class GamepadOverlayView extends View {
     // ── Display subpage ───────────────────────────────────────────────
     private void drawDisplaySubpage(Canvas canvas, float left, float top, float w, float h) {
         drawToggleRow(canvas, mFpsToggleRect, w, h, s(R.string.show_fps), mShowFPS, mFpsTogglePressed);
-        drawToggleRow(canvas, mNativeHudToggleRect, w, h, s(R.string.native_hud), mNativeHudEnabled, mNativeHudTogglePressed);
 
         if (mShowFPS && mNativeAvailable) {
             float fps = SimpsonsActivity.nativeGetFPS();
@@ -2016,7 +2010,7 @@ public class GamepadOverlayView extends View {
             mFpsValuePaint.setTextSize(h * 0.04f);
             mFpsValuePaint.setTextAlign(Paint.Align.CENTER);
             canvas.drawText(String.format(s(R.string.current_fps), fps),
-                left + w / 2f, mNativeHudToggleRect.bottom + h * 0.05f, mFpsValuePaint);
+                left + w / 2f, mFpsToggleRect.bottom + h * 0.05f, mFpsValuePaint);
         }
     }
 
@@ -2509,11 +2503,6 @@ public class GamepadOverlayView extends View {
                     mHudMgmtCategoryPressed = true;
                     return;
                 }
-                if (mFrameGenCategoryRect.contains(x, y)) {
-                    mSettingsPointerId = pid;
-                    mFrameGenCategoryPressed = true;
-                    return;
-                }
             } else {
                 // Subpage: back button + close button + content
                 if (mSettingsBackRect.contains(x, y)) {
@@ -2530,11 +2519,6 @@ public class GamepadOverlayView extends View {
                     if (mFpsToggleRect.contains(x, y)) {
                         mSettingsPointerId = pid;
                         mFpsTogglePressed = true;
-                        return;
-                    }
-                    if (mNativeHudToggleRect.contains(x, y)) {
-                        mSettingsPointerId = pid;
-                        mNativeHudTogglePressed = true;
                         return;
                     }
                 }
@@ -2586,23 +2570,6 @@ public class GamepadOverlayView extends View {
                     if (mSaveMgrBtnRect.contains(x, y)) {
                         mSettingsPointerId = pid;
                         mSaveMgrBtnPressed = true;
-                        return;
-                    }
-                }
-                if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
-                    if (mFrameGenToggleRect.contains(x, y)) {
-                        mSettingsPointerId = pid;
-                        mFrameGenTogglePressed = true;
-                        return;
-                    }
-                    if (mFpsUnlockToggleRect.contains(x, y)) {
-                        mSettingsPointerId = pid;
-                        mFpsUnlockPressed = true;
-                        return;
-                    }
-                    if (mFrameGenDllBtnRect.contains(x, y)) {
-                        mSettingsPointerId = pid;
-                        mFrameGenDllBtnPressed = true;
                         return;
                     }
                 }
@@ -2694,7 +2661,6 @@ public class GamepadOverlayView extends View {
                 mFpsTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mFpsToggleRect.contains(x, y);
                 mCameraSwipeTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mCameraSwipeToggleRect.contains(x, y);
                 mAutoHideGamepadTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mAutoHideGamepadToggleRect.contains(x, y);
-                mNativeHudTogglePressed = (mSettingsPage == SETTINGS_PAGE_DISPLAY) && mNativeHudToggleRect.contains(x, y);
                 mVibrationTogglePressed = (mSettingsPage == SETTINGS_PAGE_CONTROLS) && mVibrationToggleRect.contains(x, y);
                 mEditorBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mEditorBtnRect.contains(x, y);
                 mExportBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mExportBtnRect.contains(x, y);
@@ -2703,11 +2669,6 @@ public class GamepadOverlayView extends View {
                 if (mSettingsPage == SETTINGS_PAGE_CONTROLS && mSwipeCameraEnabled) {
                     mSensDownPressed = mSensDownRect.contains(x, y);
                     mSensUpPressed = mSensUpRect.contains(x, y);
-                }
-                if (mSettingsPage == SETTINGS_PAGE_FRAMEGEN) {
-                    mFrameGenTogglePressed = mFrameGenToggleRect.contains(x, y);
-                    mFpsUnlockPressed = mFpsUnlockToggleRect.contains(x, y);
-                    mFrameGenDllBtnPressed = mFrameGenDllBtnRect.contains(x, y);
                 }
             }
             return;
@@ -2779,8 +2740,6 @@ public class GamepadOverlayView extends View {
                     mSettingsPage = SETTINGS_PAGE_CONTROLS;
                 } else if (mHudMgmtCategoryPressed) {
                     mSettingsPage = SETTINGS_PAGE_HUD_MGMT;
-                } else if (mFrameGenCategoryPressed) {
-                    mSettingsPage = SETTINGS_PAGE_FRAMEGEN;
                 }
             } else {
                 if (mSettingsBackPressed) {
@@ -2801,16 +2760,6 @@ public class GamepadOverlayView extends View {
                     if (mNativeAvailable) {
                         SimpsonsActivity.nativeSetRumbleEnabled(mVibrationEnabled);
                     }
-                    saveProfile();
-                } else if (mNativeHudTogglePressed) {
-                    saveProfile();
-                    mNativeHudEnabled = !mNativeHudEnabled;
-                    Context context = getContext();
-                    if (context != null) {
-                        SharedPreferences spDefault = context.getSharedPreferences("GamepadOverlayProfile", Context.MODE_PRIVATE);
-                        spDefault.edit().putBoolean("native_hud_enabled", mNativeHudEnabled).apply();
-                    }
-                    loadProfile();
                     saveProfile();
                 } else if (mSwipeCameraEnabled && mSensDownPressed) {
                     mSwipeSensitivity = Math.max(0.1f, Math.round((mSwipeSensitivity - 0.1f) * 10f) / 10f);
@@ -2833,42 +2782,6 @@ public class GamepadOverlayView extends View {
                     if (ctx instanceof SimpsonsActivity) {
                         ((SimpsonsActivity) ctx).showSaveManager();
                     }
-                } else if (mFrameGenTogglePressed) {
-                    mFrameGenEnabled = !mFrameGenEnabled;
-                    if (mFrameGenEnabled && !mFrameGenInitialized && !mFrameGenDllPath.isEmpty()) {
-                        try {
-                            int result = LsfgBridge.nativeSetDllPath(mFrameGenDllPath, 
-                                getContext().getCacheDir().getAbsolutePath() + "/lsfg_shaders");
-                            if (result == 0) {
-                                mFrameGenInitialized = true;
-                            }
-                        } catch (Throwable t) {
-                            mFrameGenEnabled = false;
-                        }
-                    }
-                    if (mFrameGenEnabled) {
-                        try { LsfgBridge.nativeSetFrameGenEnabled(true); } catch (Throwable t) {}
-                    } else {
-                        try { LsfgBridge.nativeSetFrameGenEnabled(false); } catch (Throwable t) {}
-                    }
-                    // Reset FPS tracking when toggling
-                    mLastFrameGenCount = 0;
-                    mLastFrameGenTime = 0;
-                    mFrameGenFps = 0f;
-                    syncFrameGenState();
-                    saveProfile();
-                } else if (mFpsUnlockPressed) {
-                    mFpsUnlocked = !mFpsUnlocked;
-                    syncFrameGenState();
-                    saveProfile();
-                } else if (mFrameGenDllBtnPressed) {
-                    Context ctx = getContext();
-                    if (ctx instanceof Activity) {
-                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                        intent.addCategory(Intent.CATEGORY_OPENABLE);
-                        intent.setType("*/*");
-                        ((Activity) ctx).startActivityForResult(intent, REQUEST_CODE_SELECT_DLL);
-                    }
                 }
             }
             mSettingsPointerId = -1;
@@ -2876,7 +2789,6 @@ public class GamepadOverlayView extends View {
             mSettingsBackPressed = false;
             mFpsTogglePressed = false;
             mCameraSwipeTogglePressed = false;
-            mNativeHudTogglePressed = false;
             mVibrationTogglePressed = false;
             mSensDownPressed = false;
             mSensUpPressed = false;
@@ -2887,10 +2799,6 @@ public class GamepadOverlayView extends View {
             mDisplayCategoryPressed = false;
             mControlsCategoryPressed = false;
             mHudMgmtCategoryPressed = false;
-            mFrameGenCategoryPressed = false;
-            mFrameGenTogglePressed = false;
-            mFpsUnlockPressed = false;
-            mFrameGenDllBtnPressed = false;
             mAutoHideGamepadTogglePressed = false;
             return;
         }
@@ -2950,10 +2858,6 @@ public class GamepadOverlayView extends View {
         mDisplayCategoryPressed = false;
         mControlsCategoryPressed = false;
         mHudMgmtCategoryPressed = false;
-        mFrameGenCategoryPressed = false;
-        mFrameGenTogglePressed = false;
-        mFpsUnlockPressed = false;
-        mFrameGenDllBtnPressed = false;
         mAutoHideGamepadTogglePressed = false;
 
         mEditorSelectedIdx = -1;
