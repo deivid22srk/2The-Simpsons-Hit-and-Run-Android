@@ -79,4 +79,23 @@
     <string name="invalid_save_file">Arquivo de save inválido</string>
     <string name="import_save_title">Importar Save</string>
     <string name="auto_hide_gamepad">Auto-ocultar com Gamepad</string>
+
+    <!-- Mod Manager -->
+    <string name="mod_manager_btn">GERENCIAR MODS</string>
+    <string name="mod_manager_title">Gerenciador de Mods</string>
+    <string name="no_mods_found">Nenhum mod encontrado na pasta mods</string>
+    <string name="mod_author">Autor: %s</string>
+    <string name="mod_version">Versão: %s</string>
+    <string name="mod_enabled">Habilitado</string>
+    <string name="mod_disabled">Desabilitado</string>
+    <string name="import_mod">Importar Mod</string>
+    <string name="export_mod">Exportar</string>
+    <string name="delete_mod">Excluir</string>
+    <string name="delete_mod_confirm_title">Excluir Mod</string>
+    <string name="delete_mod_confirm_message">Tem certeza que deseja excluir este mod?</string>
+    <string name="mod_imported">Mod importado com sucesso!</string>
+    <string name="mod_exported">Mod exportado com sucesso!</string>
+    <string name="mod_deleted">Mod excluído com sucesso!</string>
+    <string name="invalid_mod_file">Arquivo de mod inválido (deve ser .zip ou .lmlm)</string>
+    <string name="mod_desc_na">Sem descrição disponível</string>
 </resources>

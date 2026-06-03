@@ -80,6 +80,14 @@ public class SimpsonsActivity extends SDLActivity {
     private int mSelectedSlotForExport = -1;
     private int mSelectedSlotForImport = -1;
 
+    // Mod loader fields
+    private static final int REQUEST_CODE_IMPORT_MOD = 3001;
+    private static final int REQUEST_CODE_EXPORT_MOD = 3002;
+    private RelativeLayout mModMgrOverlay;
+    private String mSelectedModForExport = null;
+
+    public static native void nativeResetActiveMods();
+
     public static native float nativeGetFPS();
 
     public static native int nativeGetHudContext();
@@ -154,6 +162,10 @@ public class SimpsonsActivity extends SDLActivity {
             handleSaveExportResult(data.getData());
         } else if (requestCode == REQUEST_CODE_IMPORT_SAVE && resultCode == RESULT_OK && data != null) {
             handleSaveImportResult(data.getData());
+        } else if (requestCode == REQUEST_CODE_IMPORT_MOD && resultCode == RESULT_OK && data != null) {
+            handleModImportResult(data.getData());
+        } else if (requestCode == REQUEST_CODE_EXPORT_MOD && resultCode == RESULT_OK && data != null) {
+            handleModExportResult(data.getData());
         }
     }
 
@@ -176,9 +188,11 @@ public class SimpsonsActivity extends SDLActivity {
                 removeOverlay(mSetupOverlay);
                 removeOverlay(mPickerOverlay);
                 removeOverlay(mSaveMgrOverlay);
+                removeOverlay(mModMgrOverlay);
                 mSetupOverlay = null;
                 mPickerOverlay = null;
                 mSaveMgrOverlay = null;
+                mModMgrOverlay = null;
             });
             super.resumeNativeThread();
         } else {
@@ -931,5 +945,517 @@ public class SimpsonsActivity extends SDLActivity {
 
     private int dpToPx(int dp) {
         return dp(dp);
+    }
+
+    // ── Mod Manager Implementation ──────────────────────────────────────────
+    
+    private static class ModInfo {
+        String dirName;
+        String title;
+        String author;
+        String version;
+        String description;
+        boolean enabled;
+    }
+
+    public void showModManager() {
+        runOnUiThread(this::buildModManagerScreen);
+    }
+
+    private List<ModInfo> getModsList() {
+        List<ModInfo> mods = new ArrayList<>();
+        File modsDir = new File(getGameDataPath(), "mods");
+        if (!modsDir.exists()) {
+            modsDir.mkdirs();
+        }
+        List<String> activeMods = readActiveMods();
+        File[] files = modsDir.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                if (f.isDirectory()) {
+                    mods.add(loadModInfo(f, activeMods));
+                }
+            }
+        }
+        Collections.sort(mods, (a, b) -> a.title.compareToIgnoreCase(b.title));
+        return mods;
+    }
+
+    private ModInfo loadModInfo(File modDir, List<String> activeMods) {
+        ModInfo info = new ModInfo();
+        info.dirName = modDir.getName();
+        info.title = modDir.getName();
+        info.author = "Unknown";
+        info.version = "1.0";
+        info.description = getString(R.string.mod_desc_na);
+        info.enabled = activeMods.contains(modDir.getName());
+
+        File metaFile = new File(modDir, "meta.ini");
+        if (!metaFile.exists()) {
+            metaFile = new File(modDir, "Meta.ini");
+        }
+
+        if (metaFile.exists() && metaFile.isFile()) {
+            try {
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(metaFile));
+                String line;
+                StringBuilder desc = new StringBuilder();
+                while ((line = br.readLine()) != null) {
+                    line = line.trim();
+                    if (line.startsWith(";")) continue;
+                    int idx = line.indexOf('=');
+                    if (idx > 0) {
+                        String key = line.substring(0, idx).trim().toLowerCase();
+                        String val = line.substring(idx + 1).trim();
+                        if (key.equals("title")) {
+                            info.title = val;
+                        } else if (key.equals("author")) {
+                            info.author = val;
+                        } else if (key.equals("version")) {
+                            info.version = val;
+                        } else if (key.equals("description")) {
+                            desc.append(val.replace("\\n", "\n")).append("\n");
+                        }
+                    }
+                }
+                br.close();
+                if (desc.length() > 0) {
+                    info.description = desc.toString().trim();
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        return info;
+    }
+
+    private List<String> readActiveMods() {
+        List<String> list = new ArrayList<>();
+        File modsDir = new File(getGameDataPath(), "mods");
+        File activeFile = new File(modsDir, "active_mods.txt");
+        if (activeFile.exists() && activeFile.isFile()) {
+            try {
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(activeFile));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    line = line.trim();
+                    if (!line.isEmpty() && !line.startsWith(";") && !line.startsWith("#")) {
+                        list.add(line);
+                    }
+                }
+                br.close();
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        return list;
+    }
+
+    private void writeActiveMods(List<String> activeList) {
+        File modsDir = new File(getGameDataPath(), "mods");
+        if (!modsDir.exists()) {
+            modsDir.mkdirs();
+        }
+        File activeFile = new File(modsDir, "active_mods.txt");
+        try {
+            java.io.FileWriter fw = new java.io.FileWriter(activeFile);
+            for (String mod : activeList) {
+                fw.write(mod + "\n");
+            }
+            fw.close();
+            try {
+                nativeResetActiveMods();
+            } catch (Throwable t) {
+                // native layer might not be loaded yet
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+    }
+
+    private void buildModManagerScreen() {
+        removeOverlay(mModMgrOverlay);
+        mModMgrOverlay = new RelativeLayout(this);
+        mModMgrOverlay.setBackgroundColor(SURFACE_DARK);
+        mModMgrOverlay.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(8), dp(8), dp(8), dp(8));
+
+        // Header
+        RelativeLayout header = new RelativeLayout(this);
+        header.setPadding(dp(4), dp(4), dp(4), dp(12));
+
+        Button backBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        backBtn.setText("\u2190");
+        backBtn.setTextColor(TEXT_PRIMARY);
+        backBtn.setTextSize(22);
+        backBtn.setBackground(roundedBg(Color.TRANSPARENT, 0));
+        backBtn.setPadding(dp(4), dp(4), dp(4), dp(4));
+        backBtn.setId(View.generateViewId());
+        backBtn.setOnClickListener(v -> {
+            removeOverlay(mModMgrOverlay);
+            mModMgrOverlay = null;
+        });
+        header.addView(backBtn);
+
+        TextView title = new TextView(this);
+        title.setText(getString(R.string.mod_manager_title));
+        title.setTextColor(TEXT_PRIMARY);
+        title.setTextSize(20);
+        title.setTypeface(null, Typeface.BOLD);
+        RelativeLayout.LayoutParams titleLp = new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleLp.addRule(RelativeLayout.CENTER_IN_PARENT);
+        title.setLayoutParams(titleLp);
+        header.addView(title);
+        root.addView(header);
+
+        // Import Mod button
+        Button importBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        importBtn.setText("+ " + getString(R.string.import_mod));
+        importBtn.setTextColor(SURFACE_DARK);
+        importBtn.setTypeface(null, Typeface.BOLD);
+        importBtn.setTextSize(14);
+        importBtn.setPadding(dp(16), dp(12), dp(16), dp(12));
+        GradientDrawable importBg = roundedBg(SIMPSONS_YELLOW, dp(24));
+        importBtn.setBackground(importBg);
+        importBtn.setOnClickListener(v -> importMod());
+        LinearLayout.LayoutParams importLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        importLp.setMargins(0, 0, 0, dp(12));
+        importBtn.setLayoutParams(importLp);
+        root.addView(importBtn);
+
+        // Scrollable mods list
+        ScrollView scroll = new ScrollView(this);
+        scroll.setPadding(0, dp(8), 0, 0);
+
+        LinearLayout modsContainer = new LinearLayout(this);
+        modsContainer.setOrientation(LinearLayout.VERTICAL);
+
+        List<ModInfo> mods = getModsList();
+        boolean anyMods = !mods.isEmpty();
+
+        for (ModInfo info : mods) {
+            GradientDrawable cardBg = roundedBg(SURFACE_CARD, dp(14));
+            cardBg.setStroke(dp(1), Color.argb(18, 255, 255, 255));
+
+            LinearLayout modCard = new LinearLayout(this);
+            modCard.setOrientation(LinearLayout.VERTICAL);
+            modCard.setBackground(cardBg);
+            modCard.setPadding(dp(16), dp(14), dp(16), dp(14));
+
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            cardLp.setMargins(0, 0, 0, dp(10));
+            modCard.setLayoutParams(cardLp);
+
+            // Title Row
+            LinearLayout titleRow = new LinearLayout(this);
+            titleRow.setOrientation(LinearLayout.HORIZONTAL);
+            titleRow.setGravity(Gravity.CENTER_VERTICAL);
+            titleRow.setPadding(0, 0, 0, dp(4));
+
+            TextView modLabel = new TextView(this);
+            modLabel.setText(info.title);
+            modLabel.setTextColor(SIMPSONS_YELLOW);
+            modLabel.setTextSize(16);
+            modLabel.setTypeface(null, Typeface.BOLD);
+            LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+            modLabel.setLayoutParams(labelLp);
+            titleRow.addView(modLabel);
+
+            // Checkbox for enabled state
+            android.widget.CheckBox enableCb = new android.widget.CheckBox(this);
+            enableCb.setText(info.enabled ? getString(R.string.mod_enabled) : getString(R.string.mod_disabled));
+            enableCb.setTextColor(info.enabled ? SIMPSONS_GREEN : TEXT_SECONDARY);
+            enableCb.setChecked(info.enabled);
+            enableCb.setTextSize(13);
+            enableCb.setOnClickListener(v -> {
+                boolean checked = enableCb.isChecked();
+                List<String> activeList = readActiveMods();
+                if (checked) {
+                    if (!activeList.contains(info.dirName)) {
+                        activeList.add(info.dirName);
+                    }
+                    enableCb.setText(getString(R.string.mod_enabled));
+                    enableCb.setTextColor(SIMPSONS_GREEN);
+                } else {
+                    activeList.remove(info.dirName);
+                    enableCb.setText(getString(R.string.mod_disabled));
+                    enableCb.setTextColor(TEXT_SECONDARY);
+                }
+                writeActiveMods(activeList);
+            });
+            titleRow.addView(enableCb);
+            modCard.addView(titleRow);
+
+            // Author and Version Row
+            TextView metaText = new TextView(this);
+            metaText.setText(String.format("%s | %s", 
+                String.format(getString(R.string.mod_author), info.author),
+                String.format(getString(R.string.mod_version), info.version)));
+            metaText.setTextColor(TEXT_SECONDARY);
+            metaText.setTextSize(12);
+            metaText.setPadding(0, 0, 0, dp(6));
+            modCard.addView(metaText);
+
+            // Description
+            TextView descText = new TextView(this);
+            descText.setText(info.description);
+            descText.setTextColor(TEXT_PRIMARY);
+            descText.setTextSize(13);
+            descText.setPadding(0, 0, 0, dp(12));
+            modCard.addView(descText);
+
+            // Actions Row (Export & Delete)
+            LinearLayout actionRow = new LinearLayout(this);
+            actionRow.setOrientation(LinearLayout.HORIZONTAL);
+            actionRow.setGravity(Gravity.END);
+
+            Button exportModBtn = makeSmallActionButton(getString(R.string.export_mod));
+            exportModBtn.setOnClickListener(v -> exportMod(info.dirName));
+            actionRow.addView(exportModBtn);
+
+            Button deleteModBtn = makeSmallActionButton(getString(R.string.delete_mod));
+            deleteModBtn.setTextColor(TEXT_ERROR);
+            deleteModBtn.setOnClickListener(v -> confirmDeleteMod(info.dirName));
+            actionRow.addView(deleteModBtn);
+
+            modCard.addView(actionRow);
+            modsContainer.addView(modCard);
+        }
+
+        if (!anyMods) {
+            TextView emptyText = new TextView(this);
+            emptyText.setText(getString(R.string.no_mods_found));
+            emptyText.setTextColor(TEXT_SECONDARY);
+            emptyText.setTextSize(14);
+            emptyText.setGravity(Gravity.CENTER);
+            emptyText.setPadding(0, dp(40), 0, dp(40));
+            modsContainer.addView(emptyText);
+        }
+
+        scroll.addView(modsContainer);
+        root.addView(scroll);
+
+        mModMgrOverlay.addView(root, new RelativeLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mLayout.addView(mModMgrOverlay);
+    }
+
+    private void importMod() {
+        if (!hasStoragePermission()) {
+            Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(intent, REQUEST_CODE_IMPORT_MOD);
+    }
+
+    private void handleModImportResult(Uri uri) {
+        try {
+            String fileName = "imported_mod";
+            android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst()) {
+                    int idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (idx >= 0) {
+                        fileName = cursor.getString(idx);
+                    }
+                }
+                cursor.close();
+            }
+            String modName = fileName;
+            if (modName.toLowerCase().endsWith(".zip")) {
+                modName = modName.substring(0, modName.length() - 4);
+            } else if (modName.toLowerCase().endsWith(".lmlm")) {
+                modName = modName.substring(0, modName.length() - 5);
+            }
+            modName = modName.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+
+            File modsDir = new File(getGameDataPath(), "mods");
+            File targetDir = new File(modsDir, modName);
+            if (targetDir.exists()) {
+                deleteRecursive(targetDir);
+            }
+            targetDir.mkdirs();
+
+            InputStream is = getContentResolver().openInputStream(uri);
+            if (is != null) {
+                unzip(is, targetDir);
+                normalizeModFolder(targetDir);
+                Toast.makeText(this, getString(R.string.mod_imported), Toast.LENGTH_SHORT).show();
+                buildModManagerScreen();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.invalid_mod_file), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void exportMod(String modDirName) {
+        if (!hasStoragePermission()) {
+            Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        mSelectedModForExport = modDirName;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/zip");
+        intent.putExtra(Intent.EXTRA_TITLE, modDirName + ".lmlm");
+        startActivityForResult(intent, REQUEST_CODE_EXPORT_MOD);
+    }
+
+    private void handleModExportResult(Uri uri) {
+        if (mSelectedModForExport == null) return;
+        try {
+            File modsDir = new File(getGameDataPath(), "mods");
+            File modDir = new File(modsDir, mSelectedModForExport);
+            File tempZip = new File(getCacheDir(), mSelectedModForExport + ".zip");
+            if (tempZip.exists()) {
+                tempZip.delete();
+            }
+            zipFolder(modDir, tempZip);
+
+            OutputStream os = getContentResolver().openOutputStream(uri);
+            if (os != null) {
+                FileInputStream is = new FileInputStream(tempZip);
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
+                is.close();
+                os.close();
+                tempZip.delete();
+                Toast.makeText(this, getString(R.string.mod_exported), Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.invalid_mod_file), Toast.LENGTH_SHORT).show();
+        }
+        mSelectedModForExport = null;
+    }
+
+    private void confirmDeleteMod(String modDirName) {
+        new AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_mod_confirm_title))
+            .setMessage(getString(R.string.delete_mod_confirm_message))
+            .setPositiveButton(getString(R.string.delete_mod), (dialog, which) -> doDeleteMod(modDirName))
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show();
+    }
+
+    private void doDeleteMod(String modDirName) {
+        File modsDir = new File(getGameDataPath(), "mods");
+        File modDir = new File(modsDir, modDirName);
+        if (modDir.exists() && deleteRecursive(modDir)) {
+            List<String> activeList = readActiveMods();
+            if (activeList.remove(modDirName)) {
+                writeActiveMods(activeList);
+            }
+            Toast.makeText(this, getString(R.string.mod_deleted), Toast.LENGTH_SHORT).show();
+            buildModManagerScreen();
+        } else {
+            Toast.makeText(this, getString(R.string.invalid_mod_file), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private static void unzip(InputStream is, File targetDir) throws Exception {
+        if (!targetDir.exists()) {
+            targetDir.mkdirs();
+        }
+        java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.BufferedInputStream(is));
+        java.util.zip.ZipEntry ze;
+        byte[] buffer = new byte[8192];
+        while ((ze = zis.getNextEntry()) != null) {
+            String filename = ze.getName();
+            File f = new File(targetDir, filename);
+            String canonicalPath = f.getCanonicalPath();
+            if (!canonicalPath.startsWith(targetDir.getCanonicalPath())) {
+                throw new SecurityException("Directory traversal attempt: " + filename);
+            }
+            
+            if (ze.isDirectory()) {
+                f.mkdirs();
+                continue;
+            }
+            
+            File parent = f.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            
+            FileOutputStream fos = new FileOutputStream(f);
+            int count;
+            while ((count = zis.read(buffer)) != -1) {
+                fos.write(buffer, 0, count);
+            }
+            fos.close();
+            zis.closeEntry();
+        }
+        zis.close();
+    }
+
+    private static void zipFolder(File srcFolder, File destZipFile) throws Exception {
+        FileOutputStream fileWriter = new FileOutputStream(destZipFile);
+        java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(fileWriter);
+        addFolderToZip("", srcFolder, zip);
+        zip.flush();
+        zip.close();
+    }
+
+    private static void addFileToZip(String path, File srcFile, java.util.zip.ZipOutputStream zip) throws Exception {
+        if (srcFile.isDirectory()) {
+            addFolderToZip(path, srcFile, zip);
+        } else {
+            byte[] buf = new byte[8192];
+            int len;
+            FileInputStream in = new FileInputStream(srcFile);
+            String entryName = path.isEmpty() ? srcFile.getName() : path + "/" + srcFile.getName();
+            zip.putNextEntry(new java.util.zip.ZipEntry(entryName));
+            while ((len = in.read(buf)) > 0) {
+                zip.write(buf, 0, len);
+            }
+            in.close();
+        }
+    }
+
+    private static void addFolderToZip(String path, File srcFolder, java.util.zip.ZipOutputStream zip) throws Exception {
+        File[] files = srcFolder.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                String subPath = path.isEmpty() ? "" : path;
+                addFileToZip(subPath, file, zip);
+            }
+        }
+    }
+
+    private void normalizeModFolder(File modDir) {
+        File[] files = modDir.listFiles();
+        if (files != null && files.length == 1 && files[0].isDirectory()) {
+            File subDir = files[0];
+            File[] subFiles = subDir.listFiles();
+            if (subFiles != null) {
+                for (File sf : subFiles) {
+                    sf.renameTo(new File(modDir, sf.getName()));
+                }
+            }
+            subDir.delete();
+        }
+    }
+
+    private static boolean deleteRecursive(File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            File[] children = fileOrDirectory.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        return fileOrDirectory.delete();
     }
 }

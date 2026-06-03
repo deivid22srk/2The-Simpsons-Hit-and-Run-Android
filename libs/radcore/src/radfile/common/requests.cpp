@@ -26,6 +26,8 @@
 #include "requests.hpp"
 #include "instancedrive.hpp"
 #include "file.hpp"
+#include <stdio.h>
+#include <sys/stat.h>
 
 //=============================================================================
 // Static Data Definitions
@@ -439,9 +441,102 @@ FileOpenRequest::FileOpenRequest( radFile* pFile, radFileOpenFlags flags, bool w
 {
 }
 
+#define MAX_ACTIVE_MODS 32
+#define MAX_MOD_NAME_LEN 128
+
+static char s_ActiveMods[MAX_ACTIVE_MODS][MAX_MOD_NAME_LEN];
+static int s_ActiveModsCount = 0;
+bool s_ActiveModsLoaded = false;
+
+static void LoadActiveMods(const char* drivePath) {
+    if (s_ActiveModsLoaded) return;
+    s_ActiveModsCount = 0;
+    
+    char activeModsPath[512];
+    snprintf(activeModsPath, sizeof(activeModsPath), "%smods/active_mods.txt", drivePath);
+    
+    FILE* f = fopen(activeModsPath, "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f) && s_ActiveModsCount < MAX_ACTIVE_MODS) {
+            int len = strlen(line);
+            while (len > 0 && (line[len-1] == '\r' || line[len-1] == '\n' || line[len-1] == ' ' || line[len-1] == '\t')) {
+                line[len-1] = '\0';
+                len--;
+            }
+            if (len > 0 && line[0] != ';' && line[0] != '#') {
+                strncpy(s_ActiveMods[s_ActiveModsCount], line, MAX_MOD_NAME_LEN - 1);
+                s_ActiveMods[s_ActiveModsCount][MAX_MOD_NAME_LEN - 1] = '\0';
+                s_ActiveModsCount++;
+            }
+        }
+        fclose(f);
+    }
+    s_ActiveModsLoaded = true;
+}
+
 radDrive::CompletionStatus FileOpenRequest::DoRequest( void )
 {
     radDrive* pDrive = m_pFile->m_pDrive;
+
+    const char* drivePath = pDrive->GetDrivePath();
+    bool redirected = false;
+    char redirectedPath[512] = {0};
+
+    if (drivePath && drivePath[0])
+    {
+        LoadActiveMods(drivePath);
+        
+        char normFile[256];
+        strncpy(normFile, m_pFile->m_Filename, sizeof(normFile) - 1);
+        normFile[sizeof(normFile) - 1] = '\0';
+        for (int i = 0; normFile[i]; i++) {
+            if (normFile[i] == '\\') normFile[i] = '/';
+        }
+        
+        for (int m = 0; m < s_ActiveModsCount; m++)
+        {
+            char modFilePath[512];
+            // 1. Check in CustomFiles/
+            snprintf(modFilePath, sizeof(modFilePath), "%smods/%s/CustomFiles/%s", drivePath, s_ActiveMods[m], normFile);
+            struct stat st;
+            if (stat(modFilePath, &st) == 0 && S_ISREG(st.st_mode))
+            {
+                snprintf(redirectedPath, sizeof(redirectedPath), "mods/%s/CustomFiles/%s", s_ActiveMods[m], normFile);
+                redirected = true;
+                break;
+            }
+            
+            // 2. Check in mod root
+            snprintf(modFilePath, sizeof(modFilePath), "%smods/%s/%s", drivePath, s_ActiveMods[m], normFile);
+            if (stat(modFilePath, &st) == 0 && S_ISREG(st.st_mode))
+            {
+                snprintf(redirectedPath, sizeof(redirectedPath), "mods/%s/%s", s_ActiveMods[m], normFile);
+                redirected = true;
+                break;
+            }
+        }
+    }
+
+    if (redirected)
+    {
+        radDrive::CompletionStatus status = pDrive->OpenFile
+        (
+            redirectedPath,
+            m_Flags,
+            m_WriteAccess,
+            &m_pFile->m_Handle,
+            &m_pFile->m_Size
+        );
+
+        if ( status == radDrive::Complete )
+        {
+            m_pFile->m_IsOpen = true;
+            m_pFile->m_OptimalSize = pDrive->GetMediaInfo( )->m_SectorSize;
+            m_pFile->m_FileCache.DoInit( pDrive->GetMediaInfo( )->m_SectorSize, redirectedPath );
+            return handleError( radDrive::Complete, pDrive->GetLastError( ) );
+        }
+    }
 
     //
     // We first search through all of the cement files on this drive.

@@ -137,6 +137,7 @@ public:
     void RegisterCementLibrary( radCementLibrary* pLib );
     void UnregisterCementLibrary( radCementLibrary* pLib );
     radCementLibraryList* GetLibraryList( void );
+    virtual const char* GetDrivePath( void ) { return ""; }
     
     /////////////////////////////////////////////////////
     // Operations to be implemented by subclasses

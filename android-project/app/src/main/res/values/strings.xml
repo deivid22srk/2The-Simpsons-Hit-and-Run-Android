@@ -79,4 +79,23 @@
     <string name="invalid_save_file">Invalid save file</string>
     <string name="import_save_title">Import Save</string>
     <string name="auto_hide_gamepad">Auto-hide with Gamepad</string>
+
+    <!-- Mod Manager -->
+    <string name="mod_manager_btn">MOD MANAGER</string>
+    <string name="mod_manager_title">Mod Manager</string>
+    <string name="no_mods_found">No mods found in mods folder</string>
+    <string name="mod_author">Author: %s</string>
+    <string name="mod_version">Version: %s</string>
+    <string name="mod_enabled">Enabled</string>
+    <string name="mod_disabled">Disabled</string>
+    <string name="import_mod">Import Mod</string>
+    <string name="export_mod">Export</string>
+    <string name="delete_mod">Delete</string>
+    <string name="delete_mod_confirm_title">Delete Mod</string>
+    <string name="delete_mod_confirm_message">Are you sure you want to delete this mod?</string>
+    <string name="mod_imported">Mod imported successfully!</string>
+    <string name="mod_exported">Mod exported successfully!</string>
+    <string name="mod_deleted">Mod deleted successfully!</string>
+    <string name="invalid_mod_file">Invalid mod file (must be .zip or .lmlm)</string>
+    <string name="mod_desc_na">No description available</string>
 </resources>

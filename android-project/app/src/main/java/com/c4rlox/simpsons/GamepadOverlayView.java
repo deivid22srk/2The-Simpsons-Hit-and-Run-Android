@@ -241,6 +241,7 @@ public class GamepadOverlayView extends View {
     private RectF mExportBtnRect = new RectF();
     private RectF mImportBtnRect = new RectF();
     private RectF mSaveMgrBtnRect = new RectF();
+    private RectF mModMgrBtnRect = new RectF();
     private RectF mAutoHideGamepadToggleRect = new RectF();
 
     // ── Settings category button rects ─────────────────────────────────
@@ -339,6 +340,7 @@ public class GamepadOverlayView extends View {
     private boolean mExportBtnPressed = false;
     private boolean mImportBtnPressed = false;
     private boolean mSaveMgrBtnPressed = false;
+    private boolean mModMgrBtnPressed = false;
     private boolean mDisplayCategoryPressed = false;
     private boolean mControlsCategoryPressed = false;
     private boolean mHudMgmtCategoryPressed = false;
@@ -900,12 +902,16 @@ public class GamepadOverlayView extends View {
         mExportBtnRect.set(actionBtnL, actionBtnT, actionBtnL + actionBtnW, actionBtnT + actionBtnH);
         mImportBtnRect.set(actionBtnL + actionBtnW + actionBtnSpacing, actionBtnT, actionBtnL + actionBtnTotalW, actionBtnT + actionBtnH);
 
-        // Save Manager button
-        float saveBtnW = panelW * 0.70f;
-        float saveBtnH = panelH * 0.09f;
-        float saveBtnL = panelL + (panelW - saveBtnW) / 2f;
-        float saveBtnT = panelT + panelH * 0.90f;
-        mSaveMgrBtnRect.set(saveBtnL, saveBtnT, saveBtnL + saveBtnW, saveBtnT + saveBtnH);
+        // Save Manager & Mod Manager buttons side-by-side
+        float fileBtnW = panelW * 0.33f;
+        float fileBtnH = panelH * 0.09f;
+        float fileBtnSpacing = panelW * 0.04f;
+        float fileBtnTotalW = fileBtnW * 2f + fileBtnSpacing;
+        float fileBtnL = panelL + (panelW - fileBtnTotalW) / 2f;
+        float fileBtnT = panelT + panelH * 0.90f;
+
+        mSaveMgrBtnRect.set(fileBtnL, fileBtnT, fileBtnL + fileBtnW, fileBtnT + fileBtnH);
+        mModMgrBtnRect.set(fileBtnL + fileBtnW + fileBtnSpacing, fileBtnT, fileBtnL + fileBtnTotalW, fileBtnT + fileBtnH);
 
         // ── Frame Generation subpage controls ───────────────────────────
         // Reuse existing row position for the toggle (similar to other toggles)
@@ -2080,6 +2086,7 @@ public class GamepadOverlayView extends View {
         drawActionButton(canvas, mExportBtnRect, s(R.string.export_hud), null, mExportBtnPressed);
         drawActionButton(canvas, mImportBtnRect, s(R.string.import_hud), null, mImportBtnPressed);
         drawActionButton(canvas, mSaveMgrBtnRect, s(R.string.save_manager_btn), "\uD83D\uDCBE", mSaveMgrBtnPressed);
+        drawActionButton(canvas, mModMgrBtnRect, s(R.string.mod_manager_btn), "\uD83D\uDCE6", mModMgrBtnPressed);
     }
 
     // ── Frame Generation subpage ──────────────────────────────────────
@@ -2572,6 +2579,11 @@ public class GamepadOverlayView extends View {
                         mSaveMgrBtnPressed = true;
                         return;
                     }
+                    if (mModMgrBtnRect.contains(x, y)) {
+                        mSettingsPointerId = pid;
+                        mModMgrBtnPressed = true;
+                        return;
+                    }
                 }
             }
             if (!mSettingsPanelRect.contains(x, y)) {
@@ -2666,6 +2678,7 @@ public class GamepadOverlayView extends View {
                 mExportBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mExportBtnRect.contains(x, y);
                 mImportBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mImportBtnRect.contains(x, y);
                 mSaveMgrBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mSaveMgrBtnRect.contains(x, y);
+                mModMgrBtnPressed = (mSettingsPage == SETTINGS_PAGE_HUD_MGMT) && mModMgrBtnRect.contains(x, y);
                 if (mSettingsPage == SETTINGS_PAGE_CONTROLS && mSwipeCameraEnabled) {
                     mSensDownPressed = mSensDownRect.contains(x, y);
                     mSensUpPressed = mSensUpRect.contains(x, y);
@@ -2782,6 +2795,11 @@ public class GamepadOverlayView extends View {
                     if (ctx instanceof SimpsonsActivity) {
                         ((SimpsonsActivity) ctx).showSaveManager();
                     }
+                } else if (mModMgrBtnPressed) {
+                    Context ctx = getContext();
+                    if (ctx instanceof SimpsonsActivity) {
+                        ((SimpsonsActivity) ctx).showModManager();
+                    }
                 }
             }
             mSettingsPointerId = -1;
@@ -2796,6 +2814,7 @@ public class GamepadOverlayView extends View {
             mExportBtnPressed = false;
             mImportBtnPressed = false;
             mSaveMgrBtnPressed = false;
+            mModMgrBtnPressed = false;
             mDisplayCategoryPressed = false;
             mControlsCategoryPressed = false;
             mHudMgmtCategoryPressed = false;
@@ -2855,6 +2874,7 @@ public class GamepadOverlayView extends View {
         mExportBtnPressed = false;
         mImportBtnPressed = false;
         mSaveMgrBtnPressed = false;
+        mModMgrBtnPressed = false;
         mDisplayCategoryPressed = false;
         mControlsCategoryPressed = false;
         mHudMgmtCategoryPressed = false;

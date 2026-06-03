@@ -78,6 +78,7 @@ public:
     unsigned int GetCapabilities( void );
 
     const char* GetDriveName( void );
+    const char* GetDrivePath( void ) { return m_DrivePath; }
  
     CompletionStatus Initialize( void );
 

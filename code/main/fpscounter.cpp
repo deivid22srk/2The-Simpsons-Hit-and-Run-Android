@@ -202,4 +202,12 @@ Java_com_c4rlox_simpsons_SimpsonsActivity_nativeSetLsfgEnabled(JNIEnv* /*env*/, 
     }
 }
 
+extern bool s_ActiveModsLoaded;
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_c4rlox_simpsons_SimpsonsActivity_nativeResetActiveMods(JNIEnv* /*env*/, jclass /*clazz*/)
+{
+    s_ActiveModsLoaded = false;
+}
+
 #endif // RAD_ANDROID
