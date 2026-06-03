@@ -98,4 +98,10 @@
     <string name="mod_deleted">Mod deleted successfully!</string>
     <string name="invalid_mod_file">Invalid mod file (must be .zip or .lmlm)</string>
     <string name="mod_desc_na">No description available</string>
+    <string name="mod_log_title">Installation Log</string>
+    <string name="export_log">Export Log</string>
+    <string name="log_exported">Log exported successfully!</string>
+    <string name="log_export_failed">Failed to export log</string>
+    <string name="mod_import_success">Mod imported successfully!</string>
+    <string name="mod_import_failed">Failed to import mod. See installation log below:</string>
 </resources>

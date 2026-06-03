@@ -85,6 +85,8 @@ public class SimpsonsActivity extends SDLActivity {
     private static final int REQUEST_CODE_EXPORT_MOD = 3002;
     private RelativeLayout mModMgrOverlay;
     private String mSelectedModForExport = null;
+    private static final int REQUEST_CODE_EXPORT_IMPORT_LOG = 3003;
+    private final StringBuilder mImportLog = new StringBuilder();
 
     public static native void nativeResetActiveMods();
 
@@ -166,6 +168,8 @@ public class SimpsonsActivity extends SDLActivity {
             handleModImportResult(data.getData());
         } else if (requestCode == REQUEST_CODE_EXPORT_MOD && resultCode == RESULT_OK && data != null) {
             handleModExportResult(data.getData());
+        } else if (requestCode == REQUEST_CODE_EXPORT_IMPORT_LOG && resultCode == RESULT_OK && data != null) {
+            handleExportImportLogResult(data.getData());
         }
     }
 
@@ -1259,8 +1263,13 @@ public class SimpsonsActivity extends SDLActivity {
     }
 
     private void handleModImportResult(Uri uri) {
+        mImportLog.setLength(0);
+        mImportLog.append("=== MOD IMPORT LOG ===\n");
+        mImportLog.append("Date: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date())).append("\n");
+        mImportLog.append("Source URI: ").append(uri.toString()).append("\n");
+        
+        String fileName = "imported_mod";
         try {
-            String fileName = "imported_mod";
             android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
             if (cursor != null) {
                 if (cursor.moveToFirst()) {
@@ -1271,30 +1280,189 @@ public class SimpsonsActivity extends SDLActivity {
                 }
                 cursor.close();
             }
-            String modName = fileName;
-            if (modName.toLowerCase().endsWith(".zip")) {
-                modName = modName.substring(0, modName.length() - 4);
-            } else if (modName.toLowerCase().endsWith(".lmlm")) {
-                modName = modName.substring(0, modName.length() - 5);
-            }
-            modName = modName.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        } catch (Exception e) {
+            mImportLog.append("Warning: Could not query display name. Defaulting to imported_mod. Error: ").append(e.getMessage()).append("\n");
+        }
+        
+        mImportLog.append("Original file name: ").append(fileName).append("\n");
+        String modName = fileName;
+        if (modName.toLowerCase().endsWith(".zip")) {
+            modName = modName.substring(0, modName.length() - 4);
+        } else if (modName.toLowerCase().endsWith(".lmlm")) {
+            modName = modName.substring(0, modName.length() - 5);
+        }
+        modName = modName.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        mImportLog.append("Sanitized mod directory name: ").append(modName).append("\n");
 
-            File modsDir = new File(getGameDataPath(), "mods");
-            File targetDir = new File(modsDir, modName);
+        File modsDir = null;
+        File targetDir = null;
+        try {
+            modsDir = new File(getGameDataPath(), "mods");
+            targetDir = new File(modsDir, modName);
+            mImportLog.append("Target path: ").append(targetDir.getAbsolutePath()).append("\n");
+            
             if (targetDir.exists()) {
+                mImportLog.append("Target directory already exists. Deleting recursively first...\n");
                 deleteRecursive(targetDir);
             }
-            targetDir.mkdirs();
+            if (!targetDir.mkdirs()) {
+                mImportLog.append("Warning: mkdirs returned false for target directory.\n");
+            }
 
             InputStream is = getContentResolver().openInputStream(uri);
             if (is != null) {
-                unzip(is, targetDir);
-                normalizeModFolder(targetDir);
-                Toast.makeText(this, getString(R.string.mod_imported), Toast.LENGTH_SHORT).show();
-                buildModManagerScreen();
+                unzip(is, targetDir, mImportLog);
+                normalizeModFolder(targetDir, mImportLog);
+                mImportLog.append("\n=== IMPORT SUCCESSFUL ===\n");
+                final File finalTargetDir = targetDir;
+                runOnUiThread(() -> {
+                    Toast.makeText(this, getString(R.string.mod_imported), Toast.LENGTH_SHORT).show();
+                    showImportLogDialog(false);
+                    buildModManagerScreen();
+                });
+            } else {
+                throw new java.io.IOException("Failed to open InputStream for URI: " + uri);
             }
         } catch (Exception e) {
-            Toast.makeText(this, getString(R.string.invalid_mod_file), Toast.LENGTH_SHORT).show();
+            java.io.StringWriter sw = new java.io.StringWriter();
+            java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+            e.printStackTrace(pw);
+            mImportLog.append("\n=== IMPORT FAILED ===\n");
+            mImportLog.append("Error type: ").append(e.getClass().getName()).append("\n");
+            mImportLog.append("Error message: ").append(e.getMessage()).append("\n");
+            mImportLog.append("Stack trace:\n").append(sw.toString()).append("\n");
+            
+            // Clean up failed targetDir if it was partially extracted
+            if (targetDir != null && targetDir.exists()) {
+                mImportLog.append("Cleaning up failed extraction directory...\n");
+                deleteRecursive(targetDir);
+            }
+            
+            runOnUiThread(() -> {
+                Toast.makeText(this, getString(R.string.invalid_mod_file), Toast.LENGTH_SHORT).show();
+                showImportLogDialog(true);
+            });
+        }
+    }
+
+    private void showImportLogDialog(final boolean isError) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(SURFACE_DARK);
+        root.setPadding(dp(20), dp(20), dp(20), dp(20));
+        
+        TextView titleView = new TextView(this);
+        titleView.setText(getString(R.string.mod_log_title));
+        titleView.setTextSize(20);
+        titleView.setTextColor(SIMPSONS_YELLOW);
+        titleView.setTypeface(null, Typeface.BOLD);
+        titleView.setPadding(0, 0, 0, dp(10));
+        root.addView(titleView);
+        
+        TextView statusMsg = new TextView(this);
+        statusMsg.setText(isError ? getString(R.string.mod_import_failed) : getString(R.string.mod_import_success));
+        statusMsg.setTextSize(14);
+        statusMsg.setTextColor(isError ? TEXT_ERROR : SIMPSONS_GREEN);
+        statusMsg.setPadding(0, 0, 0, dp(15));
+        root.addView(statusMsg);
+        
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(250)
+        );
+        scrollLp.setMargins(0, 0, 0, dp(20));
+        scrollView.setLayoutParams(scrollLp);
+        
+        GradientDrawable termBg = roundedBg(SURFACE_CARD, dp(8));
+        termBg.setStroke(dp(1), Color.argb(35, 255, 255, 255));
+        
+        TextView logView = new TextView(this);
+        logView.setText(mImportLog.toString());
+        logView.setTextSize(12);
+        logView.setTextColor(TEXT_PRIMARY);
+        logView.setTypeface(Typeface.MONOSPACE);
+        logView.setPadding(dp(12), dp(12), dp(12), dp(12));
+        logView.setBackground(termBg);
+        
+        scrollView.addView(logView);
+        root.addView(scrollView);
+        
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+        
+        Button exportBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        exportBtn.setText(getString(R.string.export_log));
+        exportBtn.setTextColor(SURFACE_DARK);
+        exportBtn.setTypeface(null, Typeface.BOLD);
+        exportBtn.setTextSize(13);
+        exportBtn.setPadding(dp(16), dp(10), dp(16), dp(10));
+        GradientDrawable exportBg = roundedBg(SIMPSONS_YELLOW, dp(20));
+        exportBtn.setBackground(exportBg);
+        
+        LinearLayout.LayoutParams exportLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        exportLp.setMarginEnd(dp(10));
+        exportBtn.setLayoutParams(exportLp);
+        
+        Button closeBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        closeBtn.setText(getString(R.string.cancel));
+        closeBtn.setTextColor(TEXT_PRIMARY);
+        closeBtn.setTypeface(null, Typeface.BOLD);
+        closeBtn.setTextSize(13);
+        closeBtn.setPadding(dp(16), dp(10), dp(16), dp(10));
+        GradientDrawable closeBg = roundedBg(Color.TRANSPARENT, dp(20));
+        closeBg.setStroke(dp(1), Color.argb(35, 255, 255, 255));
+        closeBtn.setBackground(closeBg);
+        
+        btnRow.addView(exportBtn);
+        btnRow.addView(closeBtn);
+        root.addView(btnRow);
+        
+        builder.setView(root);
+        AlertDialog dialog = builder.create();
+        
+        exportBtn.setOnClickListener(v -> {
+            exportImportLog();
+            dialog.dismiss();
+        });
+        
+        closeBtn.setOnClickListener(v -> dialog.dismiss());
+        
+        dialog.show();
+    }
+
+    private void exportImportLog() {
+        if (mImportLog.length() == 0) {
+            Toast.makeText(this, "Log is empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!hasStoragePermission()) {
+            Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_TITLE, "mod_install_log.txt");
+        startActivityForResult(intent, REQUEST_CODE_EXPORT_IMPORT_LOG);
+    }
+
+    private void handleExportImportLogResult(Uri uri) {
+        try {
+            OutputStream os = getContentResolver().openOutputStream(uri);
+            if (os != null) {
+                os.write(mImportLog.toString().getBytes("UTF-8"));
+                os.close();
+                Toast.makeText(this, getString(R.string.log_exported), Toast.LENGTH_SHORT).show();
+            } else {
+                throw new java.io.IOException("OutputStream was null");
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.log_export_failed) + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1363,40 +1531,72 @@ public class SimpsonsActivity extends SDLActivity {
         }
     }
 
-    private static void unzip(InputStream is, File targetDir) throws Exception {
+    private static void unzip(InputStream is, File targetDir, StringBuilder log) throws Exception {
+        log.append("Target directory: ").append(targetDir.getAbsolutePath()).append("\n");
         if (!targetDir.exists()) {
-            targetDir.mkdirs();
+            log.append("Creating target directory...\n");
+            if (!targetDir.mkdirs()) {
+                log.append("WARNING: Failed to create target directory!\n");
+            }
         }
         java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.BufferedInputStream(is));
         java.util.zip.ZipEntry ze;
         byte[] buffer = new byte[8192];
-        while ((ze = zis.getNextEntry()) != null) {
-            String filename = ze.getName();
-            File f = new File(targetDir, filename);
-            String canonicalPath = f.getCanonicalPath();
-            if (!canonicalPath.startsWith(targetDir.getCanonicalPath())) {
-                throw new SecurityException("Directory traversal attempt: " + filename);
+        int entriesCount = 0;
+        try {
+            while ((ze = zis.getNextEntry()) != null) {
+                entriesCount++;
+                String filename = ze.getName();
+                log.append("[").append(entriesCount).append("] Processing entry: ").append(filename);
+                if (ze.isDirectory()) {
+                    log.append(" (Directory)\n");
+                } else {
+                    log.append(" (File, Size: ").append(ze.getSize()).append(" bytes)\n");
+                }
+                
+                File f = new File(targetDir, filename);
+                String canonicalPath = f.getCanonicalPath();
+                if (!canonicalPath.startsWith(targetDir.getCanonicalPath())) {
+                    log.append("ERROR: SecurityException - Directory traversal attempt: ").append(filename).append("\n");
+                    throw new SecurityException("Directory traversal attempt: " + filename);
+                }
+                
+                if (ze.isDirectory()) {
+                    if (!f.exists() && !f.mkdirs()) {
+                        log.append("  WARNING: Failed to create directory: ").append(f.getName()).append("\n");
+                    } else {
+                        log.append("  Created directory: ").append(f.getName()).append("\n");
+                    }
+                    continue;
+                }
+                
+                File parent = f.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    if (!parent.mkdirs()) {
+                        log.append("  WARNING: Failed to create parent directory for: ").append(f.getName()).append("\n");
+                    }
+                }
+                
+                try {
+                    FileOutputStream fos = new FileOutputStream(f);
+                    int count;
+                    long bytesWritten = 0;
+                    while ((count = zis.read(buffer)) != -1) {
+                        fos.write(buffer, 0, count);
+                        bytesWritten += count;
+                    }
+                    fos.close();
+                    log.append("  Extracted: ").append(bytesWritten).append(" bytes written\n");
+                } catch (Exception writeExc) {
+                    log.append("  ERROR extracting file: ").append(writeExc.getMessage()).append("\n");
+                    throw writeExc;
+                }
+                zis.closeEntry();
             }
-            
-            if (ze.isDirectory()) {
-                f.mkdirs();
-                continue;
-            }
-            
-            File parent = f.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
-            }
-            
-            FileOutputStream fos = new FileOutputStream(f);
-            int count;
-            while ((count = zis.read(buffer)) != -1) {
-                fos.write(buffer, 0, count);
-            }
-            fos.close();
-            zis.closeEntry();
+            log.append("Total zip entries processed: ").append(entriesCount).append("\n");
+        } finally {
+            zis.close();
         }
-        zis.close();
     }
 
     private static void zipFolder(File srcFolder, File destZipFile) throws Exception {
@@ -1433,17 +1633,28 @@ public class SimpsonsActivity extends SDLActivity {
         }
     }
 
-    private void normalizeModFolder(File modDir) {
+    private void normalizeModFolder(File modDir, StringBuilder log) {
+        log.append("Normalizing mod folder structure...\n");
         File[] files = modDir.listFiles();
         if (files != null && files.length == 1 && files[0].isDirectory()) {
             File subDir = files[0];
+            log.append("Single subdirectory found: '").append(subDir.getName()).append("'. Moving contents to root...\n");
             File[] subFiles = subDir.listFiles();
             if (subFiles != null) {
                 for (File sf : subFiles) {
-                    sf.renameTo(new File(modDir, sf.getName()));
+                    File destFile = new File(modDir, sf.getName());
+                    log.append("  Moving '").append(sf.getName()).append("' -> '").append(destFile.getName()).append("'\n");
+                    if (!sf.renameTo(destFile)) {
+                        log.append("  WARNING: Failed to move '").append(sf.getName()).append("'\n");
+                    }
                 }
             }
-            subDir.delete();
+            log.append("Deleting empty subdirectory: '").append(subDir.getName()).append("'\n");
+            if (!subDir.delete()) {
+                log.append("WARNING: Failed to delete subdirectory: '").append(subDir.getName()).append("'\n");
+            }
+        } else {
+            log.append("Mod folder is already flat or contains multiple items. No flattening needed.\n");
         }
     }
 
