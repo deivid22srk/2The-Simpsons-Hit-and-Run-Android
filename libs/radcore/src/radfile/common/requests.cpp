@@ -28,6 +28,9 @@
 #include "file.hpp"
 #include <stdio.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <strings.h>
 
 //=============================================================================
 // Static Data Definitions
@@ -448,6 +451,62 @@ static char s_ActiveMods[MAX_ACTIVE_MODS][MAX_MOD_NAME_LEN];
 static int s_ActiveModsCount = 0;
 bool s_ActiveModsLoaded = false;
 
+static bool CompareCaseInsensitive(const char* s1, const char* s2) {
+    return strcasecmp(s1, s2) == 0;
+}
+
+static bool FindFileCaseInsensitive(const char* baseDir, const char* relPath, char* outPath) {
+    char currentDir[512];
+    strncpy(currentDir, baseDir, sizeof(currentDir) - 1);
+    currentDir[sizeof(currentDir) - 1] = '\0';
+    
+    int len = strlen(currentDir);
+    if (len > 0 && currentDir[len - 1] != '/') {
+        currentDir[len] = '/';
+        currentDir[len + 1] = '\0';
+    }
+
+    char pathCopy[512];
+    strncpy(pathCopy, relPath, sizeof(pathCopy) - 1);
+    pathCopy[sizeof(pathCopy) - 1] = '\0';
+
+    char* token = strtok(pathCopy, "/");
+    while (token != NULL) {
+        DIR* dir = opendir(currentDir);
+        if (!dir) {
+            return false;
+        }
+
+        struct dirent* entry;
+        bool found = false;
+        char nextDirPart[256] = {0};
+
+        while ((entry = readdir(dir)) != NULL) {
+            if (CompareCaseInsensitive(entry->d_name, token)) {
+                strncpy(nextDirPart, entry->d_name, sizeof(nextDirPart) - 1);
+                found = true;
+                break;
+            }
+        }
+        closedir(dir);
+
+        if (!found) {
+            return false;
+        }
+
+        strncat(currentDir, nextDirPart, sizeof(currentDir) - strlen(currentDir) - 1);
+        
+        token = strtok(NULL, "/");
+        if (token != NULL) {
+            strncat(currentDir, "/", sizeof(currentDir) - strlen(currentDir) - 1);
+        }
+    }
+
+    strncpy(outPath, currentDir, 511);
+    outPath[511] = '\0';
+    return true;
+}
+
 static void LoadActiveMods(const char* drivePath) {
     if (s_ActiveModsLoaded) return;
     s_ActiveModsCount = 0;
@@ -496,22 +555,27 @@ radDrive::CompletionStatus FileOpenRequest::DoRequest( void )
         
         for (int m = 0; m < s_ActiveModsCount; m++)
         {
-            char modFilePath[512];
-            // 1. Check in CustomFiles/
-            snprintf(modFilePath, sizeof(modFilePath), "%smods/%s/CustomFiles/%s", drivePath, s_ActiveMods[m], normFile);
-            struct stat st;
-            if (stat(modFilePath, &st) == 0 && S_ISREG(st.st_mode))
+            char relModPath[512];
+            char absoluteResolvedPath[512];
+
+            // 1. Check in CustomFiles/ (ex: mods/my_mod/CustomFiles/art/chars/homer_m.p3d)
+            snprintf(relModPath, sizeof(relModPath), "mods/%s/CustomFiles/%s", s_ActiveMods[m], normFile);
+            if (FindFileCaseInsensitive(drivePath, relModPath, absoluteResolvedPath))
             {
-                snprintf(redirectedPath, sizeof(redirectedPath), "mods/%s/CustomFiles/%s", s_ActiveMods[m], normFile);
+                int drivePathLen = strlen(drivePath);
+                strncpy(redirectedPath, absoluteResolvedPath + drivePathLen, sizeof(redirectedPath) - 1);
+                redirectedPath[sizeof(redirectedPath) - 1] = '\0';
                 redirected = true;
                 break;
             }
             
-            // 2. Check in mod root
-            snprintf(modFilePath, sizeof(modFilePath), "%smods/%s/%s", drivePath, s_ActiveMods[m], normFile);
-            if (stat(modFilePath, &st) == 0 && S_ISREG(st.st_mode))
+            // 2. Check in mod root (ex: mods/my_mod/art/chars/homer_m.p3d)
+            snprintf(relModPath, sizeof(relModPath), "mods/%s/%s", s_ActiveMods[m], normFile);
+            if (FindFileCaseInsensitive(drivePath, relModPath, absoluteResolvedPath))
             {
-                snprintf(redirectedPath, sizeof(redirectedPath), "mods/%s/%s", s_ActiveMods[m], normFile);
+                int drivePathLen = strlen(drivePath);
+                strncpy(redirectedPath, absoluteResolvedPath + drivePathLen, sizeof(redirectedPath) - 1);
+                redirectedPath[sizeof(redirectedPath) - 1] = '\0';
                 redirected = true;
                 break;
             }
